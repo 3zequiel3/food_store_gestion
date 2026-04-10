@@ -143,3 +143,4 @@ refactor(modulo): descripción del refactor
 test(modulo): descripción de los tests
 docs(modulo): descripción del cambio en docs
 ```
+# food_store_gestion
