@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #3b82f6;
+  --color-primary-dark: #1e40af;
+  --color-primary-light: #60a5fa;
+  --color-primary-lighter: #93c5fd;
+  
+  --color-secondary: #8b5cf6;
+  --color-secondary-dark: #6d28d9;
+  --color-secondary-light: #a78bfa;
+  --color-secondary-lighter: #ddd6fe;
+  
+  --color-accent: #ec4899;
+  --color-accent-dark: #be185d;
+  --color-accent-light: #f472b6;
+  --color-accent-lighter: #fbcfe8;
+  
+  --color-success: #10b981;
+  --color-success-dark: #047857;
+  --color-success-light: #6ee7b7;
+  --color-success-lighter: #d1fae5;
+  
+  --color-warning: #f59e0b;
+  --color-warning-dark: #d97706;
+  --color-warning-light: #fbbf24;
+  --color-warning-lighter: #fef3c7;
+  
+  --color-error: #ef4444;
+  --color-error-dark: #dc2626;
+  --color-error-light: #f87171;
+  --color-error-lighter: #fee2e2;
+}
+
+@layer base {
+  body {
+    @apply font-sans text-gray-900 bg-white dark:text-gray-100 dark:bg-gray-900;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-sans font-semibold text-gray-900 dark:text-white;
+  }
+
+  a {
+    @apply text-primary hover:text-primary-dark dark:text-primary-light dark:hover:text-primary-lighter transition-colors;
+  }
+}
