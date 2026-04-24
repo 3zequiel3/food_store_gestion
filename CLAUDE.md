@@ -158,9 +158,3 @@ Los tres se commitean. Los secrets (`DATABASE_URL_DEV_READONLY`, `CONTEXT7_API_K
 - Saltar la FSM para cambiar el estado de un pedido.
 
 ---
-
-## Notas por cliente
-
-- **Claude Code**: a abril 2026 no auto-carga `AGENTS.md`. Crear `CLAUDE.md` en la raíz con una línea: `Read AGENTS.md for all project conventions.` O symlinkar: `ln -sfn AGENTS.md CLAUDE.md`.
-- **VS Code + Copilot**: lee `AGENTS.md` automáticamente. Alternativa: `.github/copilot-instructions.md` apuntando a este archivo.
-- **OpenCode**: lee `AGENTS.md` nativo, sin configuración extra.
