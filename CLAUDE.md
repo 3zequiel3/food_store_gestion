@@ -11,28 +11,6 @@ Si una instrucción de este archivo entra en conflicto con los `.txt`, **gana la
 
 ---
 
-## Setup
-
-```bash
-# Backend
-cd backend/
-{activacion de entorno virtual}
-cp .env.example .env          # completar secrets
-pip install -r requirements.txt  # o pip install -r requirements.txt
-alembic upgrade head          # crear tablas
-python -m app.seed            # roles, estados, formas de pago, admin
-uvicorn app.main:app --reload # http://localhost:8000/docs
-
-# Frontend
-cd frontend/
-cp .env.example .env
-pnpm install
-pnpm dev                      # http://localhost:5173
-```
-
-MercadoPago en Sandbox: usar credenciales con prefijo `TEST-`.
-
----
 
 ## Reglas arquitectónicas (inviolables)
 
