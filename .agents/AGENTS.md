@@ -9,6 +9,54 @@ E-commerce de productos alimenticios. TPI full-stack con **React + TypeScript** 
 
 Si una instrucción de este archivo entra en conflicto con los `.txt`, **gana la spec**. Este archivo es un resumen operativo, no la fuente de verdad.
 
+> Este archivo aplica a **cualquier agente** trabajando en el repo (Copilot, Cursor, OpenCode, Codex, Claude Code). Reglas Claude-específicas viven en `CLAUDE.md`.
+
+---
+
+## Estructura del repo
+
+```
+trabajo_food_store/
+├── docs/
+│   ├── CHANGES.md              ← ROADMAP: mapa de los 25 changes en orden, con dependencias
+│   ├── Integrador.txt          ← spec técnica v5 (ERD, módulos, diagramas)
+│   ├── Descripcion.txt         ← arquitectura, patrones, rúbrica
+│   └── Historias_de_usuario.txt ← US-* y RN-*
+├── openspec/
+│   ├── changes/                ← changes activos (uno por feature)
+│   │   ├── archive/            ← changes ya completados
+│   │   └── <change-name>/      ← proposal.md, design.md, tasks.md, specs/
+│   └── specs/                  ← specs vigentes por capacidad
+│       ├── backend-setup/
+│       ├── base-entities/
+│       └── logging-audit/
+├── backend/
+│   ├── main.py, config.py, dependencies.py, logging_config.py
+│   ├── features/               ← módulos funcionales (feature-first)
+│   │   ├── auth/  orders/  payments/  products/  users/
+│   ├── shared/                 ← infraestructura común
+│   │   ├── enums.py models.py repository.py service.py unit_of_work.py
+│   ├── migrations/             ← Alembic
+│   └── tests/                  ← unit/ integration/
+├── frontend/
+│   └── src/                    ← Feature-Sliced Design
+│       ├── app/                ← providers, routing, layout raíz
+│       ├── pages/              ← rutas top-level
+│       ├── widgets/            ← composiciones de features
+│       ├── features/           ← unidades funcionales (auth, cart, etc.)
+│       ├── entities/           ← modelos de dominio (User, Product, Order)
+│       └── shared/             ← UI kit, utils, api client, hooks
+├── .mcp.json                   ← MCPs para Claude Code
+├── .vscode/mcp.json            ← MCPs para VS Code + Copilot
+└── opencode.json               ← MCPs + permisos para OpenCode
+```
+
+**Dónde mirar primero:**
+- ¿Qué hay que hacer? → `docs/CHANGES.md` (roadmap completo)
+- ¿Cómo funciona el dominio? → `docs/Integrador.txt` + `docs/Historias_de_usuario.txt`
+- ¿Qué changes están en curso? → `openspec/changes/` (no `archive/`)
+- ¿Qué reglas de capacidad ya están vigentes? → `openspec/specs/`
+
 ---
 
 ## Setup
@@ -17,17 +65,17 @@ Si una instrucción de este archivo entra en conflicto con los `.txt`, **gana la
 # Backend
 cd backend/
 {activacion de entorno virtual}
-cp .env.example .env          # completar secrets
-pip install -r requirements.txt  # o pip install -r requirements.txt
-alembic upgrade head          # crear tablas
-python -m app.seed            # roles, estados, formas de pago, admin
-uvicorn app.main:app --reload # http://localhost:8000/docs
+cp .env.example .env             # completar secrets
+pip install -r requirements.txt
+alembic upgrade head             # crear tablas
+python -m app.seed               # roles, estados, formas de pago, admin
+uvicorn app.main:app --reload    # http://localhost:8000/docs
 
 # Frontend
 cd frontend/
 cp .env.example .env
 pnpm install
-pnpm dev                      # http://localhost:5173
+pnpm dev                         # http://localhost:5173
 ```
 
 MercadoPago en Sandbox: usar credenciales con prefijo `TEST-`.
@@ -89,25 +137,9 @@ Correr antes de abrir PR: `pytest` en backend, `pnpm test` en frontend, `pnpm li
 
 ---
 
-## Skills — cuándo activar cada una
-
-El agente debe invocar la skill correspondiente **antes** de producir output, según el tipo de tarea. Cómo se carga la skill depende del cliente (Claude Code, Copilot, OpenCode, Cursor); acá solo se lista el nombre y el disparador.
-
-| Skill | Activar cuando la tarea es… |
-|---|---|
-| `frontend-design` | Crear o modificar componentes React, páginas, layouts, estilos Tailwind, el dashboard con recharts, formularios con TanStack Form, o cualquier decisión visual/UX. |
-| `web-artifacts-builder` | Prototipar un componente o pantalla **en el chat** (mockup rápido, demo) antes de llevarlo al repo. |
-| `mcp-builder` | Construir un MCP server custom (por ejemplo, exponer la API interna de Food Store como MCP para consumirla desde otra sesión). |
-| `skill-creator` | Crear una skill específica del proyecto (por ejemplo, una skill que cargue automáticamente las RN-* cuando el agente toque lógica de negocio). |
-| `pdf-reading` | La cátedra sube una rúbrica o consigna en PDF y hay que extraer info. |
-
-**Backend Python (FastAPI / SQLModel / Alembic)**: no hay skill dedicada. La regla es: (1) consultar `context7` MCP para la doc actual de la librería involucrada, (2) respetar la regla de oro de imports, (3) envolver toda operación multi-tabla en el UoW.
-
----
-
 ## MCPs configurados
 
-Los tres archivos de config están versionados en el repo y se activan al clonar. Secrets vía `.env` (nunca en el JSON).
+Los archivos de config están versionados en el repo y se activan al clonar. Secrets vía `.env` (nunca en el JSON).
 
 ### `github` (remoto, OAuth por usuario)
 Para PRs, issues, revisión de código, logs de Actions, alertas de Dependabot.
@@ -122,22 +154,69 @@ Imagen Docker: `crystaldba/postgres-mcp --access-mode=restricted` (read-only a n
 Documentación actualizada de FastAPI, SQLModel, TanStack Query, Zustand, recharts, MercadoPago SDK. Evita que el agente alucine APIs viejas.
 URL: `https://mcp.context7.com/mcp` — requiere `CONTEXT7_API_KEY` (gratis en context7.com).
 
-### Archivos de config
+### Archivos de config por cliente
 
-- Claude Code: `.mcp.json` en la raíz
-- VS Code + Copilot: `.vscode/mcp.json` (clave raíz `"servers"`, no `"mcpServers"`)
-- OpenCode: `opencode.json` en la raíz con bloque `mcp` y permisos (`github: ask`, `postgres: ask`, `context7: allow`)
+- **Claude Code**: `.mcp.json` en la raíz
+- **VS Code + Copilot**: `.vscode/mcp.json` (clave raíz `"servers"`, no `"mcpServers"`)
+- **OpenCode**: `opencode.json` en la raíz con bloque `mcp` y permisos (`github: ask`, `postgres: ask`, `context7: allow`)
 
 Los tres se commitean. Los secrets (`DATABASE_URL_DEV_READONLY`, `CONTEXT7_API_KEY`) se resuelven por variable de entorno.
 
 ---
 
+## Commits — Conventional Commits (obligatorio)
+
+Formato: `<type>(<scope>): <subject>`
+
+**Reglas duras:**
+- Sin `Co-Authored-By` ni atribución a IA. **Nunca.**
+- Subject en minúsculas, imperativo, sin punto final, ≤ 72 caracteres.
+- Commits pequeños e incrementales. La rúbrica penaliza repos con un solo commit masivo.
+- Body opcional para el "por qué" (no el "qué"); footer opcional para refs (`Closes US-042`, `Refs RN-PE03`).
+- Breaking change: agregar `!` después del scope (`feat(auth)!: rotar refresh token`) o footer `BREAKING CHANGE: ...`.
+
+**Types permitidos:**
+
+| Type | Cuándo |
+|------|--------|
+| `feat` | Nueva funcionalidad de usuario (US-*). |
+| `fix` | Corrección de bug (incluir RN-* o issue si aplica). |
+| `chore` | Tareas de mantenimiento, deps, tooling, configs (no afectan código de producción). |
+| `docs` | Solo cambios en documentación (`README`, `CLAUDE.md`, `AGENTS.md`, `docs/*.md`, comentarios). |
+| `refactor` | Cambio de código que no agrega features ni corrige bugs (reorganizar, renombrar, extraer). |
+| `test` | Agregar o corregir tests, sin cambio en código de producción. |
+| `perf` | Mejora de performance medible. |
+| `style` | Formato, espacios, comas — sin cambio de lógica. |
+| `build` | Cambios al sistema de build (Vite, pip, Alembic config, Dockerfile). |
+| `ci` | Cambios a CI/CD (`.github/workflows/*`). |
+| `revert` | Revertir un commit previo. |
+
+**Scopes sugeridos** (no exhaustivos):
+
+- Backend: `auth`, `users`, `products`, `orders`, `payments`, `shared`, `db`, `migrations`, `tests`
+- Frontend: `auth-ui`, `cart`, `checkout`, `dashboard`, `routing`, `stores`, `shared-ui`
+- Cross: `agents` (CLAUDE/AGENTS.md), `docs`, `mcp`, `openspec`, `deps`
+
+**Ejemplos:**
+
+```
+feat(auth): implementar rotación de refresh token
+fix(orders): rechazar transición EN_CAMINO→PENDIENTE en FSM
+chore(deps): bump fastapi a 0.115.0
+docs(agents): separar CLAUDE.md y AGENTS.md por audiencia
+refactor(shared): extraer BaseRepository del UoW
+test(payments): cubrir idempotencia de webhook duplicado
+build(frontend): migrar a vite 5
+ci: agregar workflow de typecheck en PR
+```
+
+---
+
 ## PR instructions
 
-- Rama: `feat/<modulo>-<resumen>` o `fix/<modulo>-<resumen>`.
-- Commits pequeños e incrementales (la rúbrica penaliza repos con un solo commit masivo).
+- Rama: `<type>/<scope>-<resumen-corto>` (ej. `feat/auth-refresh-rotation`, `fix/orders-fsm-validation`).
 - Antes de abrir PR: lint + typecheck + tests verdes.
-- Título: `<modulo>: <qué hace>` (ej. `pedidos: FSM rechaza transición EN_CAMINO→PENDIENTE`).
+- Título del PR: mismo formato de commit (`<type>(<scope>): <subject>`).
 - Descripción: qué RN o US cubre (ej. "Implementa RN-PE03 y cierra US-042").
 - No commitear `.env`, tokens de MP, hashes de password, ni snapshots de BD.
 
@@ -156,5 +235,3 @@ Los tres se commitean. Los secrets (`DATABASE_URL_DEV_READONLY`, `CONTEXT7_API_K
 - Usar `@modelcontextprotocol/server-postgres` (deprecado/inseguro).
 - Commit con `.env` adentro.
 - Saltar la FSM para cambiar el estado de un pedido.
-
----

@@ -1,138 +1,123 @@
-# Food Store
+# Food Store — Claude Code
 
-E-commerce de productos alimenticios. TPI full-stack con **React + TypeScript** (Vite) y **FastAPI + SQLModel + PostgreSQL**, integrado a **MercadoPago**. Metodología Spec-Driven Development, organización feature-first.
+Reglas específicas de Claude Code para este proyecto.
 
-**Especificación canónica** (leer antes de tocar código):
-- `Integrador.txt` — spec técnica v5, ERD, diagramas, módulos.
-- `Descripcion.txt` — descripción narrativa, arquitectura, patrones, rúbrica.
-- `Historias_de_usuario.txt` — historias US-*, reglas de negocio RN-*.
-
-Si una instrucción de este archivo entra en conflicto con los `.txt`, **gana la spec**. Este archivo es un resumen operativo, no la fuente de verdad.
+> **Reglas generales del proyecto** (estructura del repo, arquitectura, code style, testing, MCPs, PR, anti-patterns, setup) → `.agents/AGENTS.md`. Aplica a cualquier agente.
+>
+> Acá solo lo Claude-específico: spec, OPSX flow, skills, modelos por fase.
 
 ---
 
+## Spec canónica (leer ANTES de tocar código)
 
-## Reglas arquitectónicas (inviolables)
+- `docs/Integrador.txt` — spec técnica v5 (ERD, módulos, diagramas).
+- `docs/Descripcion.txt` — arquitectura, patrones, rúbrica.
+- `docs/Historias_de_usuario.txt` — historias US-* y reglas de negocio RN-*.
 
-**Backend — flujo de imports unidireccional**:
-```
-Router → Service → UoW → Repository → Model
-```
-Ninguna capa importa de una superior. Un Model nunca importa de un Service. Un Router no contiene lógica de negocio, solo delega. `commit()`/`rollback()` es responsabilidad exclusiva del UoW — un Service que commitea está mal.
-
-**Frontend — Feature-Sliced Design**:
-```
-app → pages → widgets → features → entities → shared
-```
-Cada capa solo importa de inferiores. Features no importan entre sí.
-
-**Separación de estado (frontend)**:
-- **Zustand** = estado del **cliente** (carrito, auth, UI local, flujo de pago).
-- **TanStack Query** = estado del **servidor** (productos, pedidos, dashboard).
-- Mezclarlos en un mismo store es un bug arquitectónico, no una decisión.
-
-**Patrones críticos que deben estar implementados de verdad** (no solo nombrados):
-- **Snapshot** de `precio` y `direccion` en pedidos → inmutables tras creación.
-- **Audit Trail append-only** en `HistorialEstadoPedido` → jamás UPDATE ni DELETE.
-- **FSM** del pedido → transiciones inválidas devuelven error, nunca mutan silenciosamente.
-- **Unit of Work** → creación de pedido es atómica (todo o nada).
-- **Idempotencia** en webhooks de pago → duplicados se descartan por `idempotency_key`.
+Si una instrucción de los `.md` entra en conflicto con los `.txt`, **gana la spec**.
 
 ---
 
-## Code style
+## Roadmap y changes
 
-- **Precios**: `DECIMAL(10,2)` / `NUMERIC` en BD, nunca `float`.
-- **Stock**: entero ≥ 0 con `CHECK` en BD.
-- **Passwords**: bcrypt cost ≥ 12. Jamás plaintext, jamás en logs.
-- **Refresh tokens**: se persiste el SHA-256, no el token crudo.
-- **Errores HTTP**: RFC 7807 (`type`, `title`, `status`, `detail`, `instance`).
-- **Login**: no diferenciar "email no existe" de "password inválida" (RN-AU08).
-- **PCI**: datos de tarjeta se tokenizan en el navegador con el SDK de MercadoPago, jamás llegan al backend.
-- **Soft delete**: todas las entidades principales usan `eliminado_en` / `deleted_at` nullable.
-- **Paginación**: `skip` + `limit` con metadata de total en la respuesta.
+- **Roadmap completo**: `docs/CHANGES.md` — define los **25 changes** en orden, con dependencias y duración estimada.
+- **Changes activos**: `openspec/changes/<nombre>/` (con `proposal.md`, `design.md`, `tasks.md`, `specs/`).
+- **Changes archivados**: `openspec/changes/archive/YYYY-MM-DD-<nombre>/`.
+- **Specs vigentes**: `openspec/specs/<capability>/spec.md` (lo que ya está aprobado y vivo).
 
-Lo que no está acá lo resuelve el linter/formatter — no documentamos indentación ni comas finales.
+**Antes de proponer cualquier change**: chequear `docs/CHANGES.md` para ver el orden y dependencias. No saltar dependencias — si el next-up es `auth-backend`, no arrancar con `products-backend`.
 
 ---
 
-## Testing
+## Flujo OPSX (OBLIGATORIO para todo cambio sustantivo)
 
-- Tests unitarios de Services con mocks del UoW (no tocan HTTP ni BD).
-- Tests de integración para el flujo completo de pedido + FSM + snapshot.
-- Tests del flujo de auth (login, refresh, rotación, rate limit).
-- Tests de idempotencia de webhooks de pago.
+Todo trabajo nuevo se canaliza por OPSX. **No hay implementación libre fuera de un change.**
 
-Correr antes de abrir PR: `pytest` en backend, `pnpm test` en frontend, `pnpm lint` + `pnpm typecheck`.
+```
+/opsx:explore  →  /opsx:propose  →  /opsx:apply  →  /opsx:archive
+   (opcional)      (crear change)    (implementar)   (cerrar)
+```
+
+| Comando | Cuándo | Qué hace |
+|---------|--------|----------|
+| `/opsx:explore [tema]` | Cuando hay duda de enfoque, tradeoffs, o el alcance no está claro | Investigación previa, sin escribir código |
+| `/opsx:propose <nombre>` | Para arrancar un change formal | Crea `openspec/changes/<nombre>/` con proposal + design + tasks + specs delta |
+| `/opsx:apply <nombre>` | Para implementar las tasks del change | Escribe código real, va tildando tasks |
+| `/opsx:archive <nombre>` | Solo después de revisión humana del usuario | Sincroniza specs, mueve a `archive/` |
+
+**Reglas de oro:**
+1. **Nunca archivar un change sin que el usuario lo revise primero.** Mostrar resultado y esperar OK.
+2. **Nunca saltar fases** — si no hay proposal, no hay apply.
+3. **Estado real lo dicta el CLI**, no asumir: `openspec list --json`, `openspec status --change <nombre> --json`.
 
 ---
 
-## Skills — cuándo activar cada una
+## Skills — qué usar y en qué orden
 
-El agente debe invocar la skill correspondiente **antes** de producir output, según el tipo de tarea. Cómo se carga la skill depende del cliente (Claude Code, Copilot, OpenCode, Cursor); acá solo se lista el nombre y el disparador.
+Claude debe invocar la skill correspondiente **antes** de producir output. Orden por fase del trabajo:
 
-| Skill | Activar cuando la tarea es… |
+### 1. Antes de proponer (fase de pensamiento)
+| Skill | Cuándo |
 |---|---|
-| `frontend-design` | Crear o modificar componentes React, páginas, layouts, estilos Tailwind, el dashboard con recharts, formularios con TanStack Form, o cualquier decisión visual/UX. |
-| `web-artifacts-builder` | Prototipar un componente o pantalla **en el chat** (mockup rápido, demo) antes de llevarlo al repo. |
-| `mcp-builder` | Construir un MCP server custom (por ejemplo, exponer la API interna de Food Store como MCP para consumirla desde otra sesión). |
-| `skill-creator` | Crear una skill específica del proyecto (por ejemplo, una skill que cargue automáticamente las RN-* cuando el agente toque lógica de negocio). |
-| `pdf-reading` | La cátedra sube una rúbrica o consigna en PDF y hay que extraer info. |
+| `pdf-reading` | La cátedra subió rúbrica/consigna en PDF y hay que extraer info. |
+| `opsx:explore` (vía `/opsx:explore`) | Hay duda de enfoque o tradeoffs antes de comprometer un change. |
 
-**Backend Python (FastAPI / SQLModel / Alembic)**: no hay skill dedicada. La regla es: (1) consultar `context7` MCP para la doc actual de la librería involucrada, (2) respetar la regla de oro de imports, (3) envolver toda operación multi-tabla en el UoW.
+### 2. Al proponer y diseñar
+| Skill | Cuándo |
+|---|---|
+| `opsx:propose` (vía `/opsx:propose`) | Crear change formal con proposal + design + tasks. |
+| `web-artifacts-builder` | Prototipar un componente o pantalla **en el chat** antes de llevarlo al repo (mockup rápido). |
 
----
+### 3. Al implementar
+| Skill | Cuándo |
+|---|---|
+| `opsx:apply` (vía `/opsx:apply`) | Implementar las tasks del change. |
+| `frontend-design` | Tocar React, Tailwind, dashboard con recharts, formularios con TanStack Form, o cualquier decisión visual/UX. |
+| `mcp-builder` | Construir un MCP server custom (raro en este proyecto). |
+| `skill-creator` | Crear una skill específica del proyecto (ej. una skill que cargue las RN-* automáticamente). |
 
-## MCPs configurados
+### 4. Al revisar / cerrar
+| Skill | Cuándo |
+|---|---|
+| `simplify` | Revisar código recién cambiado para reuso, calidad, eficiencia. |
+| `judgment-day` | Review adversarial doble (dos jueces independientes) cuando hay dudas o el cambio es crítico. |
+| `opsx:archive` (vía `/opsx:archive`) | Cerrar el change DESPUÉS de revisión humana. |
 
-Los tres archivos de config están versionados en el repo y se activan al clonar. Secrets vía `.env` (nunca en el JSON).
+**Backend Python (FastAPI / SQLModel / Alembic)**: no hay skill dedicada. Regla: (1) consultar `context7` MCP para la doc actual, (2) respetar la regla de oro de imports (ver `AGENTS.md`), (3) envolver toda operación multi-tabla en el UoW.
 
-### `github` (remoto, OAuth por usuario)
-Para PRs, issues, revisión de código, logs de Actions, alertas de Dependabot.
-URL: `https://api.githubcopilot.com/mcp/` — cada dev hace OAuth con su cuenta al primer uso.
-
-### `postgres` (Postgres MCP Pro de crystaldba)
-Para inspeccionar esquema, validar queries, verificar seed data. **Siempre apuntado a la BD de desarrollo con un usuario read-only**, nunca a producción con write.
-Imagen Docker: `crystaldba/postgres-mcp --access-mode=restricted` (read-only a nivel servidor además del usuario de BD).
-> ⚠️ NO usar `@modelcontextprotocol/server-postgres` (deprecado julio 2025, vulnerable a SQL injection que bypassea el read-only).
-
-### `context7` (remoto, API key free)
-Documentación actualizada de FastAPI, SQLModel, TanStack Query, Zustand, recharts, MercadoPago SDK. Evita que el agente alucine APIs viejas.
-URL: `https://mcp.context7.com/mcp` — requiere `CONTEXT7_API_KEY` (gratis en context7.com).
-
-### Archivos de config
-
-- Claude Code: `.mcp.json` en la raíz
-- VS Code + Copilot: `.vscode/mcp.json` (clave raíz `"servers"`, no `"mcpServers"`)
-- OpenCode: `opencode.json` en la raíz con bloque `mcp` y permisos (`github: ask`, `postgres: ask`, `context7: allow`)
-
-Los tres se commitean. Los secrets (`DATABASE_URL_DEV_READONLY`, `CONTEXT7_API_KEY`) se resuelven por variable de entorno.
+**`engram:memory` está siempre activo** — guardar decisiones, bugfixes, convenciones proactivamente sin que el usuario lo pida.
 
 ---
 
-## PR instructions
+## Modelos de preferencia por fase de delegación
 
-- Rama: `feat/<modulo>-<resumen>` o `fix/<modulo>-<resumen>`.
-- Commits pequeños e incrementales (la rúbrica penaliza repos con un solo commit masivo).
-- Antes de abrir PR: lint + typecheck + tests verdes.
-- Título: `<modulo>: <qué hace>` (ej. `pedidos: FSM rechaza transición EN_CAMINO→PENDIENTE`).
-- Descripción: qué RN o US cubre (ej. "Implementa RN-PE03 y cierra US-042").
-- No commitear `.env`, tokens de MP, hashes de password, ni snapshots de BD.
+Cuando el orquestador delega a un sub-agente, usar este mapping:
+
+| Fase | Modelo | Razón |
+|------|--------|-------|
+| Orchestrator (vos) | `opus` | Coordina, decide, sintetiza |
+| `opsx-explore` | `sonnet` | Lee código, thinking partner |
+| `opsx-propose` | `opus` | Decisiones arquitectónicas, escribe artifacts |
+| `opsx-apply` | `sonnet` | Implementación mecánica |
+| `opsx-archive` | `haiku` | File ops, sincronización mecánica |
+| Default (otra delegación) | `sonnet` | Lectura/escritura general |
+
+Si no tenés acceso a un modelo (ej. sin Opus), bajar a `sonnet` y seguir.
+
+---
+
+## Convenciones del usuario (no negociables)
+
+1. **NUNCA archivar un change sin revisión humana previa.** Mostrar el resultado, esperar OK explícito.
+2. **pnpm**, no npm. En cualquier task, spec o doc que mencione package manager.
+3. **Nunca commits con "Co-Authored-By"** ni atribución a IA. Conventional commits limpios.
+4. **Nunca buildear después de cambios** salvo pedido explícito.
+5. **Nunca usar `cat`/`grep`/`find`/`sed`/`ls`** — usar `bat`/`rg`/`fd`/`sd`/`eza`.
+6. **Verificar antes de afirmar.** Ante reclamo del usuario: "dejame verificar" + chequear código/docs.
 
 ---
 
-## Anti-patterns (si el agente hace esto, está mal)
+## MCPs (Claude Code)
 
-- Importar hacia arriba (Service importando Router, Repository importando Service, etc.).
-- Lógica de negocio en un Router.
-- `commit()` o `rollback()` dentro de un Service.
-- FK viva de precio/dirección en un pedido en vez de snapshot.
-- UPDATE o DELETE sobre `HistorialEstadoPedido`.
-- `float` para dinero.
-- Token de acceso o password en `localStorage`.
-- Estado del servidor dentro de un store Zustand (o viceversa).
-- Usar `@modelcontextprotocol/server-postgres` (deprecado/inseguro).
-- Commit con `.env` adentro.
-- Saltar la FSM para cambiar el estado de un pedido.
-
----
+Archivo de config: `.mcp.json` en la raíz. Servidores y reglas de uso → `AGENTS.md`.
+Resumen rápido: `github` (PRs/issues), `postgres` (read-only a BD dev), `context7` (docs actualizadas de FastAPI/SQLModel/TanStack/etc.).
