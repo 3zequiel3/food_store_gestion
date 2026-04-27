@@ -1,4 +1,4 @@
-# AGENTS.md — Food Store
+# Food Store
 
 E-commerce de productos alimenticios. TPI full-stack con **React + TypeScript** (Vite) y **FastAPI + SQLModel + PostgreSQL**, integrado a **MercadoPago**. Metodología Spec-Driven Development, organización feature-first.
 
