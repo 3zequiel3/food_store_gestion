@@ -16,6 +16,14 @@
       "sessions": 0,
       "memories": 3,
       "prompts": 8
+    },
+    {
+      "id": "e6a22e2c",
+      "created_by": "ezequiel",
+      "created_at": "2026-04-29T02:32:04Z",
+      "sessions": 17,
+      "memories": 14,
+      "prompts": 2
     }
   ]
 }
