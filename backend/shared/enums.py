@@ -1,32 +1,11 @@
 """
 Enumeration definitions for domain entities.
+
+NOTE: Role, EstadoPedido, and FormaPago were removed in the database-schema-seed
+change. They are now modeled as catalog tables with FK references:
+  - roles       (backend/features/catalog/models.py)
+  - order_states (backend/features/catalog/models.py)
+  - payment_methods (backend/features/catalog/models.py)
+
+Add new Python enums here only for cases NOT covered by the ERD catalog tables.
 """
-
-from enum import Enum
-
-
-class EstadoPedido(str, Enum):
-    """Order states/statuses."""
-
-    PENDIENTE = "PENDIENTE"
-    CONFIRMADO = "CONFIRMADO"
-    EN_PREPARACIÓN = "EN_PREPARACIÓN"
-    EN_CAMINO = "EN_CAMINO"
-    ENTREGADO = "ENTREGADO"
-    CANCELADO = "CANCELADO"
-
-
-class FormaPago(str, Enum):
-    """Payment methods."""
-
-    EFECTIVO = "EFECTIVO"
-    TARJETA_CREDITO = "TARJETA_CREDITO"
-    MERCADOPAGO = "MERCADOPAGO"
-
-
-class Role(str, Enum):
-    """User roles."""
-
-    ADMIN = "ADMIN"
-    USER = "USER"
-    DELIVERY = "DELIVERY"

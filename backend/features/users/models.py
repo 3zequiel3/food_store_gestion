@@ -1,39 +1,96 @@
 """
-User domain model.
+User domain models: Usuario (users) and UsuarioRol pivot (user_roles).
 """
 
-from sqlalchemy import Boolean, Column, String, ForeignKey, Enum
-from sqlalchemy.orm import relationship
+from __future__ import annotations
+
+from typing import List, Optional
+
+from sqlalchemy import Boolean, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.shared.models import BaseModel
-from backend.shared.enums import Role
+from backend.features.catalog.models import Rol
 
 
-class User(BaseModel):
+class UsuarioRol(BaseModel):
     """
-    User entity.
+    Many-to-many pivot between users and roles.
 
-    Attributes:
-        id: UUID primary key
-        email: Unique email address
-        username: Unique username
-        password_hash: Hashed password (added in auth feature)
-        is_active: Whether user is active
-        role_id: User role (ADMIN, USER, DELIVERY)
-        created_at: Timestamp of creation
-        updated_at: Timestamp of last update
+    Composite PK (user_id, role_id) ensures one role per user-role pair.
+    M:N is required by RN-DA01 (a user can hold multiple roles simultaneously,
+    e.g., an admin who is also a client).
+    """
+
+    __tablename__ = "user_roles"
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+    role_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("roles.id", ondelete="RESTRICT"),
+        primary_key=True,
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return f"<UsuarioRol(user_id={self.user_id}, role_id={self.role_id})>"
+
+
+class Usuario(BaseModel):
+    """
+    User entity aligned with ERD v5.
+
+    Key design decisions:
+    - No `username` column: login is by email per RN-DA08.
+    - No `role` direct FK: roles via M:N pivot `user_roles` (RN-DA01).
+    - `password_hash`: bcrypt hash stored as opaque string.
+    - `is_active`: quick flag to disable an account without soft-deleting it.
+    - `eliminado_en` (from BaseModel): soft delete for account removal.
     """
 
     __tablename__ = "users"
 
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    username = Column(String(100), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    role = Column(Enum(Role), default=Role.USER, nullable=False)
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    nombre: Mapped[str] = mapped_column(String(100), nullable=False)
+    apellido: Mapped[str] = mapped_column(String(100), nullable=False)
+    telefono: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # Relationships
-    orders = relationship("Order", back_populates="user", cascade="all, delete-orphan")
+    # M:N relationship to Rol via user_roles pivot
+    roles: Mapped[List[Rol]] = relationship(
+        "Rol",
+        secondary="user_roles",
+        viewonly=False,
+        lazy="select",
+    )
 
-    def __repr__(self):
-        return f"<User(id={self.id}, email={self.email}, username={self.username})>"
+    # Back-references (defined in other modules — use string refs to avoid circular imports)
+    pedidos: Mapped[List] = relationship(
+        "Pedido",
+        back_populates="usuario",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+    refresh_tokens: Mapped[List] = relationship(
+        "RefreshToken",
+        back_populates="usuario",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+    direcciones: Mapped[List] = relationship(
+        "DireccionEntrega",
+        back_populates="usuario",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    def __repr__(self) -> str:
+        return f"<Usuario(id={self.id}, email={self.email!r})>"

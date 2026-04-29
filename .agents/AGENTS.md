@@ -67,9 +67,15 @@ cd backend/
 {activacion de entorno virtual}
 cp .env.example .env             # completar secrets
 pip install -r requirements.txt
-alembic upgrade head             # crear tablas
-python -m app.seed               # roles, estados, formas de pago, admin
-uvicorn app.main:app --reload    # http://localhost:8000/docs
+
+# Database setup (requiere PostgreSQL corriendo)
+createdb foodstore_dev
+export DATABASE_URL=postgresql+psycopg2://user:pass@localhost:5432/foodstore_dev
+cd backend && python -m alembic upgrade head   # crea las 16 tablas
+python -m backend.scripts.seed                  # carga roles, estados, formas de pago, admin
+cd ..
+
+uvicorn backend.main:app --reload    # http://localhost:8000/docs
 
 # Frontend
 cd frontend/
@@ -77,6 +83,43 @@ cp .env.example .env
 pnpm install
 pnpm dev                         # http://localhost:5173
 ```
+
+### Database setup detallado
+
+**Requisitos**: PostgreSQL 14+ corriendo localmente.
+
+```bash
+# 1. Crear base de datos de desarrollo
+createdb foodstore_dev
+
+# 2. Exportar variable de entorno (o setear en .env)
+export DATABASE_URL=postgresql+psycopg2://user:pass@localhost:5432/foodstore_dev
+
+# 3. Correr migración inicial (desde el directorio backend/)
+cd backend
+python -m alembic upgrade head
+# Verifica: psql foodstore_dev -c '\dt'
+# Debe listar 16 tablas + alembic_version
+
+# 4. Cargar datos semilla
+python -m backend.scripts.seed
+# Carga: 4 roles (ADMIN/STOCK/PEDIDOS/CLIENT)
+#        6 estados de pedido (PENDIENTE..CANCELADO)
+#        3 formas de pago (MERCADOPAGO/EFECTIVO/TRANSFERENCIA)
+#        1 usuario admin (admin@foodstore.local)
+# El seed es idempotente — re-ejecutar no genera duplicados
+
+# 5. (Opcional) Verificar datos semilla
+psql foodstore_dev -c 'SELECT id, codigo FROM roles ORDER BY id;'
+# → 4 filas: 1=ADMIN, 2=STOCK, 3=PEDIDOS, 4=CLIENT
+
+# 6. Ciclo de downgrade/upgrade para verificar idempotencia de migración
+python -m alembic downgrade base && python -m alembic upgrade head
+```
+
+**Nota sobre ADMIN_PASSWORD**: si no se setea la variable de entorno `ADMIN_PASSWORD`, el seed usa el default `admin1234` y emite un WARNING visible en stderr. En producción SIEMPRE setear `ADMIN_PASSWORD` antes de correr el seed.
+
+**NO hay auto-migrate**: el app FastAPI NO ejecuta `alembic upgrade head` automáticamente al arrancar. Las migraciones se corren manualmente o vía CI.
 
 MercadoPago en Sandbox: usar credenciales con prefijo `TEST-`.
 
@@ -119,7 +162,8 @@ Cada capa solo importa de inferiores. Features no importan entre sí.
 - **Errores HTTP**: RFC 7807 (`type`, `title`, `status`, `detail`, `instance`).
 - **Login**: no diferenciar "email no existe" de "password inválida" (RN-AU08).
 - **PCI**: datos de tarjeta se tokenizan en el navegador con el SDK de MercadoPago, jamás llegan al backend.
-- **Soft delete**: todas las entidades principales usan `eliminado_en` / `deleted_at` nullable.
+- **Soft delete**: todas las entidades principales heredan `BaseModel` que incluye `eliminado_en: DateTime(timezone=True) nullable`. Repositorios DEBEN filtrar `WHERE eliminado_en IS NULL` por defecto en todos los métodos `query()`, `get()`, `list()`. Para auditoría/admin implementar `query_with_deleted()` separado. NUNCA hacer hard DELETE en tablas con `eliminado_en` — setear `eliminado_en = now()`.
+- **Append-only**: `HistorialEstadoPedido` hereda `AppendOnlyBaseModel` (solo `id` + `creado_en`, sin `actualizado_en` ni `eliminado_en`). Repositorios de historial son INSERT + SELECT únicamente, nunca UPDATE ni DELETE.
 - **Paginación**: `skip` + `limit` con metadata de total en la respuesta.
 
 Lo que no está acá lo resuelve el linter/formatter — no documentamos indentación ni comas finales.
