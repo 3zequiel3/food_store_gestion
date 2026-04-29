@@ -1,0 +1,23 @@
+# DBHub config — Postgres MCP server for Claude Code
+#
+# Prerequisite (one-time, per developer):
+#   pnpm add -g @bytebase/dbhub pg
+#
+# How credentials work:
+#   - This file uses ${POSTGRES_URL} interpolation (no secrets committed)
+#   - .mcp.json provides POSTGRES_URL via env, with a local-dev fallback
+#   - Each developer can override by setting POSTGRES_URL in their shell or .env
+#
+# Safety:
+#   - readonly=true → only SELECT/EXPLAIN/SHOW allowed (writes rejected)
+#   - max_rows=500 → caps result size to avoid context blowups
+
+[[sources]]
+id = "food_store"
+dsn = "${POSTGRES_URL}"
+
+[[tools]]
+name = "execute_sql"
+source = "food_store"
+readonly = true
+max_rows = 500
