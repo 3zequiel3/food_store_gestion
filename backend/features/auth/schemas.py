@@ -4,6 +4,8 @@ Auth feature Pydantic schemas.
 Request/response DTOs for authentication endpoints.
 """
 
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -24,14 +26,14 @@ class RegisterRequest(BaseModel):
     nombre: str = Field(
         ...,
         min_length=2,
-        max_length=100,
+        max_length=80,  # Per spec §6.1 (was 100)
         description="User's first name",
         examples=["Juan"],
     )
     apellido: str = Field(
         ...,
         min_length=2,
-        max_length=100,
+        max_length=80,  # Per spec §6.1 (was 100)
         description="User's last name",
         examples=["Perez"],
     )
@@ -57,7 +59,7 @@ class TokenPairResponse(BaseModel):
 
     access_token: str = Field(
         ...,
-        description="JWT access token (valid for 30 minutes)",
+        description="JWT access token",
     )
     refresh_token: str = Field(
         ...,
@@ -91,3 +93,16 @@ class TokenPayload(BaseModel):
     roles: list[str] = Field(default=[], description="User roles")
     exp: int = Field(..., description="Expiration timestamp")
     type: str = Field(default="access", description="Token type")
+
+
+class UserResponse(BaseModel):
+    """Response schema for authenticated user info (GET /me)."""
+
+    id: int = Field(..., description="User ID")
+    nombre: str = Field(..., description="First name")
+    apellido: str = Field(..., description="Last name")
+    email: EmailStr = Field(..., description="Email address")
+    roles: list[str] = Field(..., description="Role codes")
+    created_at: datetime = Field(..., description="Account creation timestamp")
+
+    model_config = {"from_attributes": True}

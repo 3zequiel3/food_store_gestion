@@ -4,17 +4,17 @@ Auth service layer.
 Implements business logic for authentication including:
 - User registration with automatic CLIENT role assignment
 - Login with secure credential verification
-- Token refresh with rotation and replay attack detection
+- Token refresh with rotation and replay attack detection (RN-AU04, RN-AU05)
 - Logout with token revocation
 """
 
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend.config import settings
 from backend.features.auth.models import RefreshToken
 from backend.features.auth.repository import RefreshTokenRepository
 from backend.features.auth.schemas import (
@@ -22,7 +22,6 @@ from backend.features.auth.schemas import (
     RegisterRequest,
     TokenPairResponse,
 )
-from backend.features.catalog.models import Rol
 from backend.features.users.models import Usuario, UsuarioRol
 from backend.shared.exceptions import ConflictError, UnauthorizedError
 from backend.shared.security import (
@@ -37,7 +36,7 @@ from backend.shared.security import (
 class AuthService:
     """Service for authentication operations."""
 
-    # Role ID constants (from seed data)
+    # Role ID constants (from seed data, RN-AU07)
     ROLE_CLIENT_ID = 4
 
     def __init__(self, session: Session):
@@ -146,23 +145,23 @@ class AuthService:
         if not token:
             raise UnauthorizedError("Token de refresco inválido")
 
-        # Check if token is revoked or expired
-        if token.revoked_at:
-            raise UnauthorizedError("Token de refresco revocado")
-
-        if token.expires_at < datetime.utcnow():
-            raise UnauthorizedError("Token de refresco expirado")
-
-        # RN-AU05: Replay attack detection
-        if token.used:
-            # Token was already used — potential replay attack!
-            # Revoke ALL tokens in this family
-            self.refresh_token_repo.revoke_family_tokens(token.family_id)
+        # RN-AU05: Replay attack detection — revoked_at set means already consumed or logged out
+        if token.revoked_at is not None:
+            # Potential replay attack — revoke ALL tokens of this user
+            self.refresh_token_repo.revoke_all_user_tokens(token.user_id)
             self.session.flush()
             raise UnauthorizedError("Token reutilizado detectado")
 
-        # Mark current token as used (rotation)
-        self.refresh_token_repo.mark_token_as_used(token.id)
+        # SQLite (used in tests) drops tzinfo on read; coerce to UTC-aware
+        # before comparing. Postgres TIMESTAMPTZ keeps tzinfo natively.
+        expires_at = token.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise UnauthorizedError("Token de refresco expirado")
+
+        # Mark current token as revoked (rotation — RN-AU04)
+        self.refresh_token_repo.mark_token_as_revoked(token.id)
         self.session.flush()
 
         # Get user
@@ -171,7 +170,7 @@ class AuthService:
             raise UnauthorizedError("Usuario no válido")
 
         # Generate new token pair
-        return await self._create_token_pair(user, family_id=token.family_id)
+        return await self._create_token_pair(user)
 
     async def logout(self, refresh_token_str: str) -> None:
         """
@@ -189,24 +188,22 @@ class AuthService:
         if not token:
             raise UnauthorizedError("Token de refresco inválido")
 
-        # Revoke the token
-        token.revoked_at = datetime.utcnow()
+        # Revoke the token (sets revoked_at)
+        self.refresh_token_repo.mark_token_as_revoked(token.id)
         self.session.flush()
 
     async def _create_token_pair(
         self,
         user: Usuario,
-        family_id: Optional[uuid.UUID] = None,
     ) -> TokenPairResponse:
         """
         Create a new token pair for a user.
 
         Args:
             user: The user to create tokens for
-            family_id: Optional family ID for token rotation
 
         Returns:
-            Token pair response
+            Token pair response with expires_in derived from settings (D10)
         """
         # Get user roles
         roles = [rol.codigo for rol in user.roles]
@@ -222,22 +219,15 @@ class AuthService:
         refresh_token_raw = create_refresh_token()
         refresh_token_hash = hash_token(refresh_token_raw)
 
-        # Create new family if not provided
-        if family_id is None:
-            family_id = uuid.uuid4()
-
         # Calculate expiration
-        from backend.config import settings
-        expires_at = datetime.utcnow() + timedelta(
+        expires_at = datetime.now(timezone.utc) + timedelta(
             days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
         )
 
-        # Store refresh token in DB
+        # Store refresh token in DB (no family_id, no used flag — ERD v5 §3.1)
         refresh_token_db = RefreshToken(
             user_id=user.id,
             token_hash=refresh_token_hash,
-            family_id=family_id,
-            used=False,
             expires_at=expires_at,
         )
         self.session.add(refresh_token_db)
@@ -247,7 +237,7 @@ class AuthService:
             access_token=access_token,
             refresh_token=refresh_token_raw,
             token_type="bearer",
-            expires_in=30 * 60,  # 30 minutes in seconds
+            expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # D10
         )
 
     def _get_user_by_email(self, email: str) -> Optional[Usuario]:

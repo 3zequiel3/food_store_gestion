@@ -1,60 +1,23 @@
 """
 Dependency injection setup for FastAPI.
 
-Provides factories for common dependencies like database session,
-UnitOfWork, and current user context.
+Provides factories for common dependencies like UnitOfWork and current user.
+
+NOTE: Database session dependency (`get_db`) is defined in `backend.shared.database`.
+Use `from backend.shared.database import get_db` in feature routers.
+This module exposes only higher-level dependencies (UoW, current user).
 """
 
 import logging
 from typing import Generator
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-
-from backend.config import settings
+from backend.shared.database import get_session_factory
 from backend.shared.unit_of_work import UnitOfWork
 
 logger = logging.getLogger(__name__)
 
 
-# Database engine and session factory
-engine = create_engine(
-    settings.DATABASE_URL,
-    echo=settings.LOG_LEVEL == "DEBUG",  # Log SQL if debugging
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,  # Test connection before using
-)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def get_db_session() -> Generator[Session, None, None]:
-    """
-    Dependency: Get database session.
-
-    Usage in router:
-        @router.get("/")
-        def my_endpoint(session: Session = Depends(get_db_session)):
-            ...
-
-    Yields:
-        SQLAlchemy session
-    """
-    session = SessionLocal()
-    try:
-        logger.debug("📊 Database session opened")
-        yield session
-    except Exception as e:
-        logger.error(f"❌ Database session error: {str(e)}")
-        session.rollback()
-        raise
-    finally:
-        session.close()
-        logger.debug("🔒 Database session closed")
-
-
-def get_uow(session: Session = None) -> Generator[UnitOfWork, None, None]:
+def get_uow() -> Generator[UnitOfWork, None, None]:
     """
     Dependency: Get UnitOfWork instance.
 
@@ -73,15 +36,13 @@ def get_uow(session: Session = None) -> Generator[UnitOfWork, None, None]:
     Yields:
         UnitOfWork instance
     """
-    if session is None:
-        session = SessionLocal()
-
+    session = get_session_factory()()
     uow = UnitOfWork(session)
     try:
-        logger.debug("🔄 UnitOfWork created")
+        logger.debug("UnitOfWork created")
         yield uow
     except Exception as e:
-        logger.error(f"❌ UnitOfWork error: {str(e)}")
+        logger.error(f"UnitOfWork error: {str(e)}")
         uow.rollback()
         raise
     finally:
@@ -92,7 +53,7 @@ async def get_current_user():
     """
     Dependency: Get current user from JWT token.
 
-    Placeholder - implemented in auth feature.
+    Placeholder — real implementation is in backend.features.auth.dependencies.
 
     Usage in router:
         @router.get("/profile")
@@ -103,8 +64,7 @@ async def get_current_user():
         Current user object
 
     Raises:
-        HTTPException: If not authenticated
+        UnauthorizedError: If not authenticated
     """
-    # TODO: Extract and validate JWT token
-    # TODO: Return user from database
+    # TODO: Wire to backend.features.auth.dependencies.get_current_user
     return None

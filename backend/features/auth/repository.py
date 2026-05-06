@@ -5,8 +5,7 @@ Provides data access methods for refresh token management including
 token lookup, revocation, and replay attack detection.
 """
 
-import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import select, update
@@ -41,6 +40,8 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
         """
         Revoke ALL refresh tokens for a user (RN-AU05 replay attack protection).
 
+        Sets revoked_at on every non-revoked token of the user.
+
         Args:
             user_id: The user's ID
 
@@ -53,39 +54,21 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
                 RefreshToken.user_id == user_id,
                 RefreshToken.revoked_at.is_(None),
             )
-            .values(revoked_at=datetime.utcnow())
+            .values(revoked_at=datetime.now(timezone.utc))
         )
         return result.rowcount
 
-    def revoke_family_tokens(self, family_id: uuid.UUID) -> int:
+    def mark_token_as_revoked(self, token_id: int) -> None:
         """
-        Revoke ALL tokens in a family (RN-AU05 replay attack protection).
+        Mark a specific token as revoked (consumed during rotation or logout).
+
+        Sets revoked_at to the current UTC timestamp.
 
         Args:
-            family_id: The token family UUID
-
-        Returns:
-            Number of tokens revoked
-        """
-        result = self.session.execute(
-            update(RefreshToken)
-            .where(
-                RefreshToken.family_id == family_id,
-                RefreshToken.revoked_at.is_(None),
-            )
-            .values(revoked_at=datetime.utcnow())
-        )
-        return result.rowcount
-
-    def mark_token_as_used(self, token_id: int) -> None:
-        """
-        Mark a token as used (consumed during rotation).
-
-        Args:
-            token_id: The token's ID
+            token_id: The token's primary key
         """
         self.session.execute(
             update(RefreshToken)
             .where(RefreshToken.id == token_id)
-            .values(used=True)
+            .values(revoked_at=datetime.now(timezone.utc))
         )

@@ -9,17 +9,17 @@ from typing import List, Optional
 from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.shared.models import BaseModel
+from backend.shared.models import BaseModel, PivotBaseModel
 from backend.features.catalog.models import Rol
 
 
-class UsuarioRol(BaseModel):
+class UsuarioRol(PivotBaseModel):
     """
     Many-to-many pivot between users and roles.
 
-    Composite PK (user_id, role_id) ensures one role per user-role pair.
-    M:N is required by RN-DA01 (a user can hold multiple roles simultaneously,
-    e.g., an admin who is also a client).
+    Composite PK (user_id, role_id) — no surrogate id (ERD v5 §3.1, migration 20260428_0001).
+    Inherits from PivotBaseModel (not BaseModel) to avoid the autoincrement `id` column
+    that SQLite cannot combine with a composite primary key.
     """
 
     __tablename__ = "user_roles"

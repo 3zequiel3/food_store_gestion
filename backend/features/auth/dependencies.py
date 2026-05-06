@@ -19,7 +19,7 @@ from backend.shared.security import decode_access_token
 
 # OAuth2 scheme for token extraction
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/api/auth/login",
+    tokenUrl="/api/v1/auth/login",
     auto_error=False,
 )
 

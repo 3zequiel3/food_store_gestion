@@ -89,22 +89,31 @@ def get_session_factory():
 
 def get_db() -> Generator[Session, None, None]:
     """
-    FastAPI dependency: yield a SQLAlchemy session, close on exit.
+    FastAPI dependency: yield a SQLAlchemy session, commit on success,
+    rollback on exception, always close.
 
     Usage:
         @router.get("/")
         def my_endpoint(db: Session = Depends(get_db)):
             ...
 
-    This is the canonical session dependency consumed by feature routers
-    (auth, users, orders, etc.) and by tests/conftest.py for dependency
-    overrides. It uses the lazy session factory so it can be safely imported
-    by Alembic, the seed script, and the running app without duplicating
-    engine state.
+    Auto-commit semantics: a request that returns successfully (no
+    exception bubbled up to the dependency) will commit any pending work.
+    Services use ``session.flush()`` to obtain IDs and intermediate state,
+    but the final persistence happens here. If the endpoint raises, the
+    session is rolled back.
+
+    For multi-step business operations that need explicit transactional
+    control across multiple repositories, use ``get_uow`` from
+    ``backend/dependencies.py`` instead.
     """
     SessionLocal = get_session_factory()
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()

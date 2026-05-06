@@ -13,6 +13,7 @@ from backend.features.auth.schemas import (
     RefreshRequest,
     RegisterRequest,
     TokenPairResponse,
+    UserResponse,
 )
 from backend.features.auth.service import AuthService
 from backend.shared.database import get_db
@@ -22,7 +23,7 @@ from backend.shared.rate_limiter import RATE_LIMITS, limiter
 router = APIRouter()
 
 # OAuth2 scheme for token extraction
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 @router.post(
@@ -130,6 +131,7 @@ async def logout(
 
 @router.get(
     "/me",
+    response_model=UserResponse,
     summary="Get current user info",
     description="Returns information about the authenticated user.",
 )
@@ -141,13 +143,15 @@ async def get_me(
     Get current authenticated user information.
 
     Requires a valid access token in the Authorization header.
+    Returns UserResponse with id, nombre, apellido, email, roles[], created_at.
     """
     from backend.features.auth.dependencies import get_current_user
     user = await get_current_user(token, db)
-    return {
-        "id": user.id,
-        "email": user.email,
-        "nombre": user.nombre,
-        "apellido": user.apellido,
-        "roles": [rol.codigo for rol in user.roles],
-    }
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        nombre=user.nombre,
+        apellido=user.apellido,
+        roles=[rol.codigo for rol in user.roles],
+        created_at=user.creado_en,
+    )

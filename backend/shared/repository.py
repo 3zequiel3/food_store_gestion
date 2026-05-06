@@ -119,9 +119,9 @@ class BaseRepository(Generic[T]):
             return False
 
         if self._has_deleted_at:
-            from datetime import datetime
+            from datetime import datetime, timezone
 
-            instance.deleted_at = datetime.utcnow()
+            instance.deleted_at = datetime.now(timezone.utc)
             self.session.flush()
             logger.debug(f"Soft deleted {self.model.__name__}: {id}")
         else:

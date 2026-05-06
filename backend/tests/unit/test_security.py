@@ -71,8 +71,8 @@ class TestJWTToken:
             roles=["CLIENT"],
         )
 
-        # Decode without verification to check payload
-        payload = jwt.decode(token, options={"verify_signature": False})
+        # Decode without verification to check payload (jose API: get_unverified_claims)
+        payload = jwt.get_unverified_claims(token)
 
         assert payload["sub"] == "123"
         assert payload["email"] == "test@example.com"
@@ -128,12 +128,12 @@ class TestJWTToken:
 
     def test_decode_expired_token_returns_none(self):
         """decode_access_token should return None for expired token."""
-        # Create token that expires immediately
+        # Create token that expires immediately (jose uses seconds granularity; seconds=0 is NOT expired)
         token = create_access_token(
             user_id=123,
             email="test@example.com",
             roles=["CLIENT"],
-            expires_delta=timedelta(seconds=0),
+            expires_delta=timedelta(seconds=-1),
         )
 
         # Wait a bit to ensure expiration

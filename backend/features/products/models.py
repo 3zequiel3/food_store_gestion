@@ -9,7 +9,7 @@ from typing import List, Optional
 from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.shared.models import BaseModel
+from backend.shared.models import BaseModel, PivotBaseModel
 from backend.features.catalog.models import Categoria, Ingrediente
 
 
@@ -17,11 +17,11 @@ from backend.features.catalog.models import Categoria, Ingrediente
 # M:N pivot — Product ↔ Category
 # ---------------------------------------------------------------------------
 
-class ProductoCategoria(BaseModel):
+class ProductoCategoria(PivotBaseModel):
     """
     Many-to-many association between products and categories.
 
-    Composite PK (product_id, category_id).
+    Composite PK (product_id, category_id) — no surrogate id (ERD v5, migration 20260428_0001).
     """
 
     __tablename__ = "product_categories"
@@ -47,11 +47,11 @@ class ProductoCategoria(BaseModel):
 # M:N pivot — Product ↔ Ingredient
 # ---------------------------------------------------------------------------
 
-class ProductoIngrediente(BaseModel):
+class ProductoIngrediente(PivotBaseModel):
     """
     Many-to-many association between products and ingredients.
 
-    Composite PK (product_id, ingredient_id).
+    Composite PK (product_id, ingredient_id) — no surrogate id (ERD v5, migration 20260428_0001).
     """
 
     __tablename__ = "product_ingredients"

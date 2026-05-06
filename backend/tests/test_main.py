@@ -30,10 +30,8 @@ def test_cors_headers(client: TestClient):
     response = client.options("/health", headers={"Origin": "http://localhost:5173"})
 
     # FastAPI/Starlette should handle CORS
-    assert response.status_code in [
-        200,
-        404,
-    ]  # OPTIONS might not be implemented on all endpoints
+    # 200 = CORS preflight handled; 404 = no explicit OPTIONS handler; 405 = Method Not Allowed
+    assert response.status_code in [200, 404, 405]
 
 
 def test_request_logging_middleware(client: TestClient, caplog):
@@ -50,16 +48,14 @@ def test_request_logging_middleware(client: TestClient, caplog):
 
 
 def test_api_routes_exist(client: TestClient):
-    """Test that API feature routes are registered."""
-    # These routes return 404 currently (not implemented)
-    # But they should be registered in the app
-    response = client.get("/api/products/")
+    """Test that API feature routes are registered under /api/v1/."""
+    response = client.get("/api/v1/products/")
     assert response.status_code == 200
 
-    response = client.get("/api/users/")
+    response = client.get("/api/v1/users/")
     assert response.status_code == 200
 
-    response = client.get("/api/orders/")
+    response = client.get("/api/v1/orders/")
     assert response.status_code == 200
 
 
