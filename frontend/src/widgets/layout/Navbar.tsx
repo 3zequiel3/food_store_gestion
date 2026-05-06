@@ -1,13 +1,26 @@
 import { Link } from 'react-router-dom'
-import { authStore, uiStore } from '../../shared/stores'
+import {
+  useAuthStore,
+  selectIsAuthenticated,
+  selectUsuario,
+  selectHasRol,
+  useUIStore,
+  selectTheme,
+} from '../../shared/stores'
 
 /**
- * Navbar component
- * Displays logo, navigation links, dark mode toggle, and auth buttons
+ * Navbar component.
+ * Displays logo, navigation links, dark mode toggle, and auth buttons.
  */
 export const Navbar: React.FC = () => {
-  const { isAuthenticated, user, logout } = authStore()
-  const { darkMode, toggleDarkMode } = uiStore()
+  const isAuthenticated = useAuthStore(selectIsAuthenticated)
+  const usuario = useAuthStore(selectUsuario)
+  const isAdmin = useAuthStore(selectHasRol('ADMIN'))
+  const theme = useUIStore(selectTheme)
+
+  const toggleTheme = () => {
+    useUIStore.getState().setTheme(theme === 'dark' ? 'light' : 'dark')
+  }
 
   return (
     <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
@@ -28,7 +41,7 @@ export const Navbar: React.FC = () => {
           >
             Productos
           </Link>
-          {isAuthenticated && user?.role === 'ADMIN' && (
+          {isAuthenticated && isAdmin && (
             <Link
               to="/admin/products"
               className="text-gray-700 dark:text-gray-300 hover:text-primary transition-colors"
@@ -42,11 +55,11 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center space-x-4">
           {/* Dark Mode Toggle */}
           <button
-            onClick={toggleDarkMode}
+            onClick={toggleTheme}
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            title={darkMode ? 'Modo claro' : 'Modo oscuro'}
+            title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
           >
-            {darkMode ? '☀️' : '🌙'}
+            {theme === 'dark' ? '☀️' : '🌙'}
           </button>
 
           {/* Cart Icon (placeholder) */}
@@ -64,10 +77,10 @@ export const Navbar: React.FC = () => {
           {isAuthenticated ? (
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                {user?.name}
+                {usuario?.nombre}
               </span>
               <button
-                onClick={() => logout()}
+                onClick={() => useAuthStore.getState().logout()}
                 className="px-4 py-2 bg-error text-white rounded-lg hover:bg-error-dark transition-colors text-sm font-medium"
               >
                 Salir

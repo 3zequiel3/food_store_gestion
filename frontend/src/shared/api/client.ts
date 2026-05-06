@@ -1,30 +1,33 @@
 import axios from 'axios'
 import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import { env } from '../config/env'
-import { authStore } from '../stores'
+import { useAuthStore } from '../stores'
 
 /**
- * Create a centralized Axios instance with base configuration
+ * Create a centralized Axios instance with base configuration.
  * - Base URL from environment
  * - Default headers
- * - 30s timeout
+ * - 30 s timeout
  * - Request/response interceptors for JWT and error handling
+ *
+ * NOTE: `useAuthStore.getState()` is the correct pattern to read store state
+ * outside of React (e.g., inside Axios interceptors). See shared/stores/README.md.
  */
 
 const createHttpClient = (): AxiosInstance => {
   const client = axios.create({
     baseURL: env.API_URL,
-    timeout: 30000, // 30 seconds
+    timeout: 30000,
     headers: {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      Accept: 'application/json',
     },
   })
 
-  // Request interceptor: Attach Authorization header if token exists
+  // Request interceptor — attach Authorization header when an access token is available.
   client.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-      const token = authStore.getState().token
+      const token = useAuthStore.getState().accessToken
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }
@@ -33,13 +36,13 @@ const createHttpClient = (): AxiosInstance => {
     (error) => Promise.reject(error)
   )
 
-  // Response interceptor: Handle 401 and other errors
+  // Response interceptor — handle 401 by clearing auth and redirecting.
+  // Full token-refresh logic will be added in the `auth-frontend-interceptor` change.
   client.interceptors.response.use(
     (response) => response,
     (error) => {
       if (error.response?.status === 401) {
-        // 401 Unauthorized - Clear auth state and redirect to login
-        authStore.getState().logout()
+        useAuthStore.getState().logout()
         window.location.href = '/login'
       }
       return Promise.reject(error)

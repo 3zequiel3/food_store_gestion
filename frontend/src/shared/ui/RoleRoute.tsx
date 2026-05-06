@@ -1,20 +1,23 @@
 import { Navigate } from 'react-router-dom'
-import { authStore, type User } from '../stores'
+import { useAuthStore, selectUsuario, type RolCode } from '../stores'
 
 interface RoleRouteProps {
   children: React.ReactNode
-  allowedRoles: User['role'][]
+  /** Roles that are allowed to access this route. */
+  allowedRoles: RolCode[]
 }
 
 /**
- * Role-based route guard component
- * Restricts access based on user role
- * Shows 403 Forbidden page if unauthorized
+ * Role-based route guard component.
+ * Restricts access based on the authenticated user's roles.
+ * Shows a redirect to /forbidden if the user does not have any of the required roles.
  */
 export const RoleRoute: React.FC<RoleRouteProps> = ({ children, allowedRoles }) => {
-  const { user } = authStore()
+  const usuario = useAuthStore(selectUsuario)
 
-  if (!user || !allowedRoles.includes(user.role)) {
+  const hasRole = usuario?.roles.some((r) => allowedRoles.includes(r.codigo)) ?? false
+
+  if (!hasRole) {
     return <Navigate to="/forbidden" replace />
   }
 

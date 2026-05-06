@@ -1,36 +1,74 @@
 import { create } from 'zustand'
 
-export type FormaPago = 'EFECTIVO' | 'TARJETA' | 'MERCADOPAGO'
-export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed'
+export type CheckoutStep = 'idle' | 'address' | 'method' | 'processing' | 'result'
+export type PaymentStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'error'
 
 interface PaymentState {
-  selectedMethod: FormaPago | null
-  status: PaymentStatus
-  externalId: string | null
-  setMethod: (method: FormaPago) => void
-  setStatus: (status: PaymentStatus) => void
-  setExternalId: (id: string) => void
-  reset: () => void
+  pedidoId: number | null
+  checkoutStep: CheckoutStep
+  preferenceId: string | null
+  paymentStatus: PaymentStatus
+  error: string | null
+
+  /**
+   * Begin a checkout flow for a given `pedidoId`.
+   * Sets step to `'address'` and status to `'pending'`.
+   */
+  startCheckout: (pedidoId: number) => void
+
+  /** Store the MercadoPago preference id returned by the backend. */
+  setPreference: (preferenceId: string) => void
+
+  /** Advance the payment status (driven by MP webhook / callback). */
+  updatePaymentStatus: (status: PaymentStatus) => void
+
+  /** Reset everything to the initial state (after success, error recovery, or cancel). */
+  resetPayment: () => void
 }
 
-export const paymentStore = create<PaymentState>((set) => ({
-  selectedMethod: null,
-  status: 'pending',
-  externalId: null,
+const initialState: Pick<
+  PaymentState,
+  'pedidoId' | 'checkoutStep' | 'preferenceId' | 'paymentStatus' | 'error'
+> = {
+  pedidoId: null,
+  checkoutStep: 'idle',
+  preferenceId: null,
+  paymentStatus: 'pending',
+  error: null,
+}
 
-  setMethod: (method: FormaPago) => {
-    set({ selectedMethod: method })
+/**
+ * Payment / checkout flow store.
+ *
+ * NOT persisted intentionally — checkout state is transient.
+ * Rehydrating `paymentStatus = 'processing'` after a page refresh
+ * would leave the checkout in a broken state. (US-000e, design.md §Decisión 4)
+ */
+export const usePaymentStore = create<PaymentState>()((set) => ({
+  ...initialState,
+
+  startCheckout: (pedidoId) => {
+    set({ ...initialState, pedidoId, checkoutStep: 'address', paymentStatus: 'pending' })
   },
 
-  setStatus: (status: PaymentStatus) => {
-    set({ status })
+  setPreference: (preferenceId) => {
+    set({ preferenceId })
   },
 
-  setExternalId: (id: string) => {
-    set({ externalId: id })
+  updatePaymentStatus: (status) => {
+    set({ paymentStatus: status })
   },
 
-  reset: () => {
-    set({ selectedMethod: null, status: 'pending', externalId: null })
+  resetPayment: () => {
+    set({ ...initialState })
   },
 }))
+
+// ---------------------------------------------------------------------------
+// Atomic selectors
+// ---------------------------------------------------------------------------
+
+export const selectCheckoutStep = (s: PaymentState) => s.checkoutStep
+export const selectPaymentStatus = (s: PaymentState) => s.paymentStatus
+export const selectPreferenceId = (s: PaymentState) => s.preferenceId
+export const selectPaymentError = (s: PaymentState) => s.error

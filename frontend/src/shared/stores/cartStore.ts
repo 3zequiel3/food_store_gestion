@@ -1,93 +1,114 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { CartItem, Personalizacion } from '../../entities/order/model'
 
-export interface CartItem {
-  productId: string
-  name: string
-  price: number
-  quantity: number
-  image?: string
+/** Minimal product info required to build a CartItem (comes from the catalog DTO). */
+interface ProductoRef {
+  producto_id: number
+  nombre: string
+  precio: number
+  imagen_url?: string
 }
 
 interface CartState {
+  /** Cart line items. Persisted in full (RN-CR02). */
   items: CartItem[]
-  addItem: (item: CartItem) => void
-  removeItem: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
+
+  /**
+   * Add a product to the cart.
+   * - If `producto_id` already exists, increments `cantidad` (RN-CR03).
+   * - If new, appends a fresh `CartItem` with the given `personalizacion`.
+   */
+  addItem: (producto: ProductoRef, cantidad: number, personalizacion: Personalizacion) => void
+
+  /** Remove an item by `producto_id`. */
+  removeItem: (producto_id: number) => void
+
+  /**
+   * Set the quantity for an item.
+   * If `cantidad <= 0`, the item is removed entirely.
+   */
+  updateQuantity: (producto_id: number, cantidad: number) => void
+
+  /** Empty the cart. Called from checkout success flow, NEVER from logout. */
   clearCart: () => void
-  subtotal: number
-  total: number
-  itemCount: number
 }
 
-export const cartStore = create<CartState>()(
+export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
-      subtotal: 0,
-      total: 0,
-      itemCount: 0,
 
-      addItem: (item: CartItem) => {
+      addItem: (producto, cantidad, personalizacion) => {
         set((state) => {
-          const existingItem = state.items.find((i) => i.productId === item.productId)
-          let newItems: CartItem[]
-
-          if (existingItem) {
-            newItems = state.items.map((i) =>
-              i.productId === item.productId
-                ? { ...i, quantity: i.quantity + item.quantity }
-                : i
-            )
-          } else {
-            newItems = [...state.items, item]
+          const existing = state.items.find((i) => i.producto_id === producto.producto_id)
+          if (existing) {
+            // RN-CR03: increment quantity, do not duplicate
+            return {
+              items: state.items.map((i) =>
+                i.producto_id === producto.producto_id
+                  ? { ...i, cantidad: i.cantidad + cantidad }
+                  : i
+              ),
+            }
           }
-
-          const itemCount = newItems.reduce((sum, i) => sum + i.quantity, 0)
-          const subtotal = newItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
-
-          return { items: newItems, itemCount, subtotal, total: subtotal }
+          // New item — build the flat CartItem shape (Integrador.txt:256)
+          const newItem: CartItem = {
+            producto_id: producto.producto_id,
+            nombre: producto.nombre,
+            precio: producto.precio,
+            cantidad,
+            imagen_url: producto.imagen_url,
+            personalizacion,
+          }
+          return { items: [...state.items, newItem] }
         })
       },
 
-      removeItem: (productId: string) => {
-        set((state) => {
-          const newItems = state.items.filter((i) => i.productId !== productId)
-          const itemCount = newItems.reduce((sum, i) => sum + i.quantity, 0)
-          const subtotal = newItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
-
-          return { items: newItems, itemCount, subtotal, total: subtotal }
-        })
+      removeItem: (producto_id) => {
+        set((state) => ({
+          items: state.items.filter((i) => i.producto_id !== producto_id),
+        }))
       },
 
-      updateQuantity: (productId: string, quantity: number) => {
-        set((state) => {
-          if (quantity <= 0) {
-            return get().removeItem(productId) as unknown as CartState
-          }
-
-          const newItems = state.items.map((i) =>
-            i.productId === productId ? { ...i, quantity } : i
-          )
-          const itemCount = newItems.reduce((sum, i) => sum + i.quantity, 0)
-          const subtotal = newItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
-
-          return { items: newItems, itemCount, subtotal, total: subtotal }
-        })
+      updateQuantity: (producto_id, cantidad) => {
+        if (cantidad <= 0) {
+          get().removeItem(producto_id)
+          return
+        }
+        set((state) => ({
+          items: state.items.map((i) =>
+            i.producto_id === producto_id ? { ...i, cantidad } : i
+          ),
+        }))
       },
 
       clearCart: () => {
-        set({ items: [], itemCount: 0, subtotal: 0, total: 0 })
+        set({ items: [] })
       },
     }),
     {
-      name: 'cart-storage',
-      partialize: (state) => ({
-        items: state.items,
-        itemCount: state.itemCount,
-        subtotal: state.subtotal,
-        total: state.total,
-      }),
+      name: 'food-store-cart',
+      // RN-CR02: persist everything — the cart must survive refresh, close, and logout.
+      partialize: (state) => ({ items: state.items }),
     }
   )
 )
+
+// ---------------------------------------------------------------------------
+// Atomic selectors
+// ---------------------------------------------------------------------------
+
+export const selectItems = (s: CartState) => s.items
+
+/** Total number of units across all cart items. */
+export const selectTotalItems = (s: CartState) =>
+  s.items.reduce((sum, i) => sum + i.cantidad, 0)
+
+/** Sum of precio * cantidad for all items (uses flat CartItem shape). */
+export const selectTotalPrice = (s: CartState) =>
+  s.items.reduce((sum, i) => sum + i.precio * i.cantidad, 0)
+
+/** Returns the CartItem for a given `producto_id`, or `undefined` if not in cart. */
+export const selectGetItem = (producto_id: number) => (s: CartState) =>
+  s.items.find((i) => i.producto_id === producto_id)

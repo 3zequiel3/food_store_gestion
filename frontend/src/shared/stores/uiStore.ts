@@ -1,54 +1,75 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { Theme, Toast } from '../types/ui'
 
 interface UIState {
+  theme: Theme
   sidebarOpen: boolean
-  darkMode: boolean
-  isLoading: boolean
+  toasts: Toast[]
+
+  /** Set the color theme. Persisted. Applies `dark` class to `<html>`. */
+  setTheme: (theme: Theme) => void
+
+  /** Flip sidebar visibility. NOT persisted. */
   toggleSidebar: () => void
-  toggleDarkMode: () => void
-  setLoading: (loading: boolean) => void
+
+  /** Append a toast to the queue. */
+  pushToast: (toast: Toast) => void
+
+  /** Remove a toast by id. */
+  dismissToast: (id: string) => void
 }
 
-export const uiStore = create<UIState>()(
+/** Apply or remove the `dark` class on the `<html>` element. */
+const applyThemeClass = (theme: Theme) => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+  }
+}
+
+export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
+      theme: 'light',
       sidebarOpen: false,
-      darkMode: false,
-      isLoading: false,
+      toasts: [],
+
+      setTheme: (theme) => {
+        applyThemeClass(theme)
+        set({ theme })
+      },
 
       toggleSidebar: () => {
         set((state) => ({ sidebarOpen: !state.sidebarOpen }))
       },
 
-      toggleDarkMode: () => {
-        set((state) => {
-          const newDarkMode = !state.darkMode
-          // Apply dark mode class to html element
-          if (newDarkMode) {
-            document.documentElement.classList.add('dark')
-          } else {
-            document.documentElement.classList.remove('dark')
-          }
-          return { darkMode: newDarkMode }
-        })
+      pushToast: (toast) => {
+        set((state) => ({ toasts: [...state.toasts, toast] }))
       },
 
-      setLoading: (loading: boolean) => {
-        set({ isLoading: loading })
+      dismissToast: (id) => {
+        set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }))
       },
     }),
     {
-      name: 'ui-storage',
-      partialize: (state) => ({
-        darkMode: state.darkMode,
-      }),
+      name: 'food-store-ui',
+      // Only persist `theme` — sidebarOpen and toasts are transient (design.md §Decisión 4).
+      partialize: (state) => ({ theme: state.theme }),
+      // On rehydration, re-apply the dark class so the page renders with the correct theme
+      // before React hydrates. Preserves behavior from the previous stub.
       onRehydrateStorage: () => (state) => {
-        // Apply dark mode on rehydration
-        if (state?.darkMode) {
-          document.documentElement.classList.add('dark')
+        if (state?.theme) {
+          applyThemeClass(state.theme)
         }
       },
     }
   )
 )
+
+// ---------------------------------------------------------------------------
+// Atomic selectors
+// ---------------------------------------------------------------------------
+
+export const selectTheme = (s: UIState) => s.theme
+export const selectSidebarOpen = (s: UIState) => s.sidebarOpen
+export const selectToasts = (s: UIState) => s.toasts
