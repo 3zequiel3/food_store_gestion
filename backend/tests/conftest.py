@@ -8,14 +8,13 @@ Provides fixtures for:
 """
 
 import pytest
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.shared.models import Base
-from backend.dependencies import get_db_session
+from backend.shared.database import Base, get_db
 
 
 # Use SQLite in-memory database for testing
@@ -59,10 +58,10 @@ def test_db_session(test_db_engine) -> Session:
 def client(test_db_session: Session) -> TestClient:
     """Create a test client with dependency override."""
 
-    def override_get_db_session():
+    def override_get_db():
         yield test_db_session
 
-    app.dependency_overrides[get_db_session] = override_get_db_session
+    app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(app) as test_client:
         yield test_client
@@ -71,38 +70,57 @@ def client(test_db_session: Session) -> TestClient:
 
 
 @pytest.fixture(scope="function")
-def sample_user(test_db_session: Session):
-    """Create a sample user for testing."""
-    from backend.features.users.models import User
-    from backend.shared.enums import Role
+def sample_roles(test_db_session: Session):
+    """Create standard roles for testing."""
+    from backend.features.catalog.models import Rol
 
-    user = User(
+    roles = [
+        Rol(id=1, codigo="ADMIN", descripcion="Administrator"),
+        Rol(id=2, codigo="STOCK", descripcion="Stock Manager"),
+        Rol(id=3, codigo="PEDIDOS", descripcion="Orders Manager"),
+        Rol(id=4, codigo="CLIENT", descripcion="Client"),
+    ]
+    for role in roles:
+        test_db_session.add(role)
+    test_db_session.commit()
+
+    return roles
+
+
+@pytest.fixture(scope="function")
+def sample_user(test_db_session: Session, sample_roles):
+    """Create a sample user for testing."""
+    from backend.features.users.models import Usuario, UsuarioRol
+    from backend.shared.security import hash_password
+
+    user = Usuario(
         email="test@example.com",
-        username="testuser",
-        password_hash="hashed_password",
+        password_hash=hash_password("test_password_123"),
+        nombre="Test",
+        apellido="User",
         is_active=True,
-        role=Role.USER,
     )
     test_db_session.add(user)
+    test_db_session.flush()
+
+    # Assign CLIENT role
+    user_role = UsuarioRol(user_id=user.id, role_id=4)
+    test_db_session.add(user_role)
     test_db_session.commit()
     test_db_session.refresh(user)
 
     return user
 
 
-@pytest.fixture(scope="function")
-def sample_product(test_db_session: Session):
-    """Create a sample product for testing."""
-    from backend.features.products.models import Product
-
-    product = Product(
-        name="Test Product",
-        description="A test product",
-        price=99.99,
-        is_active=True,
+@pytest.fixture
+def auth_headers(client, sample_user):
+    """Get authentication headers for the sample user."""
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "email": "test@example.com",
+            "password": "test_password_123",
+        },
     )
-    test_db_session.add(product)
-    test_db_session.commit()
-    test_db_session.refresh(product)
-
-    return product
+    data = response.json()
+    return {"Authorization": f"Bearer {data['access_token']}"}

@@ -6,7 +6,7 @@ Includes soft delete support (queries exclude deleted_at IS NOT NULL by default)
 """
 
 import logging
-from typing import Any, Generic, List, Optional, Type, TypeVar
+from typing import Any, Generic, List, Optional, Type, TypeVar, Union
 from uuid import UUID
 
 from sqlalchemy import and_, select
@@ -14,6 +14,9 @@ from sqlalchemy.orm import Session
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
+
+# ID type can be int (BIGSERIAL) or UUID
+IDType = Union[int, UUID]
 
 
 class BaseRepository(Generic[T]):
@@ -63,7 +66,7 @@ class BaseRepository(Generic[T]):
         logger.debug(f"Created {self.model.__name__}: {instance.id}")
         return instance
 
-    def read(self, id: UUID) -> Optional[T]:
+    def read(self, id: IDType) -> Optional[T]:
         """
         Read an entity by ID.
 
@@ -78,7 +81,7 @@ class BaseRepository(Generic[T]):
         logger.debug(f"Read {self.model.__name__}: {id}")
         return instance
 
-    def update(self, id: UUID, **kwargs) -> Optional[T]:
+    def update(self, id: IDType, **kwargs) -> Optional[T]:
         """
         Update an entity.
 
@@ -101,7 +104,7 @@ class BaseRepository(Generic[T]):
         logger.debug(f"Updated {self.model.__name__}: {id}")
         return instance
 
-    def delete(self, id: UUID) -> bool:
+    def delete(self, id: IDType) -> bool:
         """
         Soft delete an entity (sets deleted_at timestamp).
 
@@ -129,7 +132,7 @@ class BaseRepository(Generic[T]):
 
         return True
 
-    def hard_delete(self, id: UUID) -> bool:
+    def hard_delete(self, id: IDType) -> bool:
         """
         Permanently delete an entity (hard delete).
 

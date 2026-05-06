@@ -25,6 +25,18 @@ class Settings(BaseSettings):
         default="your-super-secret-key-change-in-production",
         description="Secret key for JWT token signing",
     )
+    JWT_ALGORITHM: str = Field(
+        default="HS256",
+        description="Algorithm for JWT signing (HS256 or RS256)",
+    )
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=30,
+        description="Access token expiration time in minutes",
+    )
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
+        default=7,
+        description="Refresh token expiration time in days",
+    )
 
     # Server
     API_PORT: int = Field(default=8000, description="API server port")
