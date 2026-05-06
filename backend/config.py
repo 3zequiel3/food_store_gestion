@@ -56,6 +56,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
+        extra = "ignore"  # Tolerate unrelated env vars (e.g. shell exports like DB_USER)
 
     @field_validator("JWT_SECRET", mode="before")
     @classmethod

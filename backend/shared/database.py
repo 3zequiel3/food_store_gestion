@@ -8,9 +8,10 @@ This module is the single source of truth for:
 """
 
 import os
+from typing import Generator
 
 from sqlalchemy import create_engine, MetaData
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 # Deterministic naming convention so Alembic generates stable constraint names
 # across runs and across databases. Format:
@@ -84,3 +85,26 @@ def get_session_factory():
             bind=get_engine(),
         )
     return _SessionLocal
+
+
+def get_db() -> Generator[Session, None, None]:
+    """
+    FastAPI dependency: yield a SQLAlchemy session, close on exit.
+
+    Usage:
+        @router.get("/")
+        def my_endpoint(db: Session = Depends(get_db)):
+            ...
+
+    This is the canonical session dependency consumed by feature routers
+    (auth, users, orders, etc.) and by tests/conftest.py for dependency
+    overrides. It uses the lazy session factory so it can be safely imported
+    by Alembic, the seed script, and the running app without duplicating
+    engine state.
+    """
+    SessionLocal = get_session_factory()
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
