@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { LoginForm } from '../../features/auth'
 
 export const LoginPage: React.FC = () => {
   return (
@@ -7,37 +8,8 @@ export const LoginPage: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6 text-center">
           Iniciar sesión
         </h1>
-        
-        <form className="space-y-4">
-          <div>
-            <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              placeholder="tu@email.com"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
 
-          <div>
-            <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="w-full bg-primary text-white py-2 rounded-lg font-semibold hover:bg-primary-dark transition-colors"
-          >
-            Iniciar sesión
-          </button>
-        </form>
+        <LoginForm />
 
         <p className="text-center text-gray-600 dark:text-gray-400 mt-4">
           ¿No tienes cuenta?{' '}

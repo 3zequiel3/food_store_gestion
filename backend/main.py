@@ -77,6 +77,14 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Food Store backend starting up...")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Log level: {settings.LOG_LEVEL}")
+
+    from backend.shared.database import Base, get_engine
+    from backend.scripts.seed import run_seed
+
+    engine = get_engine()
+    Base.metadata.create_all(bind=engine)
+    run_seed()
+
     yield
     # Shutdown
     logger.info("🛑 Food Store backend shutting down...")

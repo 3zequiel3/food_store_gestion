@@ -5,6 +5,7 @@ Reads from .env file during development and environment variables in production.
 """
 
 import os
+from pathlib import Path
 from typing import List
 
 from pydantic import Field, field_validator
@@ -53,7 +54,7 @@ class Settings(BaseSettings):
     class Config:
         """Pydantic config."""
 
-        env_file = ".env"
+        env_file = str(Path(__file__).parent / ".env")
         env_file_encoding = "utf-8"
         case_sensitive = True
         extra = "ignore"  # Tolerate unrelated env vars (e.g. shell exports like DB_USER)

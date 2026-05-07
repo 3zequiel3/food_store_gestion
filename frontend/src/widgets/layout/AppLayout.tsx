@@ -1,10 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { Navbar } from './Navbar'
+import { ToastContainer } from '../../shared/ui'
 
-/**
- * AppLayout component
- * Provides the main layout structure with navbar and content area
- */
 export const AppLayout: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900">
@@ -17,6 +14,7 @@ export const AppLayout: React.FC = () => {
           <p>&copy; 2026 Food Store. Todos los derechos reservados.</p>
         </div>
       </footer>
+      <ToastContainer />
     </div>
   )
 }

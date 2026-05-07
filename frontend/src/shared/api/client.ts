@@ -1,18 +1,28 @@
 import axios from 'axios'
-import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
+import type { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { env } from '../config/env'
 import { useAuthStore } from '../stores'
+import { handleApiError } from './errorHandler'
+import { refresh as authRefresh } from '../../features/auth/api/authService'
 
-/**
- * Create a centralized Axios instance with base configuration.
- * - Base URL from environment
- * - Default headers
- * - 30 s timeout
- * - Request/response interceptors for JWT and error handling
- *
- * NOTE: `useAuthStore.getState()` is the correct pattern to read store state
- * outside of React (e.g., inside Axios interceptors). See shared/stores/README.md.
- */
+type QueueItem = {
+  resolve: (token: string) => void
+  reject: (err: unknown) => void
+}
+
+let isRefreshing = false
+let pendingQueue: QueueItem[] = []
+
+function flushQueue(token: string | null, error: unknown): void {
+  pendingQueue.forEach((item) => {
+    if (token !== null) {
+      item.resolve(token)
+    } else {
+      item.reject(error)
+    }
+  })
+  pendingQueue = []
+}
 
 const createHttpClient = (): AxiosInstance => {
   const client = axios.create({
@@ -24,7 +34,6 @@ const createHttpClient = (): AxiosInstance => {
     },
   })
 
-  // Request interceptor — attach Authorization header when an access token is available.
   client.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
       const token = useAuthStore.getState().accessToken
@@ -36,15 +45,49 @@ const createHttpClient = (): AxiosInstance => {
     (error) => Promise.reject(error)
   )
 
-  // Response interceptor — handle 401 by clearing auth and redirecting.
-  // Full token-refresh logic will be added in the `auth-frontend-interceptor` change.
   client.interceptors.response.use(
     (response) => response,
-    (error) => {
-      if (error.response?.status === 401) {
-        useAuthStore.getState().logout()
-        window.location.href = '/login'
+    async (error: AxiosError) => {
+      const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        const currentRefreshToken = useAuthStore.getState().refreshToken
+
+        if (!currentRefreshToken) {
+          useAuthStore.getState().logout()
+          window.location.href = '/login'
+          return Promise.reject(error)
+        }
+
+        if (isRefreshing) {
+          return new Promise<string>((resolve, reject) => {
+            pendingQueue.push({ resolve, reject })
+          }).then((newToken) => {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`
+            return client(originalRequest)
+          })
+        }
+
+        originalRequest._retry = true
+        isRefreshing = true
+
+        try {
+          const newTokens = await authRefresh(currentRefreshToken)
+          useAuthStore.getState().updateTokens(newTokens)
+          flushQueue(newTokens.accessToken, null)
+          originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`
+          return client(originalRequest)
+        } catch (refreshError) {
+          useAuthStore.getState().logout()
+          flushQueue(null, refreshError)
+          window.location.href = '/login'
+          return Promise.reject(refreshError)
+        } finally {
+          isRefreshing = false
+        }
       }
+
+      handleApiError(error)
       return Promise.reject(error)
     }
   )

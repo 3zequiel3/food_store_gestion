@@ -10,7 +10,7 @@ What this script loads:
     - 4 roles         (IDs stable: 1=ADMIN, 2=STOCK, 3=PEDIDOS, 4=CLIENT)
     - 6 order states  (PENDIENTE..CANCELADO with ordering and terminal flag)
     - 3 payment methods (MERCADOPAGO, EFECTIVO, TRANSFERENCIA)
-    - 1 admin user    (admin@foodstore.local, password from ADMIN_PASSWORD env)
+    - 1 admin user    (admin@foodstore.com, password from ADMIN_PASSWORD env)
     - 1 user_roles binding (admin → ADMIN role)
 
 All inserts use ON CONFLICT DO NOTHING so re-running is safe and idempotent.
@@ -24,7 +24,7 @@ import logging
 import os
 import sys
 
-from passlib.context import CryptContext
+import bcrypt as _bcrypt_lib
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -47,8 +47,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Bcrypt context — RN-DA08
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # ---------------------------------------------------------------------------
 # Seed functions
@@ -118,12 +116,12 @@ def seed_admin(session) -> None:
             "Using insecure default 'admin1234' — CHANGE IMMEDIATELY in production."
         )
 
-    password_hash = _pwd_context.hash(admin_password)
+    password_hash = _bcrypt_lib.hashpw(admin_password.encode(), _bcrypt_lib.gensalt(rounds=12)).decode()
 
     # Insert user (conflict on email → skip)
     user_values = [
         {
-            "email": "admin@foodstore.local",
+            "email": "admin@foodstore.com",
             "password_hash": password_hash,
             "nombre": "Admin",
             "apellido": "Sistema",
@@ -139,7 +137,7 @@ def seed_admin(session) -> None:
 
     # Retrieve the admin user id (may have been inserted just now or previously)
     admin_user = session.execute(
-        text("SELECT id FROM users WHERE email = 'admin@foodstore.local'")
+        text("SELECT id FROM users WHERE email = 'admin@foodstore.com'")
     ).fetchone()
 
     if admin_user is None:
