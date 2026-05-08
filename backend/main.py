@@ -194,7 +194,7 @@ async def health_check():
 # Register feature routers — all under /api/v1/ per spec §5 (Integrador.txt)
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
-app.include_router(products_router, prefix="/api/v1/products", tags=["products"])
+app.include_router(products_router, prefix="/api/v1/productos", tags=["products"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["orders"])
 app.include_router(payments_router, prefix="/api/v1/payments", tags=["payments"])
 app.include_router(categories_router, prefix="/api/v1/categorias", tags=["categories"])

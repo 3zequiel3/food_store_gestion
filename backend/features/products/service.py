@@ -1,0 +1,382 @@
+"""
+ProductService — business logic for product CRUD and M:N associations.
+
+Orchestrates:
+- Validations (nombre not empty, FK existence for categorías e ingredientes).
+- Soft delete without cascades (D11 in design.md).
+- M:N bulk replace for categories (replace semantics).
+- M:N individual add/remove for ingredients (with es_removible flag).
+- Partial updates via model_dump(exclude_unset=True).
+
+Rules:
+- This service NEVER calls uow.commit() — the router decides (D6).
+- Import order: Router → Service → UoW → Repository → Model.
+- set_categorias validates ALL ids before touching pivot rows (atomicity).
+"""
+
+from __future__ import annotations
+
+from backend.features.catalog.models import Categoria, Ingrediente
+from backend.features.categories.repository import CategoryRepository
+from backend.features.ingredients.repository import IngredientRepository
+from backend.features.products.models import Producto, ProductoIngrediente
+from backend.features.products.repository import ProductRepository
+from backend.features.products.schemas import ProductoCreate, ProductoUpdate
+from backend.shared.exceptions import BusinessRuleError, NotFoundError
+from backend.shared.unit_of_work import UnitOfWork
+
+
+class ProductService:
+    """Business logic for the product domain."""
+
+    def __init__(self, uow: UnitOfWork) -> None:
+        uow.register_repository("productos", ProductRepository(uow.session))
+        uow.register_repository("categorias", CategoryRepository(uow.session))
+        uow.register_repository(
+            "ingredientes", IngredientRepository(uow.session)
+        )
+        self.uow = uow
+        self.repo: ProductRepository = uow.productos  # type: ignore[assignment]
+        self.cat_repo: CategoryRepository = uow.categorias  # type: ignore[assignment]
+        self.ing_repo: IngredientRepository = uow.ingredientes  # type: ignore[assignment]
+
+    # ── Create ────────────────────────────────────────────────────────────
+
+    def create(self, payload: ProductoCreate) -> Producto:
+        """Create a new product, optionally associating categories.
+
+        Validates:
+        - nombre is not blank after strip.
+        - Each id in categoria_ids exists in the categories table.
+
+        Args:
+            payload: Creation data.
+
+        Returns:
+            Newly created Producto.
+
+        Raises:
+            BusinessRuleError: If nombre is blank or any categoria_id is
+                missing.
+        """
+        nombre = payload.nombre.strip()
+        if not nombre:
+            raise BusinessRuleError(
+                "El nombre del producto no puede estar vacío"
+            )
+
+        # Validate categoria_ids before touching the DB
+        if payload.categoria_ids is not None:
+            for cat_id in payload.categoria_ids:
+                if self.cat_repo.read(cat_id) is None:
+                    raise BusinessRuleError(
+                        f"Categoría {cat_id} no encontrada"
+                    )
+
+        producto = self.repo.create(
+            nombre=nombre,
+            descripcion=payload.descripcion,
+            precio=payload.precio,
+            stock_cantidad=payload.stock_cantidad,
+            disponible=payload.disponible,
+            imagen_url=payload.imagen_url,
+        )
+
+        if payload.categoria_ids is not None:
+            self.repo.replace_categorias(producto.id, payload.categoria_ids)
+
+        return producto
+
+    # ── Read ──────────────────────────────────────────────────────────────
+
+    def get_by_id(self, producto_id: int) -> Producto:
+        """Fetch a single active product by ID.
+
+        Args:
+            producto_id: Product primary key.
+
+        Returns:
+            Producto entity.
+
+        Raises:
+            NotFoundError: If not found or soft-deleted.
+        """
+        current = self.repo.read(producto_id)
+        if current is None:
+            raise NotFoundError("Producto no encontrado")
+        return current
+
+    def get_detail(
+        self, producto_id: int
+    ) -> tuple[Producto, list[Categoria], list[tuple[Ingrediente, bool]]]:
+        """Fetch product with full associations for the detail endpoint.
+
+        Args:
+            producto_id: Product primary key.
+
+        Returns:
+            (Producto, active_categorias, [(Ingrediente, es_removible)]).
+
+        Raises:
+            NotFoundError: If not found or soft-deleted.
+        """
+        producto = self.repo.get_with_associations(producto_id)
+        if producto is None:
+            raise NotFoundError("Producto no encontrado")
+
+        # Defensively filter soft-deleted categories from the eager-loaded rel
+        categorias: list[Categoria] = [
+            c for c in producto.categorias if c.eliminado_en is None
+        ]
+        ingredientes_with_flag = self.repo.list_ingredientes(producto_id)
+        return producto, categorias, ingredientes_with_flag
+
+    # ── List (paginated + filtered) ───────────────────────────────────────
+
+    def list_paginated(
+        self,
+        *,
+        page: int,
+        limit: int,
+        categoria_id: int | None,
+        search: str | None,
+        disponible: bool | None,
+        excluir_alergenos: bool,
+    ) -> tuple[list[Producto], int]:
+        """Return paginated filtered products.
+
+        The default value for disponible (True) is applied in the router
+        before calling this method (RN-CA08). The service is filter-agnostic.
+
+        Args:
+            page: 1-based page number.
+            limit: Items per page.
+            categoria_id: Optional category filter.
+            search: Optional substring search (case-insensitive).
+            disponible: Optional availability filter (None = no filter).
+            excluir_alergenos: Exclude products with non-removable allergens.
+
+        Returns:
+            (items, total_count).
+        """
+        skip = (page - 1) * limit
+        return self.repo.list_paginated_with_filters(
+            skip=skip,
+            limit=limit,
+            categoria_id=categoria_id,
+            search=search,
+            disponible=disponible,
+            excluir_alergenos=excluir_alergenos,
+        )
+
+    # ── Update ────────────────────────────────────────────────────────────
+
+    def update(self, producto_id: int, payload: ProductoUpdate) -> Producto:
+        """Partially update a product.
+
+        Uses model_dump(exclude_unset=True) so omitted fields are preserved.
+
+        Args:
+            producto_id: Product primary key.
+            payload: Fields to update.
+
+        Returns:
+            Updated Producto.
+
+        Raises:
+            NotFoundError: If not found or soft-deleted.
+            BusinessRuleError: If nombre is blank after strip.
+        """
+        current = self.repo.read(producto_id)
+        if current is None:
+            raise NotFoundError("Producto no encontrado")
+
+        data = payload.model_dump(exclude_unset=True)
+
+        if "nombre" in data:
+            nombre = data["nombre"].strip()
+            if not nombre:
+                raise BusinessRuleError(
+                    "El nombre del producto no puede estar vacío"
+                )
+            data["nombre"] = nombre
+
+        updated = self.repo.update(producto_id, **data)
+        # repo.update returns None only if the entity vanished between read
+        # and update (should not happen in single-threaded tests)
+        assert updated is not None, "Unexpected None from repo.update"
+        return updated
+
+    # ── Patch: disponibilidad ─────────────────────────────────────────────
+
+    def set_disponibilidad(self, producto_id: int, disponible: bool) -> Producto:
+        """Toggle product availability.
+
+        Args:
+            producto_id: Product primary key.
+            disponible: New availability value.
+
+        Returns:
+            Updated Producto.
+
+        Raises:
+            NotFoundError: If not found or soft-deleted.
+        """
+        current = self.repo.read(producto_id)
+        if current is None:
+            raise NotFoundError("Producto no encontrado")
+        updated = self.repo.update(producto_id, disponible=disponible)
+        assert updated is not None
+        return updated
+
+    # ── Patch: stock ──────────────────────────────────────────────────────
+
+    def set_stock(self, producto_id: int, stock_cantidad: int) -> Producto:
+        """Set absolute stock value.
+
+        Pydantic already validates stock_cantidad >= 0, but we add a
+        defensive guard here per D5.
+
+        Args:
+            producto_id: Product primary key.
+            stock_cantidad: New stock value (must be >= 0).
+
+        Returns:
+            Updated Producto.
+
+        Raises:
+            BusinessRuleError: If stock_cantidad < 0.
+            NotFoundError: If not found or soft-deleted.
+        """
+        if stock_cantidad < 0:
+            raise BusinessRuleError("El stock no puede ser negativo")
+        current = self.repo.read(producto_id)
+        if current is None:
+            raise NotFoundError("Producto no encontrado")
+        updated = self.repo.update(producto_id, stock_cantidad=stock_cantidad)
+        assert updated is not None
+        return updated
+
+    # ── Delete (soft) ─────────────────────────────────────────────────────
+
+    def delete(self, producto_id: int) -> None:
+        """Soft-delete a product.
+
+        No guards on pivot rows — soft-deleted products stop appearing in the
+        catalog naturally (BaseRepository._get_base_query filters eliminado_en
+        IS NULL). Pivot rows remain untouched (D11).
+
+        Args:
+            producto_id: Product primary key.
+
+        Raises:
+            NotFoundError: If not found or already soft-deleted.
+        """
+        current = self.repo.read(producto_id)
+        if current is None:
+            raise NotFoundError("Producto no encontrado")
+        self.repo.delete(producto_id)
+
+    # ── M:N categories ────────────────────────────────────────────────────
+
+    def set_categorias(
+        self, producto_id: int, categoria_ids: list[int]
+    ) -> None:
+        """Replace the full category set for a product.
+
+        Validates ALL ids before touching pivot rows — if any id is invalid,
+        raises BusinessRuleError without making partial changes.
+
+        Args:
+            producto_id: Product primary key.
+            categoria_ids: Full desired set of category IDs (may be empty).
+
+        Raises:
+            NotFoundError: If the product is not found.
+            BusinessRuleError: If any category id does not exist.
+        """
+        current = self.repo.read(producto_id)
+        if current is None:
+            raise NotFoundError("Producto no encontrado")
+
+        # Validate ALL before any pivot mutation
+        for cat_id in categoria_ids:
+            if self.cat_repo.read(cat_id) is None:
+                raise BusinessRuleError(f"Categoría {cat_id} no encontrada")
+
+        self.repo.replace_categorias(producto_id, categoria_ids)
+
+    # ── M:N ingredients ───────────────────────────────────────────────────
+
+    def add_ingrediente(
+        self,
+        producto_id: int,
+        ingrediente_id: int,
+        es_removible: bool,
+    ) -> ProductoIngrediente:
+        """Associate an ingredient with a product.
+
+        Args:
+            producto_id: Product primary key.
+            ingrediente_id: Ingredient primary key.
+            es_removible: Whether the customer can remove it on order.
+
+        Returns:
+            The ProductoIngrediente pivot row.
+
+        Raises:
+            NotFoundError: If the product is not found.
+            BusinessRuleError: If the ingredient does not exist.
+            ConflictError: If the association is already active (from repo).
+        """
+        producto = self.repo.read(producto_id)
+        if producto is None:
+            raise NotFoundError("Producto no encontrado")
+
+        ingrediente = self.ing_repo.read(ingrediente_id)
+        if ingrediente is None:
+            raise BusinessRuleError(
+                f"Ingrediente {ingrediente_id} no encontrado"
+            )
+
+        return self.repo.add_ingrediente(producto_id, ingrediente_id, es_removible)
+
+    def remove_ingrediente(
+        self, producto_id: int, ingrediente_id: int
+    ) -> None:
+        """Remove (soft-delete) an ingredient association.
+
+        Args:
+            producto_id: Product primary key.
+            ingrediente_id: Ingredient primary key.
+
+        Raises:
+            NotFoundError: If the product is not found or the association
+                does not exist / is already soft-deleted.
+        """
+        producto = self.repo.read(producto_id)
+        if producto is None:
+            raise NotFoundError("Producto no encontrado")
+
+        removed = self.repo.remove_ingrediente(producto_id, ingrediente_id)
+        if not removed:
+            raise NotFoundError("Asociación de ingrediente no encontrada")
+
+    def list_ingredientes(
+        self, producto_id: int
+    ) -> list[tuple[Ingrediente, bool]]:
+        """Return (Ingrediente, es_removible) pairs for a product.
+
+        Args:
+            producto_id: Product primary key.
+
+        Returns:
+            List of (Ingrediente, es_removible bool) tuples.
+
+        Raises:
+            NotFoundError: If the product is not found.
+        """
+        producto = self.repo.read(producto_id)
+        if producto is None:
+            raise NotFoundError("Producto no encontrado")
+        return self.repo.list_ingredientes(producto_id)

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+import sqlalchemy as sa
 from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -68,10 +69,20 @@ class ProductoIngrediente(PivotBaseModel):
         primary_key=True,
         nullable=False,
     )
+    es_removible: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa.false(),
+    )
 
     def __repr__(self) -> str:
         return (
-            f"<ProductoIngrediente(product_id={self.product_id}, ingredient_id={self.ingredient_id})>"
+            f"<ProductoIngrediente("
+            f"product_id={self.product_id}, "
+            f"ingredient_id={self.ingredient_id}, "
+            f"es_removible={self.es_removible}"
+            f")>"
         )
 
 
