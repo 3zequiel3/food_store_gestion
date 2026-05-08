@@ -64,6 +64,14 @@
       "sessions": 1,
       "memories": 0,
       "prompts": 2
+    },
+    {
+      "id": "187eea8b",
+      "created_by": "ezequiel",
+      "created_at": "2026-05-08T17:49:37Z",
+      "sessions": 12,
+      "memories": 12,
+      "prompts": 0
     }
   ]
 }
