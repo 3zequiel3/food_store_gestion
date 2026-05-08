@@ -72,6 +72,14 @@
       "sessions": 12,
       "memories": 12,
       "prompts": 0
+    },
+    {
+      "id": "2053e91e",
+      "created_by": "ezequiel",
+      "created_at": "2026-05-08T21:03:37Z",
+      "sessions": 30,
+      "memories": 69,
+      "prompts": 33
     }
   ]
 }
