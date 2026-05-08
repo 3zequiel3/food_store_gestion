@@ -67,14 +67,14 @@ SQLAlchemy declarative base with common fields:
 - `id` (UUID)
 - `created_at` (DateTime, auto-set)
 - `updated_at` (DateTime, auto-managed)
-- `deleted_at` (DateTime, nullable, for soft delete)
+- `eliminado_en` (DateTime, nullable, for soft delete)
 
 #### BaseRepository
 Provides CRUD operations:
 - `create(**kwargs)` - Create new entity
 - `read(id)` - Fetch by ID
 - `update(id, **kwargs)` - Update entity
-- `delete(id)` - Soft delete (sets deleted_at)
+- `delete(id)` - Soft delete (sets eliminado_en)
 - `hard_delete(id)` - Permanent delete
 - `list(skip, limit)` - Paginated list
 - `count()` - Count non-deleted entities
@@ -104,7 +104,7 @@ except Exception:
 
 ### Soft Delete Support
 
-Models with `deleted_at` field use soft delete:
+Models with `eliminado_en` field use soft delete:
 - Records are marked as deleted, not removed
 - Queries automatically exclude deleted records
 - `hard_delete()` permanently removes records
@@ -224,7 +224,7 @@ class Product(BaseModel):
     description: str
     price: Decimal
     is_active: bool
-    deleted_at: Optional[DateTime]  # Soft delete
+    eliminado_en: Optional[datetime]  # Soft delete
 ```
 
 ### Order
@@ -239,7 +239,7 @@ class Order(BaseModel):
     user: User
     payment: Payment
     order_items: List[OrderItem]
-    deleted_at: Optional[DateTime]  # Soft delete
+    eliminado_en: Optional[datetime]  # Soft delete
 ```
 
 ### Payment

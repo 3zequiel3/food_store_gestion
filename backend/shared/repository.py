@@ -2,7 +2,7 @@
 Base repository class with CRUD operations.
 
 Provides standard data access patterns for all repositories.
-Includes soft delete support (queries exclude deleted_at IS NOT NULL by default).
+Includes soft delete support (queries exclude eliminado_en IS NOT NULL by default).
 """
 
 import logging
@@ -24,7 +24,7 @@ class BaseRepository(Generic[T]):
     Base repository for data access.
 
     Provides CRUD operations: create, read, update, delete, list.
-    Supports soft delete (deleted_at field).
+    Supports soft delete (eliminado_en field).
     """
 
     def __init__(self, session: Session, model: Type[T]):
@@ -37,7 +37,7 @@ class BaseRepository(Generic[T]):
         """
         self.session = session
         self.model = model
-        self._has_deleted_at = hasattr(model, "deleted_at")
+        self._has_eliminado_en = hasattr(model, "eliminado_en")
 
     def _get_base_query(self):
         """
@@ -46,8 +46,8 @@ class BaseRepository(Generic[T]):
         Returns queries that exclude soft-deleted records by default.
         """
         query = select(self.model)
-        if self._has_deleted_at:
-            query = query.where(self.model.deleted_at.is_(None))
+        if self._has_eliminado_en:
+            query = query.where(self.model.eliminado_en.is_(None))
         return query
 
     def create(self, **kwargs) -> T:
@@ -97,7 +97,7 @@ class BaseRepository(Generic[T]):
             return None
 
         for key, value in kwargs.items():
-            if hasattr(instance, key) and key not in ("id", "created_at"):
+            if hasattr(instance, key) and key not in ("id", "creado_en"):
                 setattr(instance, key, value)
 
         self.session.flush()
@@ -106,7 +106,7 @@ class BaseRepository(Generic[T]):
 
     def delete(self, id: IDType) -> bool:
         """
-        Soft delete an entity (sets deleted_at timestamp).
+        Soft delete an entity (sets eliminado_en timestamp).
 
         Args:
             id: Entity ID
@@ -118,10 +118,10 @@ class BaseRepository(Generic[T]):
         if not instance:
             return False
 
-        if self._has_deleted_at:
+        if self._has_eliminado_en:
             from datetime import datetime, timezone
 
-            instance.deleted_at = datetime.now(timezone.utc)
+            instance.eliminado_en = datetime.now(timezone.utc)
             self.session.flush()
             logger.debug(f"Soft deleted {self.model.__name__}: {id}")
         else:
@@ -179,7 +179,7 @@ class BaseRepository(Generic[T]):
         from sqlalchemy import func
 
         query = select(func.count(self.model.id))
-        if self._has_deleted_at:
-            query = query.where(self.model.deleted_at.is_(None))
+        if self._has_eliminado_en:
+            query = query.where(self.model.eliminado_en.is_(None))
         count = self.session.execute(query).scalar() or 0
         return count
