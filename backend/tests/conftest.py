@@ -7,6 +7,8 @@ Provides fixtures for:
 - Test user and data factories
 """
 
+from contextlib import asynccontextmanager
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -36,6 +38,12 @@ except Exception:
 
 # Use SQLite in-memory database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+
+
+@asynccontextmanager
+async def _null_lifespan(app):
+    """No-op lifespan context for tests — table creation is handled by conftest."""
+    yield
 
 
 def _sqlite_compatible_tables(metadata, engine):
@@ -93,9 +101,16 @@ def client(test_db_session: Session) -> TestClient:
     original_enabled = limiter.enabled
     limiter.enabled = False
 
+    # Save and replace the lifespan context — the conftest already creates
+    # tables (with SQLite-compatible filtering), so the app's lifespan would
+    # try to re-create them and fail on PG-specific types (ARRAY).
+    original_lifespan = app.router.lifespan_context
+    app.router.lifespan_context = _null_lifespan
+
     with TestClient(app) as test_client:
         yield test_client
 
+    app.router.lifespan_context = original_lifespan
     limiter.enabled = original_enabled
     app.dependency_overrides.clear()
 
