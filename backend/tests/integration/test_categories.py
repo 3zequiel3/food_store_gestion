@@ -694,7 +694,7 @@ class TestDelete:
         assert response.status_code == 401
 
     def test_delete_as_client_returns_403(
-        self, client: TestClient, sample_user, sample_roles
+        self, client: TestClient, sample_user, sample_roles, admin_user
     ):
         """DELETE as CLIENT → 403."""
         headers = _admin_headers(client)

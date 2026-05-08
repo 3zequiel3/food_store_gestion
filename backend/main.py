@@ -69,6 +69,7 @@ from backend.features.products.router import router as products_router
 from backend.features.orders.router import router as orders_router
 from backend.features.payments.router import router as payments_router
 from backend.features.categories.router import router as categories_router
+from backend.features.ingredients.router import router as ingredients_router
 
 
 @asynccontextmanager
@@ -197,6 +198,7 @@ app.include_router(products_router, prefix="/api/v1/products", tags=["products"]
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["orders"])
 app.include_router(payments_router, prefix="/api/v1/payments", tags=["payments"])
 app.include_router(categories_router, prefix="/api/v1/categorias", tags=["categories"])
+app.include_router(ingredients_router, prefix="/api/v1/ingredientes", tags=["ingredients"])
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ responsibility (see D6 in design.md).
 
 from __future__ import annotations
 
+from backend.features.catalog.models import Categoria
 from backend.features.categories.repository import CategoryRepository
 from backend.features.categories.schemas import (
     CategoriaCreate,

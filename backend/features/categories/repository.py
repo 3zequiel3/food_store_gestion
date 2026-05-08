@@ -10,7 +10,7 @@ Extends BaseRepository[Categoria] with specialised methods:
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from sqlalchemy import func, literal, select
 from sqlalchemy.orm import Session
 
 from backend.features.catalog.models import Categoria
@@ -173,7 +173,7 @@ class CategoryRepository(BaseRepository[Categoria]):
                 cat.c.id,
                 cat.c.nombre,
                 cat.c.padre_id,
-                func.literal(0).label("depth"),
+                literal(0).label("depth"),
             )
             .where(cat.c.padre_id.is_(None))
             .where(cat.c.eliminado_en.is_(None))

@@ -83,39 +83,39 @@
 ## 7. Tests de integración
 
 - [x] 7.1 Crear `backend/tests/integration/test_categories.py` con fixtures que provean un cliente FastAPI autenticado como ADMIN y como STOCK (reusar las fixtures de auth si existen, sino crearlas a medida).
-- [ ] 7.2 Test: `test_create_root_categoria_as_admin` — POST con nombre y padre_id=null → 201 + body correcto.
-- [ ] 7.3 Test: `test_create_subcategoria_as_stock` — crear raíz, luego POST con padre_id apuntando a la raíz → 201.
-- [ ] 7.4 Test: `test_create_unauthenticated_returns_401` — POST sin token → 401.
-- [ ] 7.5 Test: `test_create_as_client_returns_403` — POST con token de CLIENT → 403.
-- [ ] 7.6 Test: `test_create_empty_nombre_returns_422` — POST con `nombre=""` → 422.
-- [ ] 7.7 Test: `test_create_nombre_too_long_returns_422` — POST con nombre 101 chars → 422.
-- [ ] 7.8 Test: `test_create_duplicate_root_name_returns_409` — crear `Bebidas`, intentar crear otro `Bebidas` con padre_id=null → 409.
-- [ ] 7.9 Test: `test_create_duplicate_sibling_name_returns_409` — dentro del mismo padre, dos hijos con mismo nombre → 409.
-- [ ] 7.10 Test: `test_create_same_name_different_levels_allowed` — `Promos` raíz y `Promos` bajo otra categoría → ambos 201.
-- [ ] 7.11 Test: `test_create_with_nonexistent_parent_returns_422` — POST con padre_id=99999 → 422 BusinessRuleError.
-- [ ] 7.12 Test: `test_get_tree_empty_returns_empty_list` — GET sobre tabla vacía (o solo soft-deleted) → 200 + `[]`.
-- [ ] 7.13 Test: `test_get_tree_returns_nested_structure` — crear una jerarquía de 3 niveles vía repo directo, GET, validar que `subcategorias` está bien anidado.
-- [ ] 7.14 Test: `test_get_tree_excludes_soft_deleted` — soft-deletear un nodo intermedio, GET, validar exclusión.
-- [ ] 7.15 Test: `test_get_tree_is_public` — GET sin token → 200.
-- [ ] 7.16 Test: `test_update_nombre_only` — PUT con solo nombre → 200, padre_id sin cambios.
-- [ ] 7.17 Test: `test_update_padre_id_to_another_category` — PUT con nuevo padre → 200.
-- [ ] 7.18 Test: `test_update_promote_to_root` — PUT con `padre_id: null` → 200 + `padre_id == null` en body.
-- [ ] 7.19 Test: `test_update_self_parent_returns_422` — PUT con `padre_id == self.id` → 422.
-- [ ] 7.20 Test: `test_update_creates_direct_cycle_returns_422` — A→B, intentar PUT A con padre_id=B → 422.
-- [ ] 7.21 Test: `test_update_creates_indirect_cycle_returns_422` — A→B→C, intentar PUT A con padre_id=C → 422.
-- [ ] 7.22 Test: `test_update_nonexistent_returns_404` — PUT a id inexistente → 404.
-- [ ] 7.23 Test: `test_update_soft_deleted_returns_404` — PUT a id soft-deleted → 404.
-- [ ] 7.24 Test: `test_delete_leaf_succeeds` — DELETE en hoja sin productos → 204 + `eliminado_en IS NOT NULL`.
-- [ ] 7.25 Test: `test_delete_does_not_hard_delete` — verificar que la fila sigue en la tabla con `eliminado_en` set.
-- [ ] 7.26 Test: `test_delete_with_active_children_returns_422` — DELETE de un padre con hijo no-borrado → 422.
-- [ ] 7.27 Test: `test_delete_after_children_soft_deleted_succeeds` — soft-deletear hijos primero, luego padre → 204.
-- [ ] 7.28 Test: `test_delete_with_active_products_returns_422` — crear categoría, asociar producto activo (insert directo en `product_categories`), DELETE → 422.
-- [ ] 7.29 Test: `test_delete_already_deleted_returns_404` — DELETE dos veces → 2da vez 404.
-- [ ] 7.30 Test: `test_endpoints_use_v1_prefix_and_spanish_path` — `/api/v1/categories` → 404, `/api/categorias` → 404.
+- [x] 7.2 Test: `test_create_root_categoria_as_admin` — POST con nombre y padre_id=null → 201 + body correcto.
+- [x] 7.3 Test: `test_create_subcategoria_as_stock` — crear raíz, luego POST con padre_id apuntando a la raíz → 201.
+- [x] 7.4 Test: `test_create_unauthenticated_returns_401` — POST sin token → 401.
+- [x] 7.5 Test: `test_create_as_client_returns_403` — POST con token de CLIENT → 403.
+- [x] 7.6 Test: `test_create_empty_nombre_returns_422` — POST con `nombre=""` → 422.
+- [x] 7.7 Test: `test_create_nombre_too_long_returns_422` — POST con nombre 101 chars → 422.
+- [x] 7.8 Test: `test_create_duplicate_root_name_returns_409` — crear `Bebidas`, intentar crear otro `Bebidas` con padre_id=null → 409.
+- [x] 7.9 Test: `test_create_duplicate_sibling_name_returns_409` — dentro del mismo padre, dos hijos con mismo nombre → 409.
+- [x] 7.10 Test: `test_create_same_name_different_levels_allowed` — `Promos` raíz y `Promos` bajo otra categoría → ambos 201.
+- [x] 7.11 Test: `test_create_with_nonexistent_parent_returns_422` — POST con padre_id=99999 → 422 BusinessRuleError.
+- [x] 7.12 Test: `test_get_tree_empty_returns_empty_list` — GET sobre tabla vacía (o solo soft-deleted) → 200 + `[]`.
+- [x] 7.13 Test: `test_get_tree_returns_nested_structure` — crear una jerarquía de 3 niveles vía repo directo, GET, validar que `subcategorias` está bien anidado.
+- [x] 7.14 Test: `test_get_tree_excludes_soft_deleted` — soft-deletear un nodo intermedio, GET, validar exclusión.
+- [x] 7.15 Test: `test_get_tree_is_public` — GET sin token → 200.
+- [x] 7.16 Test: `test_update_nombre_only` — PUT con solo nombre → 200, padre_id sin cambios.
+- [x] 7.17 Test: `test_update_padre_id_to_another_category` — PUT con nuevo padre → 200.
+- [x] 7.18 Test: `test_update_promote_to_root` — PUT con `padre_id: null` → 200 + `padre_id == null` en body.
+- [x] 7.19 Test: `test_update_self_parent_returns_422` — PUT con `padre_id == self.id` → 422.
+- [x] 7.20 Test: `test_update_creates_direct_cycle_returns_422` — A→B, intentar PUT A con padre_id=B → 422.
+- [x] 7.21 Test: `test_update_creates_indirect_cycle_returns_422` — A→B→C, intentar PUT A con padre_id=C → 422.
+- [x] 7.22 Test: `test_update_nonexistent_returns_404` — PUT a id inexistente → 404.
+- [x] 7.23 Test: `test_update_soft_deleted_returns_404` — PUT a id soft-deleted → 404.
+- [x] 7.24 Test: `test_delete_leaf_succeeds` — DELETE en hoja sin productos → 204 + `eliminado_en IS NOT NULL`.
+- [x] 7.25 Test: `test_delete_does_not_hard_delete` — verificar que la fila sigue en la tabla con `eliminado_en` set.
+- [x] 7.26 Test: `test_delete_with_active_children_returns_422` — DELETE de un padre con hijo no-borrado → 422.
+- [x] 7.27 Test: `test_delete_after_children_soft_deleted_succeeds` — soft-deletear hijos primero, luego padre → 204.
+- [x] 7.28 Test: `test_delete_with_active_products_returns_422` — crear categoría, asociar producto activo (insert directo en `product_categories`), DELETE → 422.
+- [x] 7.29 Test: `test_delete_already_deleted_returns_404` — DELETE dos veces → 2da vez 404.
+- [x] 7.30 Test: `test_endpoints_use_v1_prefix_and_spanish_path` — `/api/v1/categories` → 404, `/api/categorias` → 404.
 
 ## 8. Documentación y wrap-up
 
-- [ ] 8.1 Crear `backend/features/categories/README.md` breve (5-10 líneas) describiendo el módulo, los 4 endpoints, y el patrón de UoW. Incluir ejemplo de curl para POST.
+- [x] 8.1 Crear `backend/features/categories/README.md` breve (5-10 líneas) describiendo el módulo, los 4 endpoints, y el patrón de UoW. Incluir ejemplo de curl para POST.
 - [ ] 8.2 Verificar manualmente con un curl de smoke (o pytest -k categories) que los 4 endpoints responden correctamente — NO ejecutar build, solo `pytest backend/tests/integration/test_categories.py`.
 - [ ] 8.3 Mostrar resumen al usuario: archivos creados, paths exactos, link a la primera CTE del proyecto en `repository.py`. ESPERAR REVISIÓN HUMANA antes de cualquier `/opsx:archive`.
 
@@ -127,3 +127,13 @@
 > - El soft delete usa `eliminado_en = datetime.now(timezone.utc)`, NUNCA `session.delete()`.
 > - `padre_id == 0`, `padre_id < 0` y `padre_id` no existente son todos rechazos del service (no del repo).
 > - Si la CTE de SQLAlchemy con `array` se complica, se puede simplificar a `(id, nombre, padre_id, depth)` sin `path` y ordenar por `depth ASC, nombre ASC`. El nesting en Python no necesita `path` para ser correcto.
+
+## 10. Fix post-implementación — `func.literal(0)` rompe en SQLite
+
+> Bug detectado al correr el suite con SQLite in-memory después de aplicar `fix-test-setup-uow-override`. El design.md D2 especificaba `literal(0)` (constructor SQLAlchemy que inlinea valores), pero la implementación usó `func.literal(0)` (llamada a una función SQL `literal()` que no existe en SQLite). Síntoma: 5 tests de `TestTree` y `TestRouting` fallan con `sqlite3: no such function: literal`.
+
+- [x] 10.1 En `backend/features/categories/repository.py`: agregar `literal` al import existente desde `sqlalchemy` (la línea cerca de `select`, `func`, etc.).
+- [x] 10.2 Reemplazar en línea ~176 (anchor de la CTE de árbol en `get_tree_cte`): `func.literal(0).label("depth")` → `literal(0).label("depth")`.
+- [x] 10.3 Verificar con `rg "func\.literal" backend/features/categories/` que no quedan otras referencias residuales (la CTE de ciclos en `would_create_cycle` no usa literal — verificar igual).
+- [x] 10.4 Correr `pytest backend/tests/integration/test_categories.py -v` y validar **31/31 PASSED**.
+- [x] 10.5 Si algún test sigue fallando por OTRO motivo (no relacionado al `literal`), reportarlo SIN arreglarlo — queda fuera del scope de este fix puntual.

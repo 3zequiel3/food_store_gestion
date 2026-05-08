@@ -17,6 +17,8 @@ from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.shared.database import Base, get_db
+from backend.dependencies import get_uow
+from backend.shared.unit_of_work import UnitOfWork
 
 # Import ALL models so SQLAlchemy's declarative registry can resolve
 # string-based relationship targets (e.g. relationship("Pedido", ...)).
@@ -95,6 +97,21 @@ def client(test_db_session: Session) -> TestClient:
         yield test_db_session
 
     app.dependency_overrides[get_db] = override_get_db
+
+    # Override get_uow so any endpoint using Depends(get_uow) resolves to
+    # the same SQLite test session — NOT to a real Postgres connection.
+    # NOTE: NO uow.close() here — lifecycle is managed by the test_db_session
+    # fixture (session.close() + transaction.rollback() at teardown). Closing
+    # twice would break tests that query test_db_session directly after a request.
+    def override_get_uow():
+        uow = UnitOfWork(test_db_session)
+        try:
+            yield uow
+        except Exception:
+            uow.rollback()
+            raise
+
+    app.dependency_overrides[get_uow] = override_get_uow
 
     # Disable rate limiting for tests — each test runs independently and
     # all requests come from the same "testclient" IP, causing false 429s.
