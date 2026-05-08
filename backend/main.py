@@ -68,6 +68,7 @@ from backend.features.users.router import router as users_router
 from backend.features.products.router import router as products_router
 from backend.features.orders.router import router as orders_router
 from backend.features.payments.router import router as payments_router
+from backend.features.addresses.router import router as addresses_router
 from backend.features.categories.router import router as categories_router
 from backend.features.ingredients.router import router as ingredients_router
 
@@ -197,6 +198,7 @@ app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
 app.include_router(products_router, prefix="/api/v1/productos", tags=["products"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["orders"])
 app.include_router(payments_router, prefix="/api/v1/payments", tags=["payments"])
+app.include_router(addresses_router, prefix="/api/v1/direcciones", tags=["addresses"])
 app.include_router(categories_router, prefix="/api/v1/categorias", tags=["categories"])
 app.include_router(ingredients_router, prefix="/api/v1/ingredientes", tags=["ingredients"])
 
