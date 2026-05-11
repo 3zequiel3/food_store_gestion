@@ -8,8 +8,8 @@ Orchestrates validation rules via UnitOfWork + IngredientRepository:
 - Soft delete without guards (D4 in design.md — US-014 is satisfied by
   the soft delete itself).
 
-The service NEVER calls ``uow.commit()`` — that is the router's
-responsibility (see D6 in design.md).
+Each public method opens its own UnitOfWork context. Commit is performed
+by ``__exit__`` on clean exit. The router never calls uow.commit().
 """
 
 from __future__ import annotations
@@ -24,10 +24,8 @@ from backend.shared.unit_of_work import UnitOfWork
 class IngredientService:
     """Business logic for the ingredient domain."""
 
-    def __init__(self, uow: UnitOfWork) -> None:
-        uow.register_repository("ingredientes", IngredientRepository(uow.session))
-        self.repo: IngredientRepository = uow.ingredientes  # type: ignore[assignment]
-        self.uow = uow
+    def __init__(self) -> None:
+        pass
 
     # ── Create ────────────────────────────────────────────────────────────
 
@@ -50,15 +48,19 @@ class IngredientService:
             ConflictError: If any ingredient (active or deleted) with that
                 name already exists.
         """
-        nombre = payload.nombre.strip()
-        if not nombre:
-            raise BusinessRuleError("El nombre del ingrediente no puede estar vacío")
+        with UnitOfWork() as uow:
+            uow.register_repository("ingredientes", IngredientRepository(uow.session))
+            repo: IngredientRepository = uow.ingredientes  # type: ignore[assignment]
 
-        existing = self.repo.find_by_nombre(nombre)
-        if existing is not None:
-            raise ConflictError("Ya existe un ingrediente con ese nombre")
+            nombre = payload.nombre.strip()
+            if not nombre:
+                raise BusinessRuleError("El nombre del ingrediente no puede estar vacío")
 
-        return self.repo.create(nombre=nombre, es_alergeno=payload.es_alergeno)
+            existing = repo.find_by_nombre(nombre)
+            if existing is not None:
+                raise ConflictError("Ya existe un ingrediente con ese nombre")
+
+            return repo.create(nombre=nombre, es_alergeno=payload.es_alergeno)
 
     # ── Read ──────────────────────────────────────────────────────────────
 
@@ -75,10 +77,14 @@ class IngredientService:
             NotFoundError: If the ingredient does not exist or is
                 soft-deleted (BaseRepository.read filters eliminado_en).
         """
-        current = self.repo.read(ingrediente_id)
-        if current is None:
-            raise NotFoundError("Ingrediente no encontrado")
-        return current
+        with UnitOfWork() as uow:
+            uow.register_repository("ingredientes", IngredientRepository(uow.session))
+            repo: IngredientRepository = uow.ingredientes  # type: ignore[assignment]
+
+            current = repo.read(ingrediente_id)
+            if current is None:
+                raise NotFoundError("Ingrediente no encontrado")
+            return current
 
     # ── List ──────────────────────────────────────────────────────────────
 
@@ -100,8 +106,12 @@ class IngredientService:
             Tuple of (items, total) where total is the filtered count
             across all pages.
         """
-        skip = (page - 1) * limit
-        return self.repo.list_paginated(skip=skip, limit=limit, es_alergeno=es_alergeno)
+        with UnitOfWork() as uow:
+            uow.register_repository("ingredientes", IngredientRepository(uow.session))
+            repo: IngredientRepository = uow.ingredientes  # type: ignore[assignment]
+
+            skip = (page - 1) * limit
+            return repo.list_paginated(skip=skip, limit=limit, es_alergeno=es_alergeno)
 
     # ── Update ────────────────────────────────────────────────────────────
 
@@ -131,27 +141,31 @@ class IngredientService:
             BusinessRuleError: If the trimmed nombre is blank.
             ConflictError: If another ingredient with the new name exists.
         """
-        current = self.repo.read(ingrediente_id)
-        if current is None:
-            raise NotFoundError("Ingrediente no encontrado")
+        with UnitOfWork() as uow:
+            uow.register_repository("ingredientes", IngredientRepository(uow.session))
+            repo: IngredientRepository = uow.ingredientes  # type: ignore[assignment]
 
-        data = payload.model_dump(exclude_unset=True)
+            current = repo.read(ingrediente_id)
+            if current is None:
+                raise NotFoundError("Ingrediente no encontrado")
 
-        if "nombre" in data:
-            nombre = data["nombre"].strip()
-            if not nombre:
-                raise BusinessRuleError(
-                    "El nombre del ingrediente no puede estar vacío"
-                )
-            data["nombre"] = nombre
+            data = payload.model_dump(exclude_unset=True)
 
-            # Only check uniqueness if the name actually changed
-            if nombre != current.nombre:
-                existing = self.repo.find_by_nombre(nombre)
-                if existing is not None and existing.id != ingrediente_id:
-                    raise ConflictError("Ya existe un ingrediente con ese nombre")
+            if "nombre" in data:
+                nombre = data["nombre"].strip()
+                if not nombre:
+                    raise BusinessRuleError(
+                        "El nombre del ingrediente no puede estar vacío"
+                    )
+                data["nombre"] = nombre
 
-        return self.repo.update(ingrediente_id, **data)
+                # Only check uniqueness if the name actually changed
+                if nombre != current.nombre:
+                    existing = repo.find_by_nombre(nombre)
+                    if existing is not None and existing.id != ingrediente_id:
+                        raise ConflictError("Ya existe un ingrediente con ese nombre")
+
+            return repo.update(ingrediente_id, **data)
 
     # ── Delete (soft) ─────────────────────────────────────────────────────
 
@@ -171,8 +185,12 @@ class IngredientService:
             NotFoundError: If the ingredient does not exist or is already
                 soft-deleted.
         """
-        current = self.repo.read(ingrediente_id)
-        if current is None:
-            raise NotFoundError("Ingrediente no encontrado")
+        with UnitOfWork() as uow:
+            uow.register_repository("ingredientes", IngredientRepository(uow.session))
+            repo: IngredientRepository = uow.ingredientes  # type: ignore[assignment]
 
-        self.repo.delete(ingrediente_id)
+            current = repo.read(ingrediente_id)
+            if current is None:
+                raise NotFoundError("Ingrediente no encontrado")
+
+            repo.delete(ingrediente_id)
