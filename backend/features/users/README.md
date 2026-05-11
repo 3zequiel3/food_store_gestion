@@ -1,7 +1,7 @@
 # users — módulo de perfil propio
 
 Endpoints de auto-servicio de perfil para cualquier usuario autenticado (US-061, US-062, US-063).
-Montado bajo `/api/v1/users` (ver `backend/main.py`).
+Montado bajo `/api/v1/usuarios` (ver `backend/main.py`).
 
 ## Endpoints
 
@@ -15,19 +15,19 @@ Montado bajo `/api/v1/users` (ver `backend/main.py`).
 
 ```bash
 # GET perfil propio
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/users/me
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/usuarios/me
 
 # PATCH actualizar nombre
 curl -X PATCH -H "Authorization: Bearer $TOKEN" \
      -H "Content-Type: application/json" \
      -d '{"nombre": "Juan Carlos"}' \
-     http://localhost:8000/api/v1/users/me
+     http://localhost:8000/api/v1/usuarios/me
 
 # POST cambiar contraseña
 curl -X POST -H "Authorization: Bearer $TOKEN" \
      -H "Content-Type: application/json" \
      -d '{"password_actual": "old_pass", "password_nuevo": "new_pass_2024"}' \
-     http://localhost:8000/api/v1/users/me/password
+     http://localhost:8000/api/v1/usuarios/me/password
 ```
 
 ## Comportamiento post-cambio de contraseña

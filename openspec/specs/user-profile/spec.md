@@ -5,37 +5,37 @@ Enable authenticated users to view and manage their own user profile (US-061, US
 ## Requirements
 
 ### Requirement: Get own profile endpoint
-The system SHALL expose `GET /api/v1/users/me` protected by `Depends(get_current_user)` (any authenticated role) that returns the authenticated user's full profile as `ProfileResponse({id, email, nombre, apellido, telefono, roles[], creado_en, actualizado_en})`. The endpoint SHALL eager-load roles via `selectinload` and SHALL NEVER include `password_hash`, `is_active`, or `eliminado_en` in the response payload. (US-061, RN-RB05)
+The system SHALL expose `GET /api/v1/usuarios/me` protected by `Depends(get_current_user)` (any authenticated role) that returns the authenticated user's full profile as `ProfileResponse({id, email, nombre, apellido, telefono, roles[], creado_en, actualizado_en})`. The endpoint SHALL eager-load roles via `selectinload` and SHALL NEVER include `password_hash`, `is_active`, or `eliminado_en` in the response payload. (US-061, RN-RB05)
 
 #### Scenario: Authenticated user retrieves own profile with telefono
 - **GIVEN** a user with `telefono="+54 11 1234-5678"` is authenticated
-- **WHEN** they call `GET /api/v1/users/me`
+- **WHEN** they call `GET /api/v1/usuarios/me`
 - **THEN** the response is 200 with body `{id, email, nombre, apellido, telefono: "+54 11 1234-5678", roles, creado_en, actualizado_en}`
 
 #### Scenario: Roles are serialized as code strings
 - **GIVEN** an authenticated user with role CLIENT
-- **WHEN** they call `GET /api/v1/users/me`
+- **WHEN** they call `GET /api/v1/usuarios/me`
 - **THEN** `body.roles == ["CLIENT"]` (list of role code strings, not Rol objects)
 
 #### Scenario: Sensitive fields never appear in response
 - **GIVEN** any authenticated user
-- **WHEN** they call `GET /api/v1/users/me`
+- **WHEN** they call `GET /api/v1/usuarios/me`
 - **THEN** the response JSON SHALL NOT contain the keys `password_hash`, `is_active`, `eliminado_en`
 
 #### Scenario: Unauthenticated request rejected
-- **WHEN** an anonymous client calls `GET /api/v1/users/me`
+- **WHEN** an anonymous client calls `GET /api/v1/usuarios/me`
 - **THEN** the response is 401 (RFC 7807) with `title: "Unauthorized"`
 
 #### Scenario: Invalid token rejected
-- **WHEN** a client sends `Authorization: Bearer foobar` to `GET /api/v1/users/me`
+- **WHEN** a client sends `Authorization: Bearer foobar` to `GET /api/v1/usuarios/me`
 - **THEN** the response is 401
 
 ### Requirement: Update own profile endpoint
-The system SHALL expose `PATCH /api/v1/users/me` protected by `Depends(get_current_user)` that accepts `UpdateProfileRequest({nombre?: str, apellido?: str, telefono?: str | null})` (all fields optional). On success it SHALL return 200 with `ProfileResponse`. The service SHALL apply `model_dump(exclude_unset=True)` so omitted fields are preserved and explicit `null` for `telefono` is honored. The endpoint SHALL reject any extra fields (`email`, `password`, `roles`) with 422 (`extra="forbid"`). (US-062)
+The system SHALL expose `PATCH /api/v1/usuarios/me` protected by `Depends(get_current_user)` that accepts `UpdateProfileRequest({nombre?: str, apellido?: str, telefono?: str | null})` (all fields optional). On success it SHALL return 200 with `ProfileResponse`. The service SHALL apply `model_dump(exclude_unset=True)` so omitted fields are preserved and explicit `null` for `telefono` is honored. The endpoint SHALL reject any extra fields (`email`, `password`, `roles`) with 422 (`extra="forbid"`). (US-062)
 
 #### Scenario: Successful partial update of nombre
 - **GIVEN** a user with `nombre="Juan", apellido="Perez", telefono="+541112"`
-- **WHEN** they PATCH `/api/v1/users/me` with `{"nombre": "Juan Carlos"}`
+- **WHEN** they PATCH `/api/v1/usuarios/me` with `{"nombre": "Juan Carlos"}`
 - **THEN** the response is 200 with `nombre: "Juan Carlos"`, `apellido: "Perez"` and `telefono: "+541112"` unchanged
 
 #### Scenario: Successful update of multiple fields
@@ -64,11 +64,11 @@ The system SHALL expose `PATCH /api/v1/users/me` protected by `Depends(get_curre
 - **THEN** the response is 422 (a CLIENT cannot self-promote)
 
 #### Scenario: Unauthenticated request rejected
-- **WHEN** an anonymous client PATCHes `/api/v1/users/me`
+- **WHEN** an anonymous client PATCHes `/api/v1/usuarios/me`
 - **THEN** the response is 401
 
 ### Requirement: Email is not editable through the profile endpoint
-The system SHALL NEVER allow modification of the `users.email` column through `PATCH /api/v1/users/me`. The `UpdateProfileRequest` schema SHALL NOT declare an `email` field, and `extra="forbid"` SHALL cause any attempt to send `email` to be rejected with 422. (US-062 acceptance: "El email NO se puede cambiar (es el identificador)" + Integrador.txt §3.1 — email is the unique identifier)
+The system SHALL NEVER allow modification of the `users.email` column through `PATCH /api/v1/usuarios/me`. The `UpdateProfileRequest` schema SHALL NOT declare an `email` field, and `extra="forbid"` SHALL cause any attempt to send `email` to be rejected with 422. (US-062 acceptance: "El email NO se puede cambiar (es el identificador)" + Integrador.txt §3.1 — email is the unique identifier)
 
 #### Scenario: Email change attempt is rejected
 - **WHEN** a user PATCHes with `{"email": "different@example.com"}`
@@ -109,7 +109,7 @@ The system SHALL validate `telefono` with the regex `^\+?[\d\s\-\(\)]{6,30}$` (p
 - **THEN** the response is 422
 
 ### Requirement: Change password endpoint
-The system SHALL expose `POST /api/v1/users/me/password` protected by `Depends(get_current_user)` that accepts `ChangePasswordRequest({password_actual: str, password_nuevo: str})`. On success it SHALL return **204 No Content** with empty body. The endpoint SHALL:
+The system SHALL expose `POST /api/v1/usuarios/me/password` protected by `Depends(get_current_user)` that accepts `ChangePasswordRequest({password_actual: str, password_nuevo: str})`. On success it SHALL return **204 No Content** with empty body. The endpoint SHALL:
 1. Verify `password_actual` against the stored hash via `verify_password` (bcrypt constant-time).
 2. Reject if `password_nuevo` matches the current password (avoids needless token revocation).
 3. Hash the new password with `hash_password` (bcrypt cost ≥ 12, RN-AU01).
@@ -189,7 +189,7 @@ The system SHALL NOT attempt to invalidate access tokens on password change. JWT
 
 #### Scenario: Access token issued before password change continues to work briefly
 - **GIVEN** a user has access token `T` (valid for 25 more minutes)
-- **WHEN** they successfully change their password and continue to use `T` against `GET /api/v1/users/me`
+- **WHEN** they successfully change their password and continue to use `T` against `GET /api/v1/usuarios/me`
 - **THEN** the response is 200 (not invalidated immediately — stateless JWT)
 
 #### Scenario: After access token expires, refresh fails (forces re-login)
@@ -201,12 +201,12 @@ The system SHALL NOT attempt to invalidate access tokens on password change. JWT
 The system SHALL ensure that all profile endpoints operate exclusively on the authenticated user's own data, derived from `current_user.id` returned by `Depends(get_current_user)`. No endpoint SHALL accept a `user_id` path parameter or body field. This implements RN-RB05 (a CLIENT can only see and operate on their own data). Cross-user access for ADMINs is out of scope and belongs to `admin-users-backend` (#18).
 
 #### Scenario: No path parameter for user_id is exposed
-- **WHEN** the OpenAPI schema for `/api/v1/users/*` is introspected
-- **THEN** there is no route `/api/v1/users/{user_id}` for the profile endpoints (GET/PATCH/POST `/me/*`)
+- **WHEN** the OpenAPI schema for `/api/v1/usuarios/*` is introspected
+- **THEN** there is no route `/api/v1/usuarios/{user_id}` for the profile endpoints (GET/PATCH/POST `/me/*`)
 
 #### Scenario: Endpoint always derives the target user from the token
 - **GIVEN** authenticated user A and authenticated user B
-- **WHEN** A calls `GET /api/v1/users/me`
+- **WHEN** A calls `GET /api/v1/usuarios/me`
 - **THEN** the response contains A's data, never B's (no body or query param can change this)
 
 ### Requirement: Errors use RFC 7807 Problem Details
@@ -229,12 +229,12 @@ All error responses from user-profile endpoints SHALL conform to RFC 7807 (`{typ
 - **THEN** there are zero occurrences of `raise HTTPException`
 
 ### Requirement: API path and version
-The system SHALL mount the user-profile endpoints under `/api/v1/users` with tag `users`. Endpoints SHALL be `GET /me`, `PATCH /me`, `POST /me/password` — using the English path segment `users` (consistent with the existing router mount at `backend/main.py:196`).
+The system SHALL mount the user-profile endpoints under `/api/v1/usuarios` with tag `users`. Endpoints SHALL be `GET /me`, `PATCH /me`, `POST /me/password` — using the Spanish path segment `usuarios` to match the lexical convention of `Integrador.txt` (which names the conceptual module `usuarios` at line 91 and consistently uses Spanish path segments for domain resources: `productos`, `pedidos`, `pagos`, `direcciones`, `categorias`, `ingredientes`). The OpenAPI tag remains `users` (English) for consistency with the other six domain tags in `backend/main.py` (`products`, `orders`, `payments`, `addresses`, `categories`, `ingredients`), which use English tag names regardless of their Spanish URL prefix.
 
-#### Scenario: Endpoints respond under /api/v1/users
-- **WHEN** a client calls `GET /api/v1/users/me`
+#### Scenario: Endpoints respond under /api/v1/usuarios
+- **WHEN** a client calls `GET /api/v1/usuarios/me`
 - **THEN** the response is 200 (when authenticated)
 
-#### Scenario: English-Spanish ambiguity rejected
-- **WHEN** a client calls `GET /api/v1/usuarios/me`
-- **THEN** the response is 404 (no such route)
+#### Scenario: Legacy English path returns 404
+- **WHEN** a client calls `GET /api/v1/users/me`
+- **THEN** the response is 404 (no such route — the legacy English path was removed in favor of the Spanish path that matches the Integrador lexicon)

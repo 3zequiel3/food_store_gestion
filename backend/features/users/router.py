@@ -6,7 +6,7 @@ All endpoints operate exclusively on the authenticated user's own data
 is exposed — this enforces RN-RB05 (a CLIENT can only operate on their
 own data).
 
-Mounted at /api/v1/users by backend/main.py (no prefix here).
+Mounted at /api/v1/usuarios by backend/main.py (no prefix here).
 """
 
 from fastapi import APIRouter, Depends, Response, status

@@ -2,9 +2,9 @@
 Integration tests for user profile self-service endpoints.
 
 Covers:
-- GET  /api/v1/users/me   (US-061)
-- PATCH /api/v1/users/me  (US-062)
-- POST  /api/v1/users/me/password (US-063)
+- GET  /api/v1/usuarios/me   (US-061)
+- PATCH /api/v1/usuarios/me  (US-062)
+- POST  /api/v1/usuarios/me/password (US-063)
 
 Security contracts verified explicitly:
 1. Password actual incorrecto → 401 genérico, detail sin substrings sensibles
@@ -146,7 +146,7 @@ def test_get_my_profile_returns_full_payload_with_telefono(
     auth_headers_telefono,
 ):
     """GET /me returns 200 with full profile including telefono."""
-    resp = client.get("/api/v1/users/me", headers=auth_headers_telefono)
+    resp = client.get("/api/v1/usuarios/me", headers=auth_headers_telefono)
 
     assert resp.status_code == 200
     body = resp.json()
@@ -166,7 +166,7 @@ def test_get_my_profile_includes_roles_codes(
     auth_headers,
 ):
     """GET /me returns roles as list of code strings."""
-    resp = client.get("/api/v1/users/me", headers=auth_headers)
+    resp = client.get("/api/v1/usuarios/me", headers=auth_headers)
 
     assert resp.status_code == 200
     body = resp.json()
@@ -179,7 +179,7 @@ def test_get_my_profile_omits_password_hash_and_is_active(
     auth_headers,
 ):
     """GET /me response JSON must NOT contain sensitive keys."""
-    resp = client.get("/api/v1/users/me", headers=auth_headers)
+    resp = client.get("/api/v1/usuarios/me", headers=auth_headers)
 
     assert resp.status_code == 200
     body = resp.json()
@@ -194,10 +194,10 @@ def test_patch_nombre_only(
     auth_headers,
 ):
     """PATCH /me with only nombre updates nombre and leaves other fields intact."""
-    original = client.get("/api/v1/users/me", headers=auth_headers).json()
+    original = client.get("/api/v1/usuarios/me", headers=auth_headers).json()
 
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"nombre": "Nuevo Nombre"},
         headers=auth_headers,
     )
@@ -216,7 +216,7 @@ def test_patch_apellido_only(
 ):
     """PATCH /me with only apellido returns 200."""
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"apellido": "Nuevo Apellido"},
         headers=auth_headers,
     )
@@ -231,7 +231,7 @@ def test_patch_telefono_only(
 ):
     """PATCH /me with a valid telefono returns 200."""
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"telefono": "+1-555-0100"},
         headers=auth_headers,
     )
@@ -246,7 +246,7 @@ def test_patch_all_fields_combined(
 ):
     """PATCH /me with nombre + apellido + telefono updates all three."""
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"nombre": "Ana", "apellido": "Gomez", "telefono": "+1-555-0100"},
         headers=auth_headers,
     )
@@ -266,14 +266,14 @@ def test_patch_telefono_to_null(
     """PATCH /me with telefono=null clears the column in the DB."""
     # First set a telefono
     client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"telefono": "+54 11 9999-8888"},
         headers=auth_headers,
     )
 
     # Then clear it
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"telefono": None},
         headers=auth_headers,
     )
@@ -291,9 +291,9 @@ def test_patch_empty_body_is_noop(
     auth_headers,
 ):
     """PATCH /me with {} returns 200 and changes nothing."""
-    original = client.get("/api/v1/users/me", headers=auth_headers).json()
+    original = client.get("/api/v1/usuarios/me", headers=auth_headers).json()
 
-    resp = client.patch("/api/v1/users/me", json={}, headers=auth_headers)
+    resp = client.patch("/api/v1/usuarios/me", json={}, headers=auth_headers)
 
     assert resp.status_code == 200
     body = resp.json()
@@ -309,7 +309,7 @@ def test_change_password_success_returns_204(
 ):
     """POST /me/password with correct current password returns 204."""
     resp = client.post(
-        "/api/v1/users/me/password",
+        "/api/v1/usuarios/me/password",
         json={
             "password_actual": "test_password_123",
             "password_nuevo": "nueva_pass_segura",
@@ -327,7 +327,7 @@ def test_change_password_then_login_with_new_works(
 ):
     """After password change, login with new password works; old fails."""
     client.post(
-        "/api/v1/users/me/password",
+        "/api/v1/usuarios/me/password",
         json={
             "password_actual": "test_password_123",
             "password_nuevo": "nueva_pass_segura",
@@ -362,7 +362,7 @@ def test_patch_nombre_only_spaces_returns_422(
 ):
     """PATCH /me with nombre='   ' returns 422 (empty after trim)."""
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"nombre": "   "},
         headers=auth_headers,
     )
@@ -378,7 +378,7 @@ def test_patch_nombre_too_short_returns_422(
 ):
     """PATCH /me with nombre='A' (1 char) returns 422 (Pydantic min_length=2)."""
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"nombre": "A"},
         headers=auth_headers,
     )
@@ -392,7 +392,7 @@ def test_patch_nombre_too_long_returns_422(
 ):
     """PATCH /me with nombre of 81 chars returns 422 (Pydantic max_length=80)."""
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"nombre": "A" * 81},
         headers=auth_headers,
     )
@@ -406,7 +406,7 @@ def test_patch_telefono_alpha_returns_422(
 ):
     """PATCH /me with alphabetic telefono returns 422 (regex mismatch)."""
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"telefono": "abcdefghij"},
         headers=auth_headers,
     )
@@ -420,7 +420,7 @@ def test_patch_telefono_empty_string_returns_422(
 ):
     """PATCH /me with telefono='' returns 422 (regex {6,30} requires min chars)."""
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"telefono": ""},
         headers=auth_headers,
     )
@@ -434,7 +434,7 @@ def test_patch_telefono_too_short_returns_422(
 ):
     """PATCH /me with telefono='+1' (2 chars) returns 422."""
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"telefono": "+1"},
         headers=auth_headers,
     )
@@ -458,7 +458,7 @@ def test_patch_telefono_valid_international_formats_accepted(
 ):
     """PATCH /me accepts common international phone formats."""
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"telefono": telefono},
         headers=auth_headers,
     )
@@ -472,7 +472,7 @@ def test_patch_with_extra_field_email_returns_422(
 ):
     """PATCH /me with email field returns 422 (extra='forbid')."""
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"nombre": "X", "email": "hacker@example.com"},
         headers=auth_headers,
     )
@@ -486,7 +486,7 @@ def test_patch_with_extra_field_password_returns_422(
 ):
     """PATCH /me with password field returns 422 (extra='forbid')."""
     resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"password": "new_secret"},
         headers=auth_headers,
     )
@@ -500,7 +500,7 @@ def test_change_password_too_short_returns_422(
 ):
     """POST /me/password with password_nuevo of 7 chars returns 422."""
     resp = client.post(
-        "/api/v1/users/me/password",
+        "/api/v1/usuarios/me/password",
         json={"password_actual": "test_password_123", "password_nuevo": "1234567"},
         headers=auth_headers,
     )
@@ -514,7 +514,7 @@ def test_change_password_missing_field_returns_422(
 ):
     """POST /me/password without password_actual returns 422."""
     resp = client.post(
-        "/api/v1/users/me/password",
+        "/api/v1/usuarios/me/password",
         json={"password_nuevo": "nueva_pass_segura"},
         headers=auth_headers,
     )
@@ -539,7 +539,7 @@ def test_change_password_with_wrong_actual_returns_401_generic(
     - detail must NOT contain substrings: actual, nuevo, incorrecto, hash, password
     """
     resp = client.post(
-        "/api/v1/users/me/password",
+        "/api/v1/usuarios/me/password",
         json={"password_actual": "WRONG_PASSWORD", "password_nuevo": "nueva_pass_segura"},
         headers=auth_headers,
     )
@@ -564,7 +564,7 @@ def test_change_password_same_as_current_returns_422(
 ):
     """POST /me/password with password_nuevo == password_actual returns 422."""
     resp = client.post(
-        "/api/v1/users/me/password",
+        "/api/v1/usuarios/me/password",
         json={
             "password_actual": "test_password_123",
             "password_nuevo": "test_password_123",
@@ -578,20 +578,20 @@ def test_change_password_same_as_current_returns_422(
 
 def test_get_me_without_token_returns_401(client: TestClient, sample_user):
     """GET /me without Authorization header returns 401."""
-    resp = client.get("/api/v1/users/me")
+    resp = client.get("/api/v1/usuarios/me")
     assert resp.status_code == 401
 
 
 def test_patch_me_without_token_returns_401(client: TestClient, sample_user):
     """PATCH /me without Authorization header returns 401."""
-    resp = client.patch("/api/v1/users/me", json={"nombre": "X"})
+    resp = client.patch("/api/v1/usuarios/me", json={"nombre": "X"})
     assert resp.status_code == 401
 
 
 def test_post_password_without_token_returns_401(client: TestClient, sample_user):
     """POST /me/password without Authorization header returns 401."""
     resp = client.post(
-        "/api/v1/users/me/password",
+        "/api/v1/usuarios/me/password",
         json={"password_actual": "x", "password_nuevo": "nueva_pass_segura"},
     )
     assert resp.status_code == 401
@@ -600,7 +600,7 @@ def test_post_password_without_token_returns_401(client: TestClient, sample_user
 def test_get_me_with_invalid_token_returns_401(client: TestClient, sample_user):
     """GET /me with 'Bearer foobar' returns 401."""
     resp = client.get(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         headers={"Authorization": "Bearer foobar"},
     )
     assert resp.status_code == 401
@@ -636,7 +636,7 @@ def test_change_password_revokes_all_active_refresh_tokens(
 
     # Change password
     resp = client.post(
-        "/api/v1/users/me/password",
+        "/api/v1/usuarios/me/password",
         json={
             "password_actual": "test_password_123",
             "password_nuevo": "nueva_pass_segura",
@@ -677,7 +677,7 @@ def test_refresh_with_old_token_after_password_change_returns_401(
 
     # Change password (this revokes all refresh tokens)
     change_resp = client.post(
-        "/api/v1/users/me/password",
+        "/api/v1/usuarios/me/password",
         json={
             "password_actual": "test_password_123",
             "password_nuevo": "nueva_pass_segura",
@@ -734,7 +734,7 @@ def test_change_password_failed_does_not_revoke_tokens(
     """
     # Verify the 401 is returned — this confirms the early-exit path was taken
     resp = client.post(
-        "/api/v1/users/me/password",
+        "/api/v1/usuarios/me/password",
         json={
             "password_actual": "WRONG_PASSWORD",
             "password_nuevo": "nueva_pass_segura",
@@ -766,14 +766,14 @@ def test_user_cannot_access_other_user_profile_via_token(
     """No route exposes user_id as path param — isolation is enforced by design.
 
     Verifies defensively that the OpenAPI schema does NOT list a route
-    GET /api/v1/users/{user_id} for the profile endpoints.
+    GET /api/v1/usuarios/{user_id} for the profile endpoints.
     """
     resp = client.get("/openapi.json")
     assert resp.status_code == 200
     paths = resp.json().get("paths", {})
 
     # The profile routes must only be /me, /me/password — no {user_id}
-    users_routes = [p for p in paths if p.startswith("/api/v1/users/")]
+    users_routes = [p for p in paths if p.startswith("/api/v1/usuarios/")]
     for route in users_routes:
         assert "{user_id}" not in route, (
             f"SECURITY: Route {route!r} exposes user_id path param (violates RN-RB05)"
@@ -787,13 +787,13 @@ def test_admin_user_can_use_endpoints_too(
 ):
     """Admin-role users can use all profile endpoints (any authenticated role allowed)."""
     # GET /me
-    get_resp = client.get("/api/v1/users/me", headers=admin_headers)
+    get_resp = client.get("/api/v1/usuarios/me", headers=admin_headers)
     assert get_resp.status_code == 200
     assert get_resp.json()["email"] == "admin@example.com"
 
     # PATCH /me
     patch_resp = client.patch(
-        "/api/v1/users/me",
+        "/api/v1/usuarios/me",
         json={"nombre": "Admin Updated"},
         headers=admin_headers,
     )
@@ -802,7 +802,7 @@ def test_admin_user_can_use_endpoints_too(
 
     # POST /me/password
     pwd_resp = client.post(
-        "/api/v1/users/me/password",
+        "/api/v1/usuarios/me/password",
         json={"password_actual": "admin_pass_123", "password_nuevo": "admin_nueva_pass"},
         headers=admin_headers,
     )
@@ -821,7 +821,7 @@ def test_two_users_isolated(
     User B logs in → /me returns B's data.
     """
     # Get User A's profile
-    resp_a = client.get("/api/v1/users/me", headers=auth_headers)
+    resp_a = client.get("/api/v1/usuarios/me", headers=auth_headers)
     assert resp_a.status_code == 200
     assert resp_a.json()["email"] == sample_user.email
 
@@ -834,7 +834,7 @@ def test_two_users_isolated(
     headers_b = {"Authorization": f"Bearer {login_b.json()['access_token']}"}
 
     # Get User B's profile
-    resp_b = client.get("/api/v1/users/me", headers=headers_b)
+    resp_b = client.get("/api/v1/usuarios/me", headers=headers_b)
     assert resp_b.status_code == 200
     assert resp_b.json()["email"] == second_user.email
 

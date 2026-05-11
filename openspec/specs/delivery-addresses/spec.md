@@ -211,14 +211,14 @@ All error responses from delivery-address endpoints SHALL conform to RFC 7807 (`
 - **THEN** there are zero occurrences of `raise HTTPException`
 
 ### Requirement: API path and version
-The system SHALL mount the delivery-address endpoints under `/api/v1/direcciones` with tag `addresses`. The endpoints SHALL be top-level (NOT a sub-path of `/api/v1/users/me`) — this matches `docs/Historias_de_usuario.txt:982` (`POST /api/direcciones`) adapted to the project's `/api/v1/` versioning scheme. The Spanish path segment `direcciones` matches the lexicon used in `Integrador.txt §3.1`. (D1, US-024 through US-028 technical notes)
+The system SHALL mount the delivery-address endpoints under `/api/v1/direcciones` with tag `addresses`. The endpoints SHALL be top-level (NOT a sub-path of `/api/v1/usuarios/me`) — this matches `docs/Historias_de_usuario.txt:982` (`POST /api/direcciones`) adapted to the project's `/api/v1/` versioning scheme. The Spanish path segment `direcciones` matches the lexicon used in `Integrador.txt §3.1`. (D1, US-024 through US-028 technical notes)
 
 #### Scenario: Endpoints respond under /api/v1/direcciones
 - **WHEN** an authenticated client calls `GET /api/v1/direcciones`
 - **THEN** the response is 200 (when the user has access)
 
 #### Scenario: English-Spanish ambiguity rejected
-- **WHEN** a client calls `GET /api/v1/addresses` or `GET /api/v1/users/me/direcciones`
+- **WHEN** a client calls `GET /api/v1/addresses` or `GET /api/v1/usuarios/me/direcciones`
 - **THEN** the response is 404 (no such route)
 
 ### Requirement: Schema column piso_depto added via Alembic migration

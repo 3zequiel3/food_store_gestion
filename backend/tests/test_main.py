@@ -64,7 +64,7 @@ def test_api_routes_exist(client: TestClient):
 
     expected_prefixes = [
         "/api/v1/auth",
-        "/api/v1/users",
+        "/api/v1/usuarios",
         "/api/v1/productos",
         "/api/v1/pedidos",
         "/api/v1/pagos",
