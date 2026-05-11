@@ -3,3 +3,7 @@
 venv/
 ./venv
 .venv
+# Local Pi runtime state
+.atl/
+.pi/
+
