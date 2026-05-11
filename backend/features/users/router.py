@@ -11,7 +11,6 @@ Mounted at /api/v1/users by backend/main.py (no prefix here).
 
 from fastapi import APIRouter, Depends, Response, status
 
-from backend.dependencies import get_uow
 from backend.features.auth.dependencies import get_current_user
 from backend.features.users.models import Usuario
 from backend.features.users.schemas import (
@@ -20,7 +19,6 @@ from backend.features.users.schemas import (
     UpdateProfileRequest,
 )
 from backend.features.users.service import UserProfileService
-from backend.shared.unit_of_work import UnitOfWork
 
 router = APIRouter()
 
@@ -47,14 +45,13 @@ def _to_profile_response(user: Usuario) -> ProfileResponse:
 @router.get("/me", response_model=ProfileResponse, summary="Get own profile")
 async def get_my_profile(
     current_user: Usuario = Depends(get_current_user),
-    uow: UnitOfWork = Depends(get_uow),
 ) -> ProfileResponse:
     """Return the authenticated user's full profile.
 
     Eager-loads roles via selectinload to avoid lazy-load after session boundary.
-    Read-only — no commit.
+    Read-only — no commit needed.
     """
-    service = UserProfileService(uow)
+    service = UserProfileService()
     user = service.get_profile(current_user.id)
     return _to_profile_response(user)
 
@@ -63,21 +60,17 @@ async def get_my_profile(
 async def update_my_profile(
     payload: UpdateProfileRequest,
     current_user: Usuario = Depends(get_current_user),
-    uow: UnitOfWork = Depends(get_uow),
 ) -> ProfileResponse:
     """Partially update the authenticated user's profile fields.
 
     Accepted fields: nombre, apellido, telefono (all optional).
     email is NOT editable via this endpoint (extra='forbid' returns 422 for it).
 
-    After commit, re-reads the user with roles eager-loaded so ProfileResponse
-    can serialize roles[] correctly.
+    The service returns the updated user with roles eager-loaded within the
+    same transaction — no re-read needed.
     """
-    service = UserProfileService(uow)
-    service.update_profile(current_user.id, payload)
-    uow.commit()
-    # Re-read with roles after commit to serialize ProfileResponse correctly
-    user = service.get_profile(current_user.id)
+    service = UserProfileService()
+    user = service.update_profile(current_user.id, payload)
     return _to_profile_response(user)
 
 
@@ -89,7 +82,6 @@ async def update_my_profile(
 async def change_my_password(
     payload: ChangePasswordRequest,
     current_user: Usuario = Depends(get_current_user),
-    uow: UnitOfWork = Depends(get_uow),
 ) -> Response:
     """Change the authenticated user's password.
 
@@ -98,7 +90,6 @@ async def change_my_password(
     access token remains valid until natural expiration (~30 min, RN-AU02),
     but cannot be refreshed after revocation.
     """
-    service = UserProfileService(uow)
+    service = UserProfileService()
     service.change_password(current_user.id, payload)
-    uow.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
