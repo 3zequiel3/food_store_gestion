@@ -5,10 +5,11 @@ Coordinates multiple repositories within a single transaction boundary.
 """
 
 import logging
-from typing import Dict, Optional, Type
+from typing import Any, Callable, Dict, Optional
 
 from sqlalchemy.orm import Session
 
+from backend.shared.database import get_session_factory
 from backend.shared.repository import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -21,26 +22,60 @@ class UnitOfWork:
     Manages multiple repositories and ensures atomic operations
     across multiple tables (e.g., creating order + payment in one transaction).
 
-    Usage:
-        uow = UnitOfWork(session)
-        try:
+    Preferred usage (context manager — service-owned lifecycle):
+        with UnitOfWork() as uow:
+            uow.register_repository("orders", OrderRepository(uow.session))
             order = uow.orders.create(user_id=user_id, total=100)
-            payment = uow.payments.create(order_id=order.id, amount=100)
-            uow.commit()
-        except Exception:
-            uow.rollback()
-            raise
+            # __exit__ commits on clean exit, rolls back on exception
+
+    Legacy usage (external session injection — backward-compat):
+        uow = UnitOfWork(session)
+        ...
+        uow.commit()
     """
 
-    def __init__(self, session: Session):
+    def __init__(self, session_or_factory: Any = None) -> None:
         """
         Initialize UnitOfWork.
 
         Args:
-            session: SQLAlchemy session
+            session_or_factory: One of:
+                - Session instance (legacy backward-compat mode) → session not owned.
+                - None (default) → calls get_session_factory()() and owns the session.
         """
-        self.session = session
+        if isinstance(session_or_factory, Session):
+            # Legacy mode: external session injected directly — UoW does NOT own it.
+            # This path is used by the legacy get_uow() dependency (Step 1 backward-compat)
+            # and test overrides that inject the session directly.
+            self.session: Session = session_or_factory
+            self._owns_session = False
+        else:
+            # Default: call the module-level factory to get a session factory,
+            # then call that to create a session. UoW owns and closes the session.
+            # In tests, get_session_factory is monkeypatched to return a factory
+            # that creates sessions bound to the test connection.
+            factory = get_session_factory()
+            self.session = factory()
+            self._owns_session = True
         self._repositories: Dict[str, BaseRepository] = {}
+
+    # ── Context manager protocol ──────────────────────────────────────────
+
+    def __enter__(self) -> "UnitOfWork":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+        try:
+            if exc_type is None:
+                self.session.commit()
+                logger.debug("UnitOfWork committed successfully")
+            else:
+                self.session.rollback()
+                logger.debug("UnitOfWork rolled back due to exception")
+        finally:
+            if self._owns_session:
+                self.close()
+        return False  # do not suppress exceptions
 
     def register_repository(
         self,

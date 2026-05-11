@@ -11,6 +11,7 @@ feature's business logic.
 """
 
 import pytest
+import backend.shared.unit_of_work as _uow_mod
 
 
 def test_get_uow_uses_test_db_session_not_real_postgres(client, test_db_session):
@@ -31,6 +32,8 @@ def test_get_uow_uses_test_db_session_not_real_postgres(client, test_db_session)
     PostgreSQL-specific and unsupported by SQLite. That is a residual bug in
     the categories repository (separate concern). What matters here is that any
     failure comes from SQLite, not from a Postgres connection attempt.
+
+    TODO: remove after Step 3 (legacy get_uow override will be deleted)
     """
     try:
         response = client.get("/api/v1/categorias/")
@@ -68,3 +71,37 @@ def test_get_uow_uses_test_db_session_not_real_postgres(client, test_db_session)
         )
         # Exception came from SQLite (or some other local error) — override is working.
         # This is expected while the categories repository uses PG-specific SQL.
+
+
+def test_uow_session_factory_monkeypatched_to_test_db(test_db_session):
+    """Verify that the _patch_uow_session_factory autouse fixture has patched
+    get_session_factory in the unit_of_work module so that UnitOfWork()
+    (no args) receives a session bound to the test SQLite connection, NOT a
+    real Postgres factory.
+
+    The factory creates a NEW session (not the same instance as test_db_session)
+    but bound to the same SQLite connection, so it participates in the same
+    transaction and shares visibility of all pending changes.
+
+    This is the new mechanism that services use after refactor-uow-to-context-manager.
+    """
+    factory = _uow_mod.get_session_factory()
+    uow_session = factory()
+
+    # The UoW session must NOT be the same instance as test_db_session
+    # (they have separate identity maps) but must be on the same connection.
+    test_conn = test_db_session.get_bind()
+    uow_conn = uow_session.get_bind()
+    assert uow_conn is test_conn, (
+        "get_session_factory() in unit_of_work module must return a factory that "
+        "creates sessions bound to the test SQLite connection. Got a different "
+        "connection — _patch_uow_session_factory autouse fixture is NOT active."
+    )
+
+    # Verify it is NOT a real Postgres connection
+    bind_str = str(uow_conn)
+    assert "postgres" not in bind_str.lower() and "psycopg2" not in bind_str.lower(), (
+        f"UoW session is bound to Postgres, not SQLite: {bind_str}"
+    )
+
+    uow_session.close()

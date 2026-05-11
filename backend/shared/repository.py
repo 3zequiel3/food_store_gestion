@@ -101,6 +101,11 @@ class BaseRepository(Generic[T]):
                 setattr(instance, key, value)
 
         self.session.flush()
+        # Refresh server-generated columns (e.g. actualizado_en with onupdate=func.now())
+        # so their value is available before the UnitOfWork closes the session.
+        # Only refresh if the model has actualizado_en to avoid unnecessary round-trips.
+        if hasattr(self.model, "actualizado_en"):
+            self.session.refresh(instance, attribute_names=["actualizado_en"])
         logger.debug(f"Updated {self.model.__name__}: {id}")
         return instance
 

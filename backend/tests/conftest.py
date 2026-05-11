@@ -15,6 +15,8 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
+import backend.shared.unit_of_work as _uow_mod
+
 from backend.main import app
 from backend.shared.database import Base, get_db
 from backend.dependencies import get_uow
@@ -86,6 +88,67 @@ def test_db_session(test_db_engine) -> Session:
     session.close()
     transaction.rollback()
     connection.close()
+
+
+@pytest.fixture(autouse=True)
+def _patch_uow_session_factory(monkeypatch, test_db_session: Session):
+    """Patch UnitOfWork.get_session_factory so that services creating UnitOfWork()
+    with no arguments receive a session that uses the in-memory SQLite connection
+    instead of opening a real Postgres connection.
+
+    Each UnitOfWork() gets its own Session instance bound to the same connection
+    as test_db_session. This keeps their identity maps separate so that test
+    fixtures (e.g. sample_user) remain persistent in test_db_session even after
+    the service's UoW commits (SAVEPOINT release) its own session.
+
+    autouse=True means this fixture applies to every test automatically.
+    The monkeypatch is reverted at teardown by pytest.
+    """
+    # Obtain the underlying connection that test_db_session is bound to.
+    # In SQLAlchemy 2.x, Session.get_bind() returns the connection/engine.
+    # We use the connection directly so all sessions share the same transaction.
+    connection = test_db_session.get_bind()
+
+    # Create a sessionmaker for UoW sessions: same connection, separate identity maps,
+    # expire_on_commit=False so ORM attributes survive after the session is closed.
+    _UoWSessionFactory = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+        bind=connection,
+    )
+
+    def _make_test_session_factory():
+        """Return a factory that creates new UoW sessions bound to the test connection.
+
+        Each UnitOfWork() used by a service gets its own Session (with its own
+        identity map) bound to the same SQLite connection as test_db_session.
+
+        Properties of these UoW sessions:
+        - expire_on_commit=False: ORM attributes stay accessible after the UoW
+          closes the session, preventing DetachedInstanceError on model_validate.
+        - After commit: test_db_session.expire_all() is called so that subsequent
+          queries from test_db_session (e.g. auth/login lookups) see the fresh
+          data written by the UoW, not stale cached objects.
+        """
+        def _factory():
+            uow_session = _UoWSessionFactory()
+
+            # Monkey-patch the session's commit to also expire test_db_session
+            # objects, ensuring test assertions and subsequent requests see
+            # data changed by this UoW's transaction.
+            original_commit = uow_session.commit
+
+            def _commit_and_expire():
+                original_commit()
+                test_db_session.expire_all()
+
+            uow_session.commit = _commit_and_expire  # type: ignore[method-assign]
+            return uow_session
+
+        return _factory
+
+    monkeypatch.setattr(_uow_mod, "get_session_factory", _make_test_session_factory)
 
 
 @pytest.fixture(scope="function")
