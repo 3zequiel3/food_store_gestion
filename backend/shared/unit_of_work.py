@@ -5,9 +5,7 @@ Coordinates multiple repositories within a single transaction boundary.
 """
 
 import logging
-from typing import Any, Callable, Dict, Optional
-
-from sqlalchemy.orm import Session
+from typing import Any, Dict
 
 from backend.shared.database import get_session_factory
 from backend.shared.repository import BaseRepository
@@ -22,41 +20,27 @@ class UnitOfWork:
     Manages multiple repositories and ensures atomic operations
     across multiple tables (e.g., creating order + payment in one transaction).
 
-    Preferred usage (context manager — service-owned lifecycle):
+    Standard usage (context manager — service-owned lifecycle):
         with UnitOfWork() as uow:
             uow.register_repository("orders", OrderRepository(uow.session))
             order = uow.orders.create(user_id=user_id, total=100)
-            # __exit__ commits on clean exit, rolls back on exception
+            # __exit__ commits on clean exit, rolls back on exception, closes session
 
-    Legacy usage (external session injection — backward-compat):
-        uow = UnitOfWork(session)
-        ...
-        uow.commit()
+    In tests, get_session_factory is monkeypatched by the conftest so that
+    UnitOfWork() automatically uses the in-memory SQLite session.
     """
 
-    def __init__(self, session_or_factory: Any = None) -> None:
+    def __init__(self) -> None:
         """
         Initialize UnitOfWork.
 
-        Args:
-            session_or_factory: One of:
-                - Session instance (legacy backward-compat mode) → session not owned.
-                - None (default) → calls get_session_factory()() and owns the session.
+        Creates its own session via get_session_factory(). In tests,
+        get_session_factory is monkeypatched to return a factory that creates
+        sessions bound to the test SQLite connection.
         """
-        if isinstance(session_or_factory, Session):
-            # Legacy mode: external session injected directly — UoW does NOT own it.
-            # This path is used by the legacy get_uow() dependency (Step 1 backward-compat)
-            # and test overrides that inject the session directly.
-            self.session: Session = session_or_factory
-            self._owns_session = False
-        else:
-            # Default: call the module-level factory to get a session factory,
-            # then call that to create a session. UoW owns and closes the session.
-            # In tests, get_session_factory is monkeypatched to return a factory
-            # that creates sessions bound to the test connection.
-            factory = get_session_factory()
-            self.session = factory()
-            self._owns_session = True
+        factory = get_session_factory()
+        self.session = factory()
+        self._owns_session = True
         self._repositories: Dict[str, BaseRepository] = {}
 
     # ── Context manager protocol ──────────────────────────────────────────
@@ -117,13 +101,15 @@ class UnitOfWork:
         Commit the transaction.
 
         All changes made through registered repositories are persisted.
+        Can be used for intermediate commits (e.g. flush before bulk operation).
+        Normally the __exit__ on context manager exit handles the final commit.
         """
         try:
             self.session.commit()
-            logger.debug("✅ UnitOfWork committed successfully")
+            logger.debug("UnitOfWork committed successfully")
         except Exception as e:
             self.session.rollback()
-            logger.error(f"❌ UnitOfWork commit failed: {str(e)}")
+            logger.error(f"UnitOfWork commit failed: {str(e)}")
             raise
 
     def rollback(self) -> None:
@@ -134,16 +120,16 @@ class UnitOfWork:
         """
         try:
             self.session.rollback()
-            logger.debug("↩️  UnitOfWork rolled back")
+            logger.debug("UnitOfWork rolled back")
         except Exception as e:
-            logger.error(f"❌ UnitOfWork rollback failed: {str(e)}")
+            logger.error(f"UnitOfWork rollback failed: {str(e)}")
             raise
 
     def close(self) -> None:
         """Close the session."""
         try:
             self.session.close()
-            logger.debug("🔒 UnitOfWork session closed")
+            logger.debug("UnitOfWork session closed")
         except Exception as e:
-            logger.error(f"❌ Failed to close UnitOfWork session: {str(e)}")
+            logger.error(f"Failed to close UnitOfWork session: {str(e)}")
             raise

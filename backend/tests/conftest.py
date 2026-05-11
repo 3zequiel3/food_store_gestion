@@ -19,8 +19,6 @@ import backend.shared.unit_of_work as _uow_mod
 
 from backend.main import app
 from backend.shared.database import Base, get_db
-from backend.dependencies import get_uow
-from backend.shared.unit_of_work import UnitOfWork
 
 # Import ALL models so SQLAlchemy's declarative registry can resolve
 # string-based relationship targets (e.g. relationship("Pedido", ...)).
@@ -92,9 +90,9 @@ def test_db_session(test_db_engine) -> Session:
 
 @pytest.fixture(autouse=True)
 def _patch_uow_session_factory(monkeypatch, test_db_session: Session):
-    """Patch UnitOfWork.get_session_factory so that services creating UnitOfWork()
-    with no arguments receive a session that uses the in-memory SQLite connection
-    instead of opening a real Postgres connection.
+    """Patch UnitOfWork's get_session_factory so that services creating UnitOfWork()
+    receive a session that uses the in-memory SQLite connection instead of opening
+    a real Postgres connection.
 
     Each UnitOfWork() gets its own Session instance bound to the same connection
     as test_db_session. This keeps their identity maps separate so that test
@@ -105,8 +103,6 @@ def _patch_uow_session_factory(monkeypatch, test_db_session: Session):
     The monkeypatch is reverted at teardown by pytest.
     """
     # Obtain the underlying connection that test_db_session is bound to.
-    # In SQLAlchemy 2.x, Session.get_bind() returns the connection/engine.
-    # We use the connection directly so all sessions share the same transaction.
     connection = test_db_session.get_bind()
 
     # Create a sessionmaker for UoW sessions: same connection, separate identity maps,
@@ -134,9 +130,9 @@ def _patch_uow_session_factory(monkeypatch, test_db_session: Session):
         def _factory():
             uow_session = _UoWSessionFactory()
 
-            # Monkey-patch the session's commit to also expire test_db_session
-            # objects, ensuring test assertions and subsequent requests see
-            # data changed by this UoW's transaction.
+            # Patch the session's commit to also expire test_db_session objects,
+            # ensuring test assertions and subsequent requests see data changed by
+            # this UoW's transaction.
             original_commit = uow_session.commit
 
             def _commit_and_expire():
@@ -160,21 +156,6 @@ def client(test_db_session: Session) -> TestClient:
         yield test_db_session
 
     app.dependency_overrides[get_db] = override_get_db
-
-    # Override get_uow so any endpoint using Depends(get_uow) resolves to
-    # the same SQLite test session — NOT to a real Postgres connection.
-    # NOTE: NO uow.close() here — lifecycle is managed by the test_db_session
-    # fixture (session.close() + transaction.rollback() at teardown). Closing
-    # twice would break tests that query test_db_session directly after a request.
-    def override_get_uow():
-        uow = UnitOfWork(test_db_session)
-        try:
-            yield uow
-        except Exception:
-            uow.rollback()
-            raise
-
-    app.dependency_overrides[get_uow] = override_get_uow
 
     # Disable rate limiting for tests — each test runs independently and
     # all requests come from the same "testclient" IP, causing false 429s.
