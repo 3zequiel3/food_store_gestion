@@ -31,7 +31,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
-from backend.dependencies import get_uow
 from backend.features.auth.dependencies import require_role
 from backend.features.products.schemas import (
     AsociarIngrediente,
@@ -47,7 +46,6 @@ from backend.features.products.schemas import (
     SetCategorias,
 )
 from backend.features.products.service import ProductService
-from backend.shared.unit_of_work import UnitOfWork
 
 router = APIRouter()
 
@@ -60,7 +58,6 @@ router = APIRouter()
 @router.post("/", response_model=ProductoRead, status_code=status.HTTP_201_CREATED)
 async def crear_producto(
     payload: ProductoCreate,
-    uow: UnitOfWork = Depends(get_uow),
     _user=Depends(require_role("ADMIN", "STOCK")),
 ) -> ProductoRead:
     """Create a new product.
@@ -68,9 +65,8 @@ async def crear_producto(
     Optionally associates categories if ``categoria_ids`` is provided in body.
     Requires ADMIN or STOCK role.
     """
-    service = ProductService(uow)
+    service = ProductService()
     producto = service.create(payload)
-    uow.commit()
     return ProductoRead.model_validate(producto)
 
 
@@ -82,7 +78,6 @@ async def listar_productos(
     search: str | None = Query(None, description="Case-insensitive substring match on nombre"),
     disponible: bool | None = Query(None, description="Filter by availability (default: true)"),
     excluir_alergenos: bool = Query(False, description="Exclude products with non-removable allergens"),
-    uow: UnitOfWork = Depends(get_uow),
 ) -> PaginatedProductos:
     """List products with pagination and optional filters.
 
@@ -96,7 +91,7 @@ async def listar_productos(
     if disponible is None:
         disponible = True
 
-    service = ProductService(uow)
+    service = ProductService()
     items, total = service.list_paginated(
         page=page,
         limit=limit,
@@ -116,14 +111,13 @@ async def listar_productos(
 @router.get("/{producto_id}", response_model=ProductoDetail)
 async def obtener_producto(
     producto_id: int,
-    uow: UnitOfWork = Depends(get_uow),
 ) -> ProductoDetail:
     """Get full product detail with categories and ingredients.
 
     Public endpoint — no authentication required.
     Returns 404 for soft-deleted or non-existent products.
     """
-    service = ProductService(uow)
+    service = ProductService()
     producto, categorias, ingredientes_with_flag = service.get_detail(producto_id)
 
     return ProductoDetail(
@@ -153,7 +147,6 @@ async def obtener_producto(
 async def actualizar_producto(
     producto_id: int,
     payload: ProductoUpdate,
-    uow: UnitOfWork = Depends(get_uow),
     _user=Depends(require_role("ADMIN", "STOCK")),
 ) -> ProductoRead:
     """Partially update a product.
@@ -161,16 +154,14 @@ async def actualizar_producto(
     Omitted fields are preserved. Requires ADMIN or STOCK role.
     Returns 404 for soft-deleted or non-existent products.
     """
-    service = ProductService(uow)
+    service = ProductService()
     producto = service.update(producto_id, payload)
-    uow.commit()
     return ProductoRead.model_validate(producto)
 
 
 @router.delete("/{producto_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def eliminar_producto(
     producto_id: int,
-    uow: UnitOfWork = Depends(get_uow),
     _user=Depends(require_role("ADMIN", "STOCK")),
 ) -> Response:
     """Soft-delete a product.
@@ -179,9 +170,8 @@ async def eliminar_producto(
     NOT modified — the product stops appearing in the catalog naturally.
     Returns 204 on success, 404 if not found or already deleted.
     """
-    service = ProductService(uow)
+    service = ProductService()
     service.delete(producto_id)
-    uow.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -194,7 +184,6 @@ async def eliminar_producto(
 async def patch_disponibilidad(
     producto_id: int,
     payload: PatchDisponibilidad,
-    uow: UnitOfWork = Depends(get_uow),
     _user=Depends(require_role("ADMIN", "STOCK")),
 ) -> ProductoRead:
     """Toggle product availability.
@@ -203,9 +192,8 @@ async def patch_disponibilidad(
     disponible=false hides the product from the public catalog.
     disponible=true makes it visible again.
     """
-    service = ProductService(uow)
+    service = ProductService()
     producto = service.set_disponibilidad(producto_id, payload.disponible)
-    uow.commit()
     return ProductoRead.model_validate(producto)
 
 
@@ -213,7 +201,6 @@ async def patch_disponibilidad(
 async def patch_stock(
     producto_id: int,
     payload: PatchStock,
-    uow: UnitOfWork = Depends(get_uow),
     _user=Depends(require_role("ADMIN", "STOCK")),
 ) -> ProductoRead:
     """Set absolute stock quantity.
@@ -221,9 +208,8 @@ async def patch_stock(
     Requires ADMIN or STOCK role.
     Replaces the current stock value (D5: absolute set, not delta).
     """
-    service = ProductService(uow)
+    service = ProductService()
     producto = service.set_stock(producto_id, payload.stock_cantidad)
-    uow.commit()
     return ProductoRead.model_validate(producto)
 
 
@@ -236,7 +222,6 @@ async def patch_stock(
 async def set_categorias(
     producto_id: int,
     payload: SetCategorias,
-    uow: UnitOfWork = Depends(get_uow),
     _user=Depends(require_role("ADMIN", "STOCK")),
 ) -> ProductoDetail:
     """Replace the full category set for a product (US-016).
@@ -245,12 +230,10 @@ async def set_categorias(
     Pass an empty list to remove all categories.
     Returns the updated product detail with refreshed associations.
     """
-    service = ProductService(uow)
-    service.set_categorias(producto_id, payload.categoria_ids)
-    uow.commit()
-
-    # Re-read with fresh associations after commit
-    producto, categorias, ingredientes_with_flag = service.get_detail(producto_id)
+    service = ProductService()
+    producto, categorias, ingredientes_with_flag = service.set_categorias(
+        producto_id, payload.categoria_ids
+    )
     return ProductoDetail(
         id=producto.id,
         nombre=producto.nombre,
@@ -285,7 +268,6 @@ async def set_categorias(
 )
 async def listar_ingredientes_producto(
     producto_id: int,
-    uow: UnitOfWork = Depends(get_uow),
 ) -> list[IngredienteAsociadoRead]:
     """List active ingredient associations for a product.
 
@@ -293,7 +275,7 @@ async def listar_ingredientes_producto(
     Each item includes the es_removible flag from the pivot table.
     Returns 404 if the product is not found or soft-deleted.
     """
-    service = ProductService(uow)
+    service = ProductService()
     result = service.list_ingredientes(producto_id)
     return [
         IngredienteAsociadoRead(
@@ -314,7 +296,6 @@ async def listar_ingredientes_producto(
 async def agregar_ingrediente(
     producto_id: int,
     payload: AsociarIngrediente,
-    uow: UnitOfWork = Depends(get_uow),
     _user=Depends(require_role("ADMIN", "STOCK")),
 ) -> IngredienteAsociadoRead:
     """Associate an ingredient with a product.
@@ -323,15 +304,12 @@ async def agregar_ingrediente(
     Returns 409 if the association already exists and is active.
     Reactivates soft-deleted associations (updating es_removible).
     """
-    service = ProductService(uow)
-    pi = service.add_ingrediente(
+    service = ProductService()
+    pi, result = service.add_ingrediente(
         producto_id, payload.ingrediente_id, payload.es_removible
     )
-    uow.commit()
 
-    # Re-read ingredient to build the response DTO
-    # (simple list + filter — acceptable on low-traffic admin endpoint)
-    result = service.list_ingredientes(producto_id)
+    # Find the ingredient in the updated list
     for ing, removible in result:
         if ing.id == payload.ingrediente_id:
             return IngredienteAsociadoRead(
@@ -342,11 +320,10 @@ async def agregar_ingrediente(
             )
 
     # Fallback: build from pivot row (should not be reached in normal flow)
-    ing_obj = service.ing_repo.read(payload.ingrediente_id)
     return IngredienteAsociadoRead(
-        id=ing_obj.id,  # type: ignore[union-attr]
-        nombre=ing_obj.nombre,  # type: ignore[union-attr]
-        es_alergeno=ing_obj.es_alergeno,  # type: ignore[union-attr]
+        id=payload.ingrediente_id,
+        nombre="",
+        es_alergeno=False,
         es_removible=pi.es_removible,
     )
 
@@ -358,7 +335,6 @@ async def agregar_ingrediente(
 async def eliminar_ingrediente_producto(
     producto_id: int,
     ingrediente_id: int,
-    uow: UnitOfWork = Depends(get_uow),
     _user=Depends(require_role("ADMIN", "STOCK")),
 ) -> Response:
     """Remove (soft-delete) an ingredient association from a product.
@@ -367,7 +343,6 @@ async def eliminar_ingrediente_producto(
     The ingredient row itself is NOT modified — only the pivot is soft-deleted.
     Returns 404 if the association is not found or already removed.
     """
-    service = ProductService(uow)
+    service = ProductService()
     service.remove_ingrediente(producto_id, ingrediente_id)
-    uow.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
