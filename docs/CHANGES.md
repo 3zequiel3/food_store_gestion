@@ -18,11 +18,11 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 
 **Tradeoff aceptado**: la validación E2E se concentra en la Fase B. Los bugs de integración (CORS, formatos de fecha, paginación, snapshots) aparecerán de golpe al arrancar el frontend. Para mitigarlo, los tests de integración del backend deben cubrir todos los caminos críticos.
 
-### Estado actual (2026-05-08)
+### Estado actual (2026-05-11)
 
-- **Sprints 0 y 1**: ✅ Archivados completos
-- **Sprint 2**: ⏳ En proceso — `categories-backend` ✅, `ingredients-backend` aplicándose
-- **Sprint 3 en adelante**: pendiente
+- **Sprints 0 a 4**: ✅ Archivados completos (changes #1 al #13)
+- **Activo**: `refactor-uow-to-context-manager` — ⏳ En progreso (0/68 tasks)
+- **Sprint 5 en adelante**: Pendiente — el próximo change es `order-creation-backend` (#14)
 
 ---
 
@@ -79,7 +79,7 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 
 ---
 
-## Sprint 2 — Catálogo Base ⏳ EN PROCESO
+## Sprint 2 — Catálogo Base ✅ ARCHIVADO
 
 ### 9. **categories-backend** ✅
 - **Funcionalidad**: CRUD completo de categorías, jerarquía recursiva con CTE, soft delete, validación de ciclos
@@ -87,7 +87,7 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 - **Dependencias**: auth-backend
 - **Duración**: 3-4 horas
 
-### 10. **ingredients-backend** ⏳
+### 10. **ingredients-backend** ✅
 - **Funcionalidad**: CRUD de ingredientes, campo es_alergeno, soft delete, filtrados por alérgeno
 - **Historias**: US-011, US-012, US-013, US-014
 - **Dependencias**: auth-backend
@@ -95,9 +95,9 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 
 ---
 
-## Sprint 3 — Productos (Backend)
+## Sprint 3 — Productos (Backend) ✅ ARCHIVADO
 
-### 11. **products-backend**
+### 11. **products-backend** ✅
 - **Funcionalidad**: CRUD de productos, asociación M2M con categorías e ingredientes, stock management, soft delete, endpoint público con filtros
 - **Historias**: US-015, US-016, US-017, US-018, US-019, US-020, US-021, US-022, US-023
 - **Dependencias**: categories-backend, ingredients-backend
@@ -106,21 +106,31 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 
 ---
 
-## Sprint 4 — Perfil y Direcciones (Backend)
+## Sprint 4 — Perfil y Direcciones (Backend) ✅ ARCHIVADO
 
-### 12. **user-profile-backend**
+### 12. **user-profile-backend** ✅
 - **Funcionalidad**: GET /me, PUT /me (datos personales), POST /me/password (cambio de contraseña con validación de la actual), invalidación de refresh tokens en cambio de password
 - **Historias**: US-061, US-062, US-063
 - **Dependencias**: auth-backend
 - **Razón**: Endpoints básicos de cualquier usuario autenticado.
 - **Duración estimada**: 2 horas
 
-### 13. **delivery-addresses-backend**
+### 13. **delivery-addresses-backend** ✅
 - **Funcionalidad**: CRUD de direcciones, dirección predeterminada, ownership validation, endpoint GET único del cliente, PATCH /principal
 - **Historias**: US-024, US-025, US-026, US-027, US-028
 - **Dependencias**: auth-backend
 - **Razón**: Necesarias antes de crear pedidos. Bloquea order-creation-backend.
 - **Duración estimada**: 2-3 horas
+
+---
+
+## Refactor Activo — Fuera del roadmap original
+
+### ⏳ **refactor-uow-to-context-manager**
+- **Funcionalidad**: Migrar el lifecycle del UnitOfWork de los routers a los services usando context manager. Elimina `Depends(get_uow)`, traslada `commit()`/`rollback()` al service, y resuelve el "double-read pattern" en routers.
+- **Justificación**: Deuda técnica reconocida en los design.md archivados de Sprints 2-4. El patrón actual mezcla preocupaciones HTTP con transaccionales.
+- **Dependencias**: categories-backend, ingredients-backend, products-backend, user-profile-backend, delivery-addresses-backend
+- **Estado**: ⏳ 0/68 tasks implementadas
 
 ---
 
@@ -298,7 +308,7 @@ FASE A — Backend
 
 categories-backend ✅
 └─ products-backend ──┐
-ingredients-backend ⏳┘
+ingredients-backend ✅┘
                       │
 products-backend ─────┼─ admin-catalog-permissions
                       │
@@ -343,9 +353,10 @@ admin-dashboard-frontend (admin-metrics-backend ✅)
 |------|--------|---------|----------|--------|
 | A | **0** | setup-backend-core, setup-frontend-core, database-schema-seed, backend-error-handling-validation, zustand-stores-base | 12-16h | ✅ Archivado |
 | A | **1** | auth-backend, auth-frontend-interceptor, navigation-routing-base | 11-14h | ✅ Archivado |
-| A | **2** | categories-backend, ingredients-backend | 5-7h | ⏳ En proceso |
-| A | **3** | products-backend | 5-6h | Pendiente |
-| A | **4** | user-profile-backend, delivery-addresses-backend | 4-5h | Pendiente |
+| A | **2** | categories-backend, ingredients-backend | 5-7h | ✅ Archivado |
+| A | **3** | products-backend | 5-6h | ✅ Archivado |
+| A | **4** | user-profile-backend, delivery-addresses-backend | 4-5h | ✅ Archivado |
+| — | **Refactor** | refactor-uow-to-context-manager | — | ⏳ Activo (0/68) |
 | A | **5** | order-creation-backend, payment-mercadopago-backend, order-state-machine-fsm, order-visualization-backend | 17-21h | Pendiente |
 | A | **6** | admin-users-backend, admin-catalog-permissions, admin-metrics-backend | 5-8h | Pendiente |
 | B | **7** | products-frontend-catalog | 4-5h | Pendiente |
@@ -377,7 +388,7 @@ admin-dashboard-frontend (admin-metrics-backend ✅)
 
 ## Próximos Pasos
 
-1. Terminar `ingredients-backend` (en proceso).
+1. **Terminar `refactor-uow-to-context-manager`** — implementar las 68 tasks con `/opsx:apply refactor-uow-to-context-manager`.
 2. Continuar la Fase A change por change, sin desviarse al frontend hasta cerrar el Sprint 6.
 3. Cada change genera proposal.md, design.md y tasks.md con `/opsx:propose <nombre>`.
 4. Revisar artefactos antes de implementar.
