@@ -4,16 +4,24 @@ Auth dependencies for FastAPI.
 Provides dependency functions for authentication and authorization:
 - get_current_user: Extract and validate JWT from request
 - require_role: Factory for role-based access control
+
+Design note (D1): get_current_user and get_optional_user use a direct
+SQLAlchemy session (via get_session_factory()()) rather than UnitOfWork.
+These are read-only middleware dependencies (1 SELECT each), not business
+operations. Using UnitOfWork would add unnecessary commit overhead for
+a purely read path.
 """
 
 from typing import Optional
 
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
+import backend.shared.unit_of_work as _uow_mod
 
 from backend.features.users.models import Usuario
-from backend.shared.database import get_db
 from backend.shared.exceptions import ForbiddenError, UnauthorizedError
 from backend.shared.security import decode_access_token
 
@@ -24,16 +32,21 @@ oauth2_scheme = OAuth2PasswordBearer(
 )
 
 
-async def get_current_user(
+def get_current_user(
     token: Optional[str] = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
 ) -> Usuario:
     """
     Extract and validate JWT token, return authenticated user.
 
+    READ-ONLY: this dependency opens a session for a single SELECT.
+    Do NOT perform writes — no commit is issued. (D1, R2)
+
+    Opens a direct SQLAlchemy session via get_session_factory()() and closes it
+    in a finally block. This is an HTTP middleware dependency, not a business
+    operation — UnitOfWork would be overhead for a single read.
+
     Args:
-        token: JWT token from Authorization header
-        db: Database session
+        token: JWT token from Authorization header (via oauth2_scheme)
 
     Returns:
         Authenticated user entity
@@ -63,20 +76,26 @@ async def get_current_user(
     except ValueError:
         raise UnauthorizedError("Token malformado")
 
-    # Find user
-    from sqlalchemy import select
+    # Open a direct session (D1 — read-only, no UnitOfWork needed).
+    # Access get_session_factory via the module reference so that the test
+    # monkeypatch (which patches _uow_mod.get_session_factory) is respected.
+    session = _uow_mod.get_session_factory()()
+    try:
+        # selectinload eagerly loads `roles` so the relationship is accessible
+        # after session.close() (avoids DetachedInstanceError on user.roles).
+        query = select(Usuario).options(selectinload(Usuario.roles)).where(
+            Usuario.id == user_id,
+            Usuario.eliminado_en.is_(None),
+            Usuario.is_active.is_(True),
+        )
+        user = session.execute(query).scalar_one_or_none()
 
-    query = select(Usuario).where(
-        Usuario.id == user_id,
-        Usuario.eliminado_en.is_(None),
-        Usuario.is_active.is_(True),
-    )
-    user = db.execute(query).scalar_one_or_none()
+        if not user:
+            raise UnauthorizedError("Usuario no encontrado o inactivo")
 
-    if not user:
-        raise UnauthorizedError("Usuario no encontrado o inactivo")
-
-    return user
+        return user
+    finally:
+        session.close()
 
 
 def require_role(*required_roles: str):
@@ -97,7 +116,7 @@ def require_role(*required_roles: str):
         Dependency function that validates user roles
     """
 
-    async def role_checker(
+    def role_checker(
         user: Usuario = Depends(get_current_user),
     ) -> Usuario:
         # Get user's role codes
@@ -114,18 +133,19 @@ def require_role(*required_roles: str):
     return role_checker
 
 
-async def get_optional_user(
+def get_optional_user(
     request: Request,
-    db: Session = Depends(get_db),
 ) -> Optional[Usuario]:
     """
     Get current user if authenticated, None otherwise.
 
     Use this for endpoints that work both authenticated and anonymously.
 
+    READ-ONLY: delegates to get_current_user which opens a direct session.
+    No writes are issued. (D1)
+
     Args:
         request: FastAPI request object
-        db: Database session
 
     Returns:
         User if authenticated, None otherwise
@@ -138,6 +158,6 @@ async def get_optional_user(
     token = auth_header[7:]  # Remove "Bearer " prefix
 
     try:
-        return await get_current_user(token, db)
+        return get_current_user(token)
     except UnauthorizedError:
         return None

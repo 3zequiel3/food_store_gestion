@@ -3,11 +3,16 @@ Auth feature router.
 
 Authentication endpoints with rate limiting protection.
 All error responses follow RFC 7807 Problem Details format.
+
+Router does NOT receive any Session or UnitOfWork via dependency injection.
+Transaction ownership lives in AuthService — each service method opens
+its own UnitOfWork context.
 """
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
+from backend.features.auth.dependencies import get_current_user
 from backend.features.auth.schemas import (
     LoginRequest,
     RefreshRequest,
@@ -16,8 +21,6 @@ from backend.features.auth.schemas import (
     UserResponse,
 )
 from backend.features.auth.service import AuthService
-from backend.shared.database import get_db
-from backend.shared.exceptions import UnauthorizedError
 from backend.shared.rate_limiter import RATE_LIMITS, limiter
 
 router = APIRouter()
@@ -37,7 +40,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 async def register(
     request: Request,
     data: RegisterRequest,
-    db=Depends(get_db),
 ):
     """
     Register a new user.
@@ -50,9 +52,8 @@ async def register(
     Returns a token pair (access + refresh) on success.
     Rate limit: 3 registrations per hour per IP.
     """
-    service = AuthService(db)
-    user = await service.register(data)
-    return await service._create_token_pair(user)
+    service = AuthService()
+    return service.register(data)
 
 
 @router.post(
@@ -65,7 +66,6 @@ async def register(
 async def login(
     request: Request,
     data: LoginRequest,
-    db=Depends(get_db),
 ):
     """
     Login with email and password.
@@ -77,9 +77,9 @@ async def login(
     Rate limit: 5 attempts per 15 minutes per IP.
     Error message is the same for invalid email or password (security).
     """
-    service = AuthService(db)
+    service = AuthService()
     client_ip = request.client.host if request.client else None
-    return await service.login(data, client_ip=client_ip)
+    return service.login(data, client_ip=client_ip)
 
 
 @router.post(
@@ -92,7 +92,6 @@ async def login(
 async def refresh(
     request: Request,
     data: RefreshRequest,
-    db=Depends(get_db),
 ):
     """
     Refresh tokens using a refresh token.
@@ -102,8 +101,8 @@ async def refresh(
     Returns a new token pair. The old refresh token is marked as used.
     Rate limit: 10 requests per minute per IP.
     """
-    service = AuthService(db)
-    return await service.refresh(data.refresh_token)
+    service = AuthService()
+    return service.refresh(data.refresh_token)
 
 
 @router.post(
@@ -114,7 +113,6 @@ async def refresh(
 )
 async def logout(
     data: RefreshRequest,
-    db=Depends(get_db),
 ):
     """
     Logout and revoke refresh token.
@@ -124,8 +122,8 @@ async def logout(
     Returns 204 No Content on success.
     Note: Access tokens remain valid until expiration (stateless).
     """
-    service = AuthService(db)
-    await service.logout(data.refresh_token)
+    service = AuthService()
+    service.logout(data.refresh_token)
     return None
 
 
@@ -137,7 +135,6 @@ async def logout(
 )
 async def get_me(
     token: str = Depends(oauth2_scheme),
-    db=Depends(get_db),
 ):
     """
     Get current authenticated user information.
@@ -145,8 +142,7 @@ async def get_me(
     Requires a valid access token in the Authorization header.
     Returns UserResponse with id, nombre, apellido, email, roles[], created_at.
     """
-    from backend.features.auth.dependencies import get_current_user
-    user = await get_current_user(token, db)
+    user = get_current_user(token)
     return UserResponse(
         id=user.id,
         email=user.email,

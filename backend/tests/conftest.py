@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 import backend.shared.unit_of_work as _uow_mod
 
 from backend.main import app
-from backend.shared.database import Base, get_db
+from backend.shared.database import Base
 
 # Import ALL models so SQLAlchemy's declarative registry can resolve
 # string-based relationship targets (e.g. relationship("Pedido", ...)).
@@ -151,11 +151,6 @@ def _patch_uow_session_factory(monkeypatch, test_db_session: Session):
 def client(test_db_session: Session) -> TestClient:
     """Create a test client with dependency override and rate limiter disabled."""
     from backend.shared.rate_limiter import limiter
-
-    def override_get_db():
-        yield test_db_session
-
-    app.dependency_overrides[get_db] = override_get_db
 
     # Disable rate limiting for tests — each test runs independently and
     # all requests come from the same "testclient" IP, causing false 429s.

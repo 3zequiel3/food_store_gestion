@@ -4,14 +4,20 @@ Database engine, session factory, and SQLAlchemy declarative Base.
 This module is the single source of truth for:
 - MetaData (with deterministic naming conventions for Alembic autogenerate)
 - Base (DeclarativeBase used by all ORM models)
-- engine / SessionLocal (used by dependencies.py and the seed script)
+- engine / SessionLocal (used by the seed script and Alembic env.py)
+
+Session access patterns (post refactor-auth-to-uow):
+- Business operations: use UnitOfWork() from backend.shared.unit_of_work
+- Read-only middleware (e.g. get_current_user): use get_session_factory()()
+  with a try/finally close block.
+- get_db() was removed — it was the last legacy consumer after auth was
+  migrated to the service-driven UoW pattern.
 """
 
 import os
-from typing import Generator
 
 from sqlalchemy import create_engine, MetaData
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # Deterministic naming convention so Alembic generates stable constraint names
 # across runs and across databases. Format:
@@ -87,33 +93,4 @@ def get_session_factory():
     return _SessionLocal
 
 
-def get_db() -> Generator[Session, None, None]:
-    """
-    FastAPI dependency: yield a SQLAlchemy session, commit on success,
-    rollback on exception, always close.
 
-    Usage:
-        @router.get("/")
-        def my_endpoint(db: Session = Depends(get_db)):
-            ...
-
-    Auto-commit semantics: a request that returns successfully (no
-    exception bubbled up to the dependency) will commit any pending work.
-    Services use ``session.flush()`` to obtain IDs and intermediate state,
-    but the final persistence happens here. If the endpoint raises, the
-    session is rolled back.
-
-    For multi-step business operations that need explicit transactional
-    control across multiple repositories, use ``get_uow`` from
-    ``backend/dependencies.py`` instead.
-    """
-    SessionLocal = get_session_factory()
-    db = SessionLocal()
-    try:
-        yield db
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
