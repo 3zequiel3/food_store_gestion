@@ -1,10 +1,12 @@
 """
 Address service — self-service address management for authenticated users.
 
-Registered repository: uow.direcciones → AddressRepository.
+Each public method opens its own UnitOfWork context. Commit is performed
+by ``__exit__`` on clean exit. The router never calls uow.commit().
 
-CRITICAL: This service NEVER calls uow.commit() — the router decides the
-transaction boundary (D6, per consistent pattern with all other features).
+CRITICAL: set_principal executes BOTH ops (clear + set) inside the SAME
+UnitOfWork context to preserve atomicity — the user is never left with
+0 or 2 principals within the transaction boundary.
 
 Import chain (regla de oro): service → repository → models, shared.
 No imports from FastAPI, router, or schemas as type hints (service returns ORM objects).
@@ -21,15 +23,16 @@ from backend.shared.unit_of_work import UnitOfWork
 class AddressService:
     """Self-service address management for authenticated users.
 
-    Registered repository:
+    Stateless — each method opens its own UnitOfWork context.
+    Registered repository inside each with-block:
       - uow.direcciones → AddressRepository
 
-    NEVER calls uow.commit() — the router decides the transaction boundary.
+    Atomicity of set_principal: both ops (unset previous + set new) execute
+    inside the SAME with-block, committed atomically by __exit__.
     """
 
-    def __init__(self, uow: UnitOfWork) -> None:
-        self.uow = uow
-        uow.register_repository("direcciones", AddressRepository(uow.session))
+    def __init__(self) -> None:
+        pass
 
     # ── Create (US-024, RN-DI01) ──────────────────────────────────────────
 
@@ -45,31 +48,36 @@ class AddressService:
                 after .strip() (defensive — Pydantic min_length=1 catches the
                 most common cases but not '   ' with whitespace).
         """
-        data = payload.model_dump(exclude_unset=True)
-        # Trim required strings; reject post-trim empties
-        for key in ("calle", "numero", "ciudad", "codigo_postal"):
-            if key in data and data[key] is not None:
-                data[key] = data[key].strip()
-                if not data[key]:
-                    raise BusinessRuleError(f"El campo {key} no puede ser vacío")
-        # Trim optional strings; convert empty-after-trim to None (cleaner DB)
-        for key in ("piso_depto", "referencia"):
-            if key in data and data[key] is not None:
-                data[key] = data[key].strip() or None
+        with UnitOfWork() as uow:
+            uow.register_repository("direcciones", AddressRepository(uow.session))
 
-        is_first = self.uow.direcciones.count_active_by_user(user_id) == 0
+            data = payload.model_dump(exclude_unset=True)
+            # Trim required strings; reject post-trim empties
+            for key in ("calle", "numero", "ciudad", "codigo_postal"):
+                if key in data and data[key] is not None:
+                    data[key] = data[key].strip()
+                    if not data[key]:
+                        raise BusinessRuleError(f"El campo {key} no puede ser vacío")
+            # Trim optional strings; convert empty-after-trim to None (cleaner DB)
+            for key in ("piso_depto", "referencia"):
+                if key in data and data[key] is not None:
+                    data[key] = data[key].strip() or None
 
-        return self.uow.direcciones.create(
-            user_id=user_id,
-            es_principal=is_first,
-            **data,
-        )
+            is_first = uow.direcciones.count_active_by_user(user_id) == 0
+
+            return uow.direcciones.create(
+                user_id=user_id,
+                es_principal=is_first,
+                **data,
+            )
 
     # ── List (US-025, RN-DI03) ────────────────────────────────────────────
 
     def list_for_user(self, user_id: int) -> list[DireccionEntrega]:
         """Return the user's active addresses, principal first."""
-        return self.uow.direcciones.list_active_by_user(user_id)
+        with UnitOfWork() as uow:
+            uow.register_repository("direcciones", AddressRepository(uow.session))
+            return uow.direcciones.list_active_by_user(user_id)
 
     # ── Update (US-026, RN-DI03 / D6) ─────────────────────────────────────
 
@@ -82,26 +90,29 @@ class AddressService:
         and 'belongs to another user'. We raise NotFoundError → 404 in BOTH
         cases (D6, anti-leak).
         """
-        address = self.uow.direcciones.find_by_id_and_user(address_id, user_id)
-        if address is None:
-            raise NotFoundError("Dirección no encontrada")
+        with UnitOfWork() as uow:
+            uow.register_repository("direcciones", AddressRepository(uow.session))
 
-        data = payload.model_dump(exclude_unset=True)
-        if not data:
-            return address  # PATCH-style no-op
+            address = uow.direcciones.find_by_id_and_user(address_id, user_id)
+            if address is None:
+                raise NotFoundError("Dirección no encontrada")
 
-        # Trim non-null required strings; reject empties post-trim
-        for key in ("calle", "numero", "ciudad", "codigo_postal"):
-            if key in data and data[key] is not None:
-                data[key] = data[key].strip()
-                if not data[key]:
-                    raise BusinessRuleError(f"El campo {key} no puede ser vacío")
-        # Optional strings: collapse empty-after-trim to None
-        for key in ("piso_depto", "referencia"):
-            if key in data and data[key] is not None:
-                data[key] = data[key].strip() or None
+            data = payload.model_dump(exclude_unset=True)
+            if not data:
+                return address  # PATCH-style no-op
 
-        return self.uow.direcciones.update(address_id, **data)
+            # Trim non-null required strings; reject empties post-trim
+            for key in ("calle", "numero", "ciudad", "codigo_postal"):
+                if key in data and data[key] is not None:
+                    data[key] = data[key].strip()
+                    if not data[key]:
+                        raise BusinessRuleError(f"El campo {key} no puede ser vacío")
+            # Optional strings: collapse empty-after-trim to None
+            for key in ("piso_depto", "referencia"):
+                if key in data and data[key] is not None:
+                    data[key] = data[key].strip() or None
+
+            return uow.direcciones.update(address_id, **data)
 
     # ── Delete (US-027, D5) ───────────────────────────────────────────────
 
@@ -112,10 +123,13 @@ class AddressService:
         principal. We do NOT auto-promote another address. The next create()
         will auto-mark by D3 only if count of active addresses drops to 0.
         """
-        address = self.uow.direcciones.find_by_id_and_user(address_id, user_id)
-        if address is None:
-            raise NotFoundError("Dirección no encontrada")
-        self.uow.direcciones.delete(address_id)  # BaseRepository soft delete
+        with UnitOfWork() as uow:
+            uow.register_repository("direcciones", AddressRepository(uow.session))
+
+            address = uow.direcciones.find_by_id_and_user(address_id, user_id)
+            if address is None:
+                raise NotFoundError("Dirección no encontrada")
+            uow.direcciones.delete(address_id)  # BaseRepository soft delete
 
     # ── Set principal (US-028, RN-DI02) ───────────────────────────────────
 
@@ -124,23 +138,29 @@ class AddressService:
     ) -> DireccionEntrega:
         """Atomic swap: unset previous principal, mark this one as principal.
 
-        Both updates are staged in the SAME uow.session; the router's single
-        uow.commit() commits them atomically. If the commit fails, the UoW
-        rolls back both — the user is never left with 0 or 2 principals
-        within the transaction boundary.
+        Both updates execute inside the SAME UnitOfWork context. __exit__
+        commits them atomically. If the commit fails, the UoW rolls back both
+        — the user is never left with 0 or 2 principals within the transaction
+        boundary.
 
         Idempotent: if address is already principal, the unset+set sequence
         ends with the same state (no error, return the address).
         """
-        address = self.uow.direcciones.find_by_id_and_user(address_id, user_id)
-        if address is None:
-            raise NotFoundError("Dirección no encontrada")
+        with UnitOfWork() as uow:
+            uow.register_repository("direcciones", AddressRepository(uow.session))
 
-        # Step 1: unset whatever is currently principal for this user
-        self.uow.direcciones.unset_principal_for_user(user_id)
-        # Step 2: mark this one
-        address.es_principal = True
-        # NO flush() needed unless a subsequent read in the same request
-        # depends on the new state. Router's uow.commit() will flush + commit.
+            address = uow.direcciones.find_by_id_and_user(address_id, user_id)
+            if address is None:
+                raise NotFoundError("Dirección no encontrada")
 
-        return address
+            # Step 1: unset whatever is currently principal for this user
+            uow.direcciones.unset_principal_for_user(user_id)
+            # Step 2: mark this one
+            address.es_principal = True
+            # Flush to ensure both ops are staged before __exit__ commits.
+            uow.session.flush()
+            # Refresh server-generated columns (e.g. actualizado_en with onupdate)
+            # so they are available after the session is closed by __exit__.
+            uow.session.refresh(address, attribute_names=["actualizado_en"])
+
+            return address
