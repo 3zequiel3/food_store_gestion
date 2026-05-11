@@ -104,6 +104,14 @@
       "sessions": 2,
       "memories": 0,
       "prompts": 0
+    },
+    {
+      "id": "1245be3a",
+      "created_by": "mncrm",
+      "created_at": "2026-05-11T22:33:59Z",
+      "sessions": 0,
+      "memories": 2,
+      "prompts": 0
     }
   ]
 }
