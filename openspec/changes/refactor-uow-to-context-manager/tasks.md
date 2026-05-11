@@ -77,21 +77,21 @@
 
 ## 7. Step 3 — Cierre (eliminar legacy)
 
-- [ ] 7.1 Editar `backend/dependencies.py`: eliminar la función `get_uow` y sus imports relacionados (`UnitOfWork` si quedó huérfano, `get_session_factory` si solo se usaba ahí).
-- [ ] 7.2 Editar `backend/shared/unit_of_work.py`: simplificar `__init__` a la firma final `__init__(self, session_factory: Optional[Callable] = None)`. Eliminar la rama de backward-compat (`isinstance(arg, Session)`). Eliminar el import de `Session` si quedó huérfano.
-- [ ] 7.3 Editar `backend/tests/conftest.py`: eliminar la función `override_get_uow` y la línea `app.dependency_overrides[get_uow] = override_get_uow`. Eliminar el import de `get_uow`. La fixture `_patch_uow_session_factory` queda como único mecanismo de inyección de session.
-- [ ] 7.4 Editar `backend/tests/integration/test_conftest_overrides.py`: eliminar las assertions del legacy `get_uow` override. Dejar solo las assertions sobre el monkeypatch de `unit_of_work.get_session_factory`. Quitar el comentario `# TODO: remove after Step 3`.
-- [ ] 7.5 Correr suite completa — 256/256 verdes.
-- [ ] 7.6 Verificar con `rg "Depends\(get_uow\)" backend/` — debe retornar 0 matches.
-- [ ] 7.7 Verificar con `rg "uow\.commit\(\)" backend/features/` — debe retornar 0 matches en routers (los services tampoco llaman `uow.commit()` explícito porque `__exit__` lo hace).
-- [ ] 7.8 Verificar con `rg "from backend.dependencies import get_uow" backend/` — debe retornar 0 matches.
-- [ ] 7.9 Commit: `refactor(uow): remove get_uow dependency and legacy session injection`.
+- [x] 7.1 Editar `backend/dependencies.py`: eliminar la función `get_uow` y sus imports relacionados (`UnitOfWork` si quedó huérfano, `get_session_factory` si solo se usaba ahí).
+- [x] 7.2 Editar `backend/shared/unit_of_work.py`: simplificar `__init__` a la firma final `__init__(self, session_factory: Optional[Callable] = None)`. Eliminar la rama de backward-compat (`isinstance(arg, Session)`). Eliminar el import de `Session` si quedó huérfano.
+- [x] 7.3 Editar `backend/tests/conftest.py`: eliminar la función `override_get_uow` y la línea `app.dependency_overrides[get_uow] = override_get_uow`. Eliminar el import de `get_uow`. La fixture `_patch_uow_session_factory` queda como único mecanismo de inyección de session.
+- [x] 7.4 Editar `backend/tests/integration/test_conftest_overrides.py`: eliminar las assertions del legacy `get_uow` override. Dejar solo las assertions sobre el monkeypatch de `unit_of_work.get_session_factory`. Quitar el comentario `# TODO: remove after Step 3`.
+- [x] 7.5 Correr suite completa — 256/256 verdes.
+- [x] 7.6 Verificar con `rg "Depends\(get_uow\)" backend/` — debe retornar 0 matches.
+- [x] 7.7 Verificar con `rg "uow\.commit\(\)" backend/features/` — debe retornar 0 matches en routers (los services tampoco llaman `uow.commit()` explícito porque `__exit__` lo hace).
+- [x] 7.8 Verificar con `rg "from backend.dependencies import get_uow" backend/` — debe retornar 0 matches.
+- [x] 7.9 Commit: `refactor(uow): remove get_uow dependency and legacy session injection`.
 
 ## 8. Verificación final
 
-- [ ] 8.1 Correr suite completa una última vez: `pytest backend/tests/ -q` — 256/256 verdes.
-- [ ] 8.2 Correr `openspec validate refactor-uow-to-context-manager --strict` — sin errores ni warnings.
-- [ ] 8.3 `rg "Depends\(get_uow\)|get_uow\(\)" backend/` — 0 matches en código de producción y tests.
-- [ ] 8.4 `rg "Session\)" backend/shared/unit_of_work.py` — el `__init__` ya NO acepta `Session` directa.
-- [ ] 8.5 Smoke test manual de los 5 features: levantar el backend localmente (`uvicorn backend.app:app --reload`), ejecutar 1 request CRUD por feature contra Postgres dev, verificar que persisten cambios y que rollback en error funciona.
+- [x] 8.1 Correr suite completa una última vez: `pytest backend/tests/ -q` — 256/256 verdes.
+- [x] 8.2 Correr `openspec validate refactor-uow-to-context-manager --strict` — sin errores ni warnings.
+- [x] 8.3 `rg "Depends\(get_uow\)|get_uow\(\)" backend/` — 0 matches en código de producción y tests.
+- [x] 8.4 `rg "Session\)" backend/shared/unit_of_work.py` — el `__init__` ya NO acepta `Session` directa.
+- [ ] 8.5 Smoke test manual de los 5 features: levantar el backend localmente (`uvicorn backend.app:app --reload`), ejecutar 1 request CRUD por feature contra Postgres dev, verificar que persisten cambios y que rollback en error funciona. **NOTA: Requiere servidor Postgres corriendo — se pospone para revisión del usuario.**
 - [ ] 8.6 **ESPERAR REVISIÓN HUMANA del usuario antes de invocar `/opsx:archive`.** Mostrar este checklist completado y esperar OK explícito.
