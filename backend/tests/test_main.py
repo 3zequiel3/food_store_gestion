@@ -48,15 +48,35 @@ def test_request_logging_middleware(client: TestClient, caplog):
 
 
 def test_api_routes_exist(client: TestClient):
-    """Test that API feature routes are registered under /api/v1/."""
-    response = client.get("/api/v1/products/")
-    assert response.status_code == 200
+    """Test that all feature routers are registered under /api/v1/.
 
-    response = client.get("/api/v1/users/")
-    assert response.status_code == 200
+    Uses OpenAPI introspection (robust against auth/empty-state and method
+    variations). Validates registration, not response semantics.
 
-    response = client.get("/api/v1/orders/")
+    Path naming follows spec del integrador §5: castellano para recursos de
+    dominio (productos, pedidos, pagos, direcciones, categorias, ingredientes),
+    inglés solo para módulos técnicos transversales (auth, users — éste último
+    documentado en openspec/specs/user-profile/spec.md).
+    """
+    response = client.get("/openapi.json")
     assert response.status_code == 200
+    paths = list(response.json()["paths"].keys())
+
+    expected_prefixes = [
+        "/api/v1/auth",
+        "/api/v1/users",
+        "/api/v1/productos",
+        "/api/v1/pedidos",
+        "/api/v1/pagos",
+        "/api/v1/direcciones",
+        "/api/v1/categorias",
+        "/api/v1/ingredientes",
+    ]
+
+    for prefix in expected_prefixes:
+        assert any(p.startswith(prefix) for p in paths), (
+            f"No routes registered under {prefix}. Registered paths: {paths}"
+        )
 
 
 def test_404_not_found(client: TestClient):
