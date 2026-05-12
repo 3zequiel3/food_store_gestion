@@ -18,11 +18,11 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 
 **Tradeoff aceptado**: la validación E2E se concentra en la Fase B. Los bugs de integración (CORS, formatos de fecha, paginación, snapshots) aparecerán de golpe al arrancar el frontend. Para mitigarlo, los tests de integración del backend deben cubrir todos los caminos críticos.
 
-### Estado actual (2026-05-11)
+### Estado actual (2026-05-12)
 
 - **Sprints 0 a 4**: ✅ Archivados completos (changes #1 al #13)
-- **Activo**: `refactor-uow-to-context-manager` — ⏳ En progreso (0/68 tasks)
-- **Sprint 5 en adelante**: Pendiente — el próximo change es `order-creation-backend` (#14)
+- **Refactors**: ✅ Archivados — `refactor-uow-to-context-manager` (68/68), `refactor-auth-to-uow`, `refactor-users-route-to-spanish`
+- **Sprint 5**: 🔄 En progreso — `order-creation-backend` (#14) ✅ archivado, próximo: `payment-mercadopago-backend` (#15)
 
 ---
 
@@ -124,19 +124,27 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 
 ---
 
-## Refactor Activo — Fuera del roadmap original
+## Refactors — Fuera del roadmap original ✅ ARCHIVADOS
 
-### ⏳ **refactor-uow-to-context-manager**
+### ✅ **refactor-uow-to-context-manager**
 - **Funcionalidad**: Migrar el lifecycle del UnitOfWork de los routers a los services usando context manager. Elimina `Depends(get_uow)`, traslada `commit()`/`rollback()` al service, y resuelve el "double-read pattern" en routers.
 - **Justificación**: Deuda técnica reconocida en los design.md archivados de Sprints 2-4. El patrón actual mezcla preocupaciones HTTP con transaccionales.
 - **Dependencias**: categories-backend, ingredients-backend, products-backend, user-profile-backend, delivery-addresses-backend
-- **Estado**: ⏳ 0/68 tasks implementadas
+- **Estado**: ✅ 68/68 tasks completadas — Archivado
+
+### ✅ **refactor-auth-to-uow**
+- **Funcionalidad**: Migrar AuthService al patrón service-driven UoW. Cierra bug latente de atomicidad en register, elimina `Depends(get_db)`.
+- **Estado**: ✅ Archivado
+
+### ✅ **refactor-users-route-to-spanish**
+- **Funcionalidad**: Alinear ruta HTTP `/api/v1/users` → `/api/v1/usuarios` según lexicón español del integrador §5.
+- **Estado**: ✅ Archivado
 
 ---
 
 ## Sprint 5 — Ciclo de Vida del Pedido (Backend)
 
-### 14. **order-creation-backend**
+### 14. **order-creation-backend** ✅
 - **Funcionalidad**: Endpoint POST /pedidos, creación atómica con UoW, snapshots de precio y dirección, validación de stock dentro de transacción, HistorialEstadoPedido inicial, estado PENDIENTE
 - **Historias**: US-035, US-036, US-037, US-038
 - **Dependencias**: delivery-addresses-backend, products-backend, database-schema-seed
@@ -356,8 +364,8 @@ admin-dashboard-frontend (admin-metrics-backend ✅)
 | A | **2** | categories-backend, ingredients-backend | 5-7h | ✅ Archivado |
 | A | **3** | products-backend | 5-6h | ✅ Archivado |
 | A | **4** | user-profile-backend, delivery-addresses-backend | 4-5h | ✅ Archivado |
-| — | **Refactor** | refactor-uow-to-context-manager | — | ⏳ Activo (0/68) |
-| A | **5** | order-creation-backend, payment-mercadopago-backend, order-state-machine-fsm, order-visualization-backend | 17-21h | Pendiente |
+| — | **Refactors** | refactor-uow-to-context-manager, refactor-auth-to-uow, refactor-users-route-to-spanish | — | ✅ Archivados |
+| A | **5** | order-creation-backend ✅, payment-mercadopago-backend, order-state-machine-fsm, order-visualization-backend | 17-21h | 🔄 En progreso |
 | A | **6** | admin-users-backend, admin-catalog-permissions, admin-metrics-backend | 5-8h | Pendiente |
 | B | **7** | products-frontend-catalog | 4-5h | Pendiente |
 | B | **8** | user-profile-frontend, delivery-addresses-frontend | 4-5h | Pendiente |
@@ -388,11 +396,12 @@ admin-dashboard-frontend (admin-metrics-backend ✅)
 
 ## Próximos Pasos
 
-1. **Terminar `refactor-uow-to-context-manager`** — implementar las 68 tasks con `/opsx:apply refactor-uow-to-context-manager`.
-2. Continuar la Fase A change por change, sin desviarse al frontend hasta cerrar el Sprint 6.
-3. Cada change genera proposal.md, design.md y tasks.md con `/opsx:propose <nombre>`.
-4. Revisar artefactos antes de implementar.
-5. Ejecutar `/opsx:apply <nombre>` cuando esté aprobado.
-6. Ejecutar `/opsx:archive <nombre>` solo después de revisión humana.
+1. **Proponer `payment-mercadopago-backend`** (#15) — `/opsx:propose payment-mercadopago-backend`.
+2. Continuar la Fase A change por change: `order-state-machine-fsm` (#16) → `order-visualization-backend` (#17) → Sprint 6.
+3. Sin desviarse al frontend hasta cerrar el Sprint 6.
+4. Cada change genera proposal.md, design.md y tasks.md con `/opsx:propose <nombre>`.
+5. Revisar artefactos antes de implementar.
+6. Ejecutar `/opsx:apply <nombre>` cuando esté aprobado.
+7. Ejecutar `/opsx:archive <nombre>` solo después de revisión humana.
 
 ¡Adelante!

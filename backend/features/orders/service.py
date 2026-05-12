@@ -26,7 +26,7 @@ from backend.features.addresses.repository import AddressRepository
 from backend.features.orders.models import Pedido
 from backend.features.orders.repository import OrderRepository
 from backend.features.orders.schemas import CrearPedidoRequest
-from backend.shared.exceptions import BusinessRuleError, NotFoundError
+from backend.shared.exceptions import BusinessRuleError, InvalidStateTransitionError, NotFoundError
 from backend.shared.unit_of_work import UnitOfWork
 
 # D5 — v1 fixed shipping cost. Replace with dynamic calculation in a future change.
@@ -162,4 +162,47 @@ class OrderService:
             uow.session.refresh(pedido, attribute_names=["created_at"])
 
             # UoW __exit__ commits on clean exit, rolls back on exception.
+            return pedido
+
+    def transicionar_estado(
+        self,
+        pedido_id: int,
+        estado_anterior: str,
+        estado_nuevo: str,
+        actor_id: Optional[int] = None,
+    ) -> Pedido:
+        """
+        Transition an order from estado_anterior to estado_nuevo atomically.
+
+        Used by PaymentService.procesar_webhook() to confirm orders (PENDIENTE→CONFIRMADO).
+        actor_id=None means the transition was triggered by SISTEMA (e.g. a webhook).
+
+        Raises:
+            NotFoundError: pedido_id doesn't exist.
+            InvalidStateTransitionError: current state != estado_anterior (409).
+        """
+        with UnitOfWork() as uow:
+            uow.register_repository("orders", OrderRepository(uow.session))
+
+            pedido = uow.orders.find_by_id(pedido_id)
+            if pedido is None:
+                raise NotFoundError(f"Pedido no encontrado: id={pedido_id}")
+
+            if pedido.estado_codigo != estado_anterior:
+                raise InvalidStateTransitionError(
+                    f"Transición inválida: el pedido está en '{pedido.estado_codigo}', "
+                    f"se esperaba '{estado_anterior}'"
+                )
+
+            pedido.estado_codigo = estado_nuevo
+            uow.session.flush()
+
+            uow.orders.create_historial_transicion(
+                pedido_id=pedido_id,
+                estado_anterior_codigo=estado_anterior,
+                estado_nuevo_codigo=estado_nuevo,
+                actor_id=actor_id,
+            )
+
+            uow.session.refresh(pedido)
             return pedido

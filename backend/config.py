@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     )
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")
 
+    # MercadoPago
+    MP_ACCESS_TOKEN: str = Field(
+        default="TEST-your-mp-access-token-here",
+        description="MercadoPago access token (use TEST- prefix for sandbox)",
+    )
+
     # CORS
     FRONTEND_URL: str = Field(
         default="http://localhost:5173", description="Frontend application URL for CORS"

@@ -167,6 +167,37 @@ class OrderRepository(BaseRepository[Pedido]):
         self.session.flush()
         return historial
 
+    def create_historial_transicion(
+        self,
+        pedido_id: int,
+        estado_anterior_codigo: str,
+        estado_nuevo_codigo: str,
+        actor_id: Optional[int],
+    ) -> HistorialEstadoPedido:
+        """
+        Append a state transition entry to order_state_history.
+
+        Used by OrderService.transicionar_estado() for system-triggered transitions
+        (actor_id=None = SISTEMA) and future manual transitions (#16).
+        """
+        historial = HistorialEstadoPedido(
+            pedido_id=pedido_id,
+            estado_anterior_codigo=estado_anterior_codigo,
+            estado_nuevo_codigo=estado_nuevo_codigo,
+            cambiado_por_id=actor_id,
+        )
+        self.session.add(historial)
+        self.session.flush()
+        return historial
+
+    def find_by_id(self, pedido_id: int) -> Optional[Pedido]:
+        """Return a Pedido by id (no ownership check — for system transitions)."""
+        stmt = select(Pedido).where(
+            Pedido.id == pedido_id,
+            Pedido.eliminado_en.is_(None),
+        )
+        return self.session.execute(stmt).scalar_one_or_none()
+
     # ── Order retrieval (for future use in order-visualization-backend #17) ──
 
     def get_pedido_completo(
