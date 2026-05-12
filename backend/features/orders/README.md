@@ -53,7 +53,7 @@ Migration: `20260511_2315_512cfb7c337d_orders_direccion_nullable.py`.
 6. `INSERT Pedido` — flush para obtener `id`.
 7. `INSERT DetallePedido` × N — snapshots de precio y nombre desde el ORM.
 8. `INSERT HistorialEstadoPedido` — `estado_anterior=None`, `estado_nuevo=PENDIENTE`.
-9. `refresh(pedido, ["created_at"])` — para que el campo esté disponible después del cierre.
+9. `refresh(pedido, ["creado_en"])` — para que el campo esté disponible después del cierre.
 
 `UoW.__exit__` hace `commit()` en salida limpia o `rollback()` ante cualquier excepción.
 

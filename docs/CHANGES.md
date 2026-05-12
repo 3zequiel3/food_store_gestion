@@ -22,7 +22,7 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 
 - **Sprints 0 a 4**: ✅ Archivados completos (changes #1 al #13)
 - **Refactors**: ✅ Archivados — `refactor-uow-to-context-manager` (68/68), `refactor-auth-to-uow`, `refactor-users-route-to-spanish`
-- **Sprint 5**: 🔄 En progreso — `order-creation-backend` (#14) ✅ archivado, próximo: `payment-mercadopago-backend` (#15)
+- **Sprint 5**: 🔄 En progreso — `order-creation-backend` (#14) ✅ archivado, `payment-mercadopago-backend` (#15) ✅ archivado, `order-state-machine-fsm` (#16) 🔄 En implementación
 
 ---
 

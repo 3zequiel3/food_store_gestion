@@ -192,6 +192,7 @@ class HistorialEstadoPedido(AppendOnlyBaseModel):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    motivo: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     # Relationship back to order
     pedido: Mapped["Pedido"] = relationship(

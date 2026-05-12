@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -85,17 +85,37 @@ class CrearPedidoRequest(BaseModel):
     )
 
 
+class AvanzarEstadoRequest(BaseModel):
+    """
+    Request body for PATCH /api/v1/pedidos/{pedido_id}/estado.
+
+    D5 — doble defensa: CONFIRMADO is excluded from Literal so FastAPI returns
+    422 before the service is even called. The service also rejects it as a
+    second defense.
+    D7 — motivo is optional here; the service enforces it conditionally for
+    cancellations from CONFIRMADO or EN_PREPARACION.
+    """
+
+    nuevo_estado: Literal["CANCELADO", "EN_PREPARACION", "EN_CAMINO", "ENTREGADO"]
+    motivo: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Motivo del cambio de estado (obligatorio para cancelaciones desde CONFIRMADO o EN_PREPARACION).",
+    )
+
+
 class PedidoRead(BaseModel):
     """
-    Compact read schema for the order creation response (201).
+    Compact read schema for the order creation response (201) and state transitions.
 
-    Returns only what the client needs to confirm the order was placed:
-    id, estado_codigo, total, created_at.
+    Returns only what the client needs: id, estado_codigo, total, creado_en.
 
     Full detail (items, historial) belongs to order-visualization-backend #17.
 
     D11 — Decimal end-to-end: Pydantic v2 serializes Decimal as string
     (no precision loss, safe for monetary values).
+
+    Note: field names match the ORM model (Spanish naming convention — D9).
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -103,4 +123,4 @@ class PedidoRead(BaseModel):
     id: int
     estado_codigo: str
     total: Decimal
-    created_at: datetime
+    creado_en: datetime

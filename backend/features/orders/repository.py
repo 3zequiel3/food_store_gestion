@@ -20,9 +20,10 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from backend.features.catalog.models import EstadoPedido, FormaPago
+from backend.features.catalog.models import FormaPago
 from backend.features.orders.models import DetallePedido, HistorialEstadoPedido, Pedido
 from backend.features.products.models import Producto
+from backend.shared.exceptions import BusinessRuleError
 from backend.shared.repository import BaseRepository
 
 
@@ -173,22 +174,46 @@ class OrderRepository(BaseRepository[Pedido]):
         estado_anterior_codigo: str,
         estado_nuevo_codigo: str,
         actor_id: Optional[int],
+        motivo: Optional[str] = None,
     ) -> HistorialEstadoPedido:
         """
         Append a state transition entry to order_state_history.
 
         Used by OrderService.transicionar_estado() for system-triggered transitions
-        (actor_id=None = SISTEMA) and future manual transitions (#16).
+        (actor_id=None = SISTEMA) and manual transitions (#16).
+
+        motivo: optional free-text reason (max 500 chars). NULL when not provided.
         """
         historial = HistorialEstadoPedido(
             pedido_id=pedido_id,
             estado_anterior_codigo=estado_anterior_codigo,
             estado_nuevo_codigo=estado_nuevo_codigo,
             cambiado_por_id=actor_id,
+            motivo=motivo,
         )
         self.session.add(historial)
         self.session.flush()
         return historial
+
+    def get_pedido_for_update(self, pedido_id: int) -> Optional[Pedido]:
+        """
+        Fetch a Pedido with a pessimistic lock (SELECT FOR UPDATE).
+
+        D8: Replaces find_by_id() inside transicionar_estado() to serialize
+        concurrent workers (e.g. duplicate webhooks). In SQLite (tests) this
+        is a no-op — concurrency tests must be marked pg_only.
+
+        Returns None if the pedido does not exist or is soft-deleted.
+        """
+        stmt = (
+            select(Pedido)
+            .where(
+                Pedido.id == pedido_id,
+                Pedido.eliminado_en.is_(None),
+            )
+            .with_for_update()
+        )
+        return self.session.execute(stmt).scalar_one_or_none()
 
     def find_by_id(self, pedido_id: int) -> Optional[Pedido]:
         """Return a Pedido by id (no ownership check — for system transitions)."""
@@ -197,6 +222,65 @@ class OrderRepository(BaseRepository[Pedido]):
             Pedido.eliminado_en.is_(None),
         )
         return self.session.execute(stmt).scalar_one_or_none()
+
+    # ── Stock side-effects (order-state-machine-fsm #16) ────────────────────
+
+    def decrement_stock_for_items(self, items: list[DetallePedido]) -> None:
+        """
+        Decrement stock for each DetallePedido item using SELECT FOR UPDATE.
+
+        D8 — called inside transicionar_estado() UoW when PENDIENTE → CONFIRMADO.
+        Each product row is locked before decrement to serialize concurrent requests.
+
+        Raises:
+            BusinessRuleError: if stock would go negative for any product.
+        """
+        for item in items:
+            stmt = (
+                select(Producto)
+                .where(
+                    Producto.id == item.producto_id,
+                    Producto.eliminado_en.is_(None),
+                )
+                .with_for_update()
+            )
+            producto = self.session.execute(stmt).scalar_one_or_none()
+            if producto is None:
+                raise BusinessRuleError(
+                    f"Producto id={item.producto_id} no encontrado al decrementar stock"
+                )
+            if producto.stock_cantidad < item.cantidad:
+                raise BusinessRuleError(
+                    f"Stock insuficiente para confirmar pedido: "
+                    f"producto '{producto.nombre}' tiene {producto.stock_cantidad} unidades, "
+                    f"se necesitan {item.cantidad}"
+                )
+            producto.stock_cantidad -= item.cantidad
+            self.session.flush()
+
+    def restore_stock_for_items(self, items: list[DetallePedido]) -> None:
+        """
+        Restore stock for each DetallePedido item using SELECT FOR UPDATE.
+
+        D6 — called inside transicionar_estado() UoW when (CONFIRMADO|EN_PREPARACION)
+        → CANCELADO. Adds item.cantidad back to each product's stock.
+        """
+        for item in items:
+            stmt = (
+                select(Producto)
+                .where(
+                    Producto.id == item.producto_id,
+                    Producto.eliminado_en.is_(None),
+                )
+                .with_for_update()
+            )
+            producto = self.session.execute(stmt).scalar_one_or_none()
+            if producto is None:
+                raise BusinessRuleError(
+                    f"Producto id={item.producto_id} no encontrado al restaurar stock"
+                )
+            producto.stock_cantidad += item.cantidad
+            self.session.flush()
 
     # ── Order retrieval (for future use in order-visualization-backend #17) ──
 

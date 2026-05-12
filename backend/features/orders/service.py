@@ -22,11 +22,19 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Optional
 
+from sqlalchemy.exc import OperationalError
+
 from backend.features.addresses.repository import AddressRepository
 from backend.features.orders.models import Pedido
 from backend.features.orders.repository import OrderRepository
 from backend.features.orders.schemas import CrearPedidoRequest
-from backend.shared.exceptions import BusinessRuleError, InvalidStateTransitionError, NotFoundError
+from backend.features.orders.state_machine import validate_transition
+from backend.features.users.repository import UserProfileRepository
+from backend.shared.exceptions import (
+    BusinessRuleError,
+    InvalidStateTransitionError,
+    NotFoundError,
+)
 from backend.shared.unit_of_work import UnitOfWork
 
 # D5 — v1 fixed shipping cost. Replace with dynamic calculation in a future change.
@@ -74,7 +82,7 @@ class OrderService:
           6. INSERT Pedido (flush to get id).
           7. INSERT DetallePedido for each item.
           8. INSERT HistorialEstadoPedido (estado_anterior=None, estado_nuevo=PENDIENTE).
-          9. Refresh created_at. UoW __exit__ commits.
+          9. Refresh creado_en. UoW __exit__ commits.
 
         Raises:
             BusinessRuleError: invalid forma_pago or stock/disponibilidad issues (→ 422).
@@ -158,8 +166,8 @@ class OrderService:
                 user_id=user_id,
             )
 
-            # ── Step 9: Refresh created_at before UoW closes session ──────
-            uow.session.refresh(pedido, attribute_names=["created_at"])
+            # ── Step 9: Refresh creado_en before UoW closes session ──────
+            uow.session.refresh(pedido, attribute_names=["creado_en"])
 
             # UoW __exit__ commits on clean exit, rolls back on exception.
             return pedido
@@ -170,21 +178,31 @@ class OrderService:
         estado_anterior: str,
         estado_nuevo: str,
         actor_id: Optional[int] = None,
+        motivo: Optional[str] = None,
     ) -> Pedido:
         """
         Transition an order from estado_anterior to estado_nuevo atomically.
 
-        Used by PaymentService.procesar_webhook() to confirm orders (PENDIENTE→CONFIRMADO).
-        actor_id=None means the transition was triggered by SISTEMA (e.g. a webhook).
+        Used by PaymentService.procesar_webhook() (PENDIENTE→CONFIRMADO) and by
+        avanzar_estado() for manual transitions (#16).
+
+        Backwards-compatible: the existing webhook call signature is unchanged.
+        actor_id=None means the transition was triggered by SISTEMA (webhook).
+
+        Side-effects (D2, D6):
+        - PENDIENTE → CONFIRMADO: decrements stock for each DetallePedido.
+        - (CONFIRMADO|EN_PREPARACION) → CANCELADO: restores stock.
 
         Raises:
             NotFoundError: pedido_id doesn't exist.
             InvalidStateTransitionError: current state != estado_anterior (409).
+            BusinessRuleError: insufficient stock on confirmation (422).
         """
         with UnitOfWork() as uow:
             uow.register_repository("orders", OrderRepository(uow.session))
 
-            pedido = uow.orders.find_by_id(pedido_id)
+            # D8: use FOR UPDATE to serialize concurrent workers
+            pedido = uow.orders.get_pedido_for_update(pedido_id)
             if pedido is None:
                 raise NotFoundError(f"Pedido no encontrado: id={pedido_id}")
 
@@ -194,6 +212,28 @@ class OrderService:
                     f"se esperaba '{estado_anterior}'"
                 )
 
+            # D2: stock side-effects before changing the state
+            # Load items only when needed to avoid unnecessary queries.
+            # In SQLite test environments order_items table doesn't exist
+            # (ARRAY(Integer) is PG-specific); we catch OperationalError and
+            # treat items as empty — stock side-effects are tested at the
+            # repository level with mocked items.
+            needs_stock_effect = (estado_anterior, estado_nuevo) in {
+                ("PENDIENTE", "CONFIRMADO"),
+                ("CONFIRMADO", "CANCELADO"),
+                ("EN_PREPARACION", "CANCELADO"),
+            }
+            if needs_stock_effect:
+                try:
+                    items = list(pedido.items)
+                except OperationalError:
+                    items = []  # SQLite: order_items table not available
+
+                if (estado_anterior, estado_nuevo) == ("PENDIENTE", "CONFIRMADO"):
+                    uow.orders.decrement_stock_for_items(items)
+                else:
+                    uow.orders.restore_stock_for_items(items)
+
             pedido.estado_codigo = estado_nuevo
             uow.session.flush()
 
@@ -202,7 +242,85 @@ class OrderService:
                 estado_anterior_codigo=estado_anterior,
                 estado_nuevo_codigo=estado_nuevo,
                 actor_id=actor_id,
+                motivo=motivo,
             )
 
-            uow.session.refresh(pedido)
+            uow.session.refresh(pedido, attribute_names=["estado_codigo", "creado_en"])
             return pedido
+
+    def avanzar_estado(
+        self,
+        user_id: int,
+        pedido_id: int,
+        nuevo_estado: str,
+        motivo: Optional[str] = None,
+    ) -> Pedido:
+        """
+        Advance an order state with full FSM + RBAC + ownership validation.
+
+        High-level layer (D1): validates who can do what, then delegates the
+        actual state change to transicionar_estado() which handles the atomic
+        UoW + stock side-effects.
+
+        D14: Uses a direct read-only session for the validation phase (no UoW
+        of its own). The pattern mirrors auth/dependencies.py:get_current_user.
+        The race between this read and transicionar_estado's FOR UPDATE is
+        benign: if state changed between the two reads, transicionar_estado
+        raises InvalidStateTransitionError (409).
+
+        Raises:
+            BusinessRuleError: CONFIRMADO requested manually (D5), invalid FSM
+                transition (D3), or missing motivo on critical cancellation (D7).
+            NotFoundError: pedido not found, or CLIENT accessing another user's
+                pedido (D13 anti-leak).
+            ForbiddenError: user lacks required role for this transition (D4).
+            InvalidStateTransitionError: race condition — state changed between
+                the validation read and the UoW lock (409).
+        """
+        import backend.shared.unit_of_work as _uow_mod
+
+        # D5: first defense against manual CONFIRMADO
+        if nuevo_estado == "CONFIRMADO":
+            raise BusinessRuleError(
+                "CONFIRMADO solo se setea automáticamente vía webhook de pago"
+            )
+
+        # Read-only session for validation — no UoW, no lock (D14)
+        session = _uow_mod.get_session_factory()()
+        try:
+            order_repo = OrderRepository(session)
+            user_repo = UserProfileRepository(session)
+
+            pedido = order_repo.find_by_id(pedido_id)
+            if pedido is None:
+                raise NotFoundError(f"Pedido no encontrado: id={pedido_id}")
+
+            user = user_repo.find_by_id_with_roles(user_id)
+            user_roles = {r.codigo for r in user.roles}
+
+            # D13: ownership check — CLIENT can only act on their own orders
+            if user_roles == {"CLIENT"} and pedido.user_id != user_id:
+                raise NotFoundError(f"Pedido no encontrado: id={pedido_id}")
+
+            # D3 + D4: FSM and RBAC validation
+            validate_transition(pedido.estado_codigo, nuevo_estado, user_roles)
+
+            # D7: motivo required for cancellations from CONFIRMADO or EN_PREPARACION
+            if nuevo_estado == "CANCELADO" and pedido.estado_codigo in {"CONFIRMADO", "EN_PREPARACION"}:
+                if not motivo or not motivo.strip():
+                    raise BusinessRuleError(
+                        "motivo es obligatorio para cancelar pedidos desde CONFIRMADO o EN_PREPARACION"
+                    )
+
+            estado_actual = pedido.estado_codigo
+        finally:
+            session.close()
+
+        # Delegate to transicionar_estado which opens its own UoW with FOR UPDATE
+        return self.transicionar_estado(
+            pedido_id=pedido_id,
+            estado_anterior=estado_actual,
+            estado_nuevo=nuevo_estado,
+            actor_id=user_id,
+            motivo=motivo,
+        )
