@@ -60,4 +60,4 @@ Además, la implementación previa del modelo `Pedido` quedó desalineada con la
 - `costo_envio` fijo (50.00) — simplificación v1. Cualquier cálculo dinámico se traslada a un change futuro.
 - Sin throttling específico para `POST /pedidos` — se hereda el rate limit global. Si se identifica abuso, se sube en `admin-metrics-backend` o un change posterior.
 
-**Estimación**: 5–6 h (sin compactación, incluye TDD-first de 12-15 tests de integración).
+**Estimación**: 5–6 h (sin compactación, incluye TDD-first de ~27 tests de integración cubriendo happy path, atomicidad/rollback, validaciones de stock/disponibilidad/forma_pago/dirección, anti-smuggling, schemas Pydantic, auth y autorización CLIENT).

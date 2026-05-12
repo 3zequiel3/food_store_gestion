@@ -299,6 +299,24 @@ class ItemPedidoRequest(BaseModel):
 - + Precisión exacta.
 - − Hay que escribir `Decimal("50.00")` y no `50.00` en tests. Trivial.
 
+### D13 — Items con mismo `producto_id` se aceptan como filas separadas (no deduplicación)
+
+**Decisión**: si el request envía dos o más items con el mismo `producto_id` (con personalización distinta o idéntica), el sistema acepta el request y crea **una fila por cada item en `order_items`**. NO se hace deduplicación ni agregación de cantidades.
+
+**Why**: el modelo SQLAlchemy permite múltiples `DetallePedido` por mismo `(pedido_id, producto_id)` — la FK no tiene UQ. Caso de uso real: el cliente pide 2 milanesas SIN cebolla y 1 milanesa CON cebolla — son dos líneas porque tienen personalización distinta. Forzar deduplicación rompería este caso de negocio.
+
+**Alternatives considered**:
+- *Deduplicar por `producto_id` + agregar cantidades*: rompe el caso de personalización distinta.
+- *Deduplicar por `(producto_id, personalizacion)`*: complica el service y el orden de comparación de arrays. Costo > beneficio.
+- *Rechazar con 422 si hay duplicados de `producto_id`*: arbitrario y restrictivo, contradice el caso de uso real.
+
+**Consequences**:
+- + Cero lógica adicional en el service — la suma del total funciona naturalmente.
+- + El frontend puede armar el carrito como quiera; el backend persiste fielmente.
+- − El frontend debería ser responsable de mostrar la UI agrupada si quiere. No es preocupación del backend.
+
+Test cubierto en spec por el scenario "Items con mismo producto_id pero distinta personalización" del Requirement "Crear pedido desde el carrito".
+
 ### D12 — RBAC: `CLIENT` obligatorio en `POST /pedidos`
 
 **Decisión**: el endpoint usa `Depends(get_current_user)` (autenticación obligatoria) **y** valida que el rol del usuario incluya `CLIENT`. Reusa el helper `require_role("CLIENT")` ya existente en `backend/features/auth/dependencies.py` (si está) o, si no existe, valida explícitamente en el router con un `HTTPException(403)`.
@@ -342,6 +360,6 @@ class ItemPedidoRequest(BaseModel):
 
 ## Open Questions
 
-- **¿RBAC con `require_role("CLIENT")` o sólo `get_current_user`?** — Recomendación: `require_role("CLIENT")` para reflejar el contrato de §5. Si `require_role` no existe todavía como dependency factory, validar inline en el router. Resolución: durante apply, se inspecciona `backend/features/auth/dependencies.py` y se decide; si no hay helper, se implementa uno mínimo en el mismo change (puede convertirse en una decisión D13 si emerge).
+- **¿RBAC con `require_role("CLIENT")` o sólo `get_current_user`?** — **RESUELTO**: `require_role` existe en `backend/features/auth/dependencies.py` con firma `def require_role(*required_roles: str)` y se usa como `Depends(require_role("CLIENT"))`. Verificado con `rg "def require_role"` antes del apply. No requiere implementación nueva.
 - **¿`costo_envio` debe estar parametrizado por env var en v1?** — Recomendación: constante de módulo. Si surge la necesidad, una `SHIPPING_COST_DEFAULT` env var es trivial de agregar.
 - **¿Necesita el response `PedidoRead` incluir el total ya calculado?** — Sí (spec §6.2): `PedidoRead: id, estado_codigo, total, created_at`. Lo añadimos al schema.

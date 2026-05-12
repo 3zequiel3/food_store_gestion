@@ -13,10 +13,7 @@
 - [ ] 2.2 Escribir `ItemPedidoRequest` con `model_config = ConfigDict(extra="forbid")`, campos `producto_id: int (ge=1)`, `cantidad: int (ge=1, le=999)`, `personalizacion: list[int] | None = Field(default=None, max_length=20)` + validator que rechace IDs `<= 0`.
 - [ ] 2.3 Escribir `CrearPedidoRequest` con `model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)`, campos `items: list[ItemPedidoRequest] = Field(min_length=1, max_length=50)`, `forma_pago_codigo: str (min_length=1, max_length=50)`, `direccion_id: int | None = Field(default=None, ge=1)`, `notas: str | None = Field(default=None, max_length=500)`.
 - [ ] 2.4 Escribir `PedidoRead` compacto (`model_config = ConfigDict(from_attributes=True)`): `id: int`, `estado_codigo: str`, `total: Decimal`, `created_at: datetime`.
-- [ ] 2.5 Escribir `DetallePedidoRead` (`from_attributes=True`): `producto_id: int`, `nombre_snapshot: str`, `precio_snapshot: Decimal`, `cantidad: int`, `personalizacion: list[int] | None`.
-- [ ] 2.6 Escribir `HistorialEstadoRead` (`from_attributes=True`): `estado_anterior_codigo: str | None`, `estado_nuevo_codigo: str`, `cambiado_por_id: int | None`, `created_at: datetime`.
-- [ ] 2.7 Escribir `PedidoDetail` (`from_attributes=True`): `id`, `estado_codigo`, `total`, `costo_envio`, `forma_pago_codigo`, `direccion_snapshot: str | None`, `notas: str | None`, `created_at`, `items: list[DetallePedidoRead]`, `historial: list[HistorialEstadoRead]`. (Schema usado por `order-visualization-backend` más adelante — lo definimos acá para tener el contrato listo.)
-- [ ] 2.8 Verificar imports y que `schemas.py` no tenga dependencias circulares con `service.py` o `models.py`.
+- [ ] 2.5 Verificar imports y que `schemas.py` no tenga dependencias circulares con `service.py` o `models.py`. (Schemas `DetallePedidoRead`, `HistorialEstadoRead`, `PedidoDetail` quedan FUERA de scope — corresponden a `order-visualization-backend` #17 que es quien los consume.)
 
 ## 3. Repository — OrderRepository unificado (D8)
 
@@ -48,7 +45,7 @@
 
 - [ ] 5.1 Editar `backend/features/orders/router.py`. Borrar los tres stubs `not_implemented`. Mantener `router = APIRouter()` para que `backend/main.py` lo siga montando.
 - [ ] 5.2 Importar `Depends`, `status`, `CrearPedidoRequest`, `PedidoRead`, `OrderService`, `get_current_user`, `Usuario`.
-- [ ] 5.3 Implementar dependency factory `require_client` si no existe en `auth/dependencies.py`: chequea que `current_user` tenga rol `CLIENT`; sino, `HTTPException(403, "Solo clientes pueden crear pedidos")`. Si ya existe `require_role`, usar `Depends(require_role("CLIENT"))`.
+- [ ] 5.3 Usar `Depends(require_role("CLIENT"))` — `require_role` ya existe en `backend/features/auth/dependencies.py` con firma `def require_role(*required_roles: str)` (verificado durante review del propose). NO implementar nada nuevo.
 - [ ] 5.4 Escribir el endpoint:
   ```python
   @router.post("/", response_model=PedidoRead, status_code=status.HTTP_201_CREATED)
@@ -73,6 +70,15 @@
 - [ ] 6.6 Registrar el marker `pg_only` en `pyproject.toml` (`[tool.pytest.ini_options] markers = ["pg_only: tests que requieren PostgreSQL"]`) para evitar warnings.
 
 ## 7. Tests de integración — TDD-first (Strict TDD activo)
+
+> **STRICT TDD ACTIVO — orden de trabajo real**: aunque las secciones 1-6 están listadas estructuralmente (migration → schemas → repo → service → router → fixtures), el apply DEBE intercalar tests-first con cada vertical:
+>
+> 1. Step 2 (schemas) ← escribir primero tests 7.16–7.22 (anti-smuggling + validaciones Pydantic), correrlos en rojo, después implementar schemas hasta verlos en verde.
+> 2. Step 3 (repository) ← escribir primero los tests que tocan repo methods (`find_forma_pago`, `get_producto_for_update`) como tests de service-level que fallan por falta de implementación; implementar repo.
+> 3. Step 4 (service) ← escribir tests 7.3, 7.4, 7.6, 7.7, 7.10–7.15, 7.26 (happy path + stock + forma_pago + ownership + atomicidad) en rojo; implementar service en verde.
+> 4. Step 5 (router) ← escribir tests 7.23–7.25 (auth/auth) en rojo; implementar router en verde.
+>
+> NO escribir código de producción sin un test que falle previamente. Esto es no negociable.
 
 - [ ] 7.1 Crear `backend/tests/integration/test_orders.py` con docstring de las secciones (7.1 happy path, 7.2 stock, 7.3 disponibilidad, 7.4 forma_pago, 7.5 dirección ownership, 7.6 retiro local, 7.7 atomicidad, 7.8 anti-smuggling, 7.9 validaciones Pydantic, 7.10 auth).
 - [ ] 7.2 Helper `_payload_valido(producto_id, direccion_id=None, cantidad=1)` que arma un body válido reusable.
@@ -99,7 +105,7 @@
 - [ ] 7.23 **TEST (7.10.a) — Sin Authorization responde 401**: `POST /api/v1/pedidos` sin header → 401.
 - [ ] 7.24 **TEST (7.10.b) — Token inválido responde 401**: header `Bearer xxxxxxx` → 401.
 - [ ] 7.25 **TEST (7.10.c) — Usuario sin rol CLIENT responde 403**: crear usuario ADMIN-only → 403 al intentar crear pedido.
-- [ ] 7.26 **TEST (7.11) — Total con precios fraccionarios**: 2 items (19.99 × 3) + (10.50 × 2) + dirección → 422 si stock no alcanza, 201 si OK y `total = Decimal("131.97")`. Pg_only por items.
+- [ ] 7.26 **TEST (7.11) — Total con precios fraccionarios**: 2 items (19.99 × 3 = 59.97) + (10.50 × 2 = 21.00) + costo_envio 50.00 → 201 y `total == Decimal("130.97")` (sin pérdida de precisión). Pg_only por items. NOTA: si el stock no alcanza, el test debe armar el producto con stock suficiente — el assertion es sobre el total, no sobre el error.
 - [ ] 7.27 Marcar con `@pytest.mark.pg_only` todos los tests que inserten `order_items` (la mayoría de los happy path + atomicidad). Los tests de validación Pydantic puros (anti-smuggling, items vacíos, auth) pueden correr en SQLite porque nunca llegan a la BD.
 
 ## 8. Verify — pytest + sanity de migration

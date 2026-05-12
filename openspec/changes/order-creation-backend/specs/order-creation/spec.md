@@ -20,11 +20,17 @@ El sistema SHALL exponer `POST /api/v1/pedidos` que crea un pedido a partir del 
 - **THEN** la columna `orders.estado_codigo` vale exactamente `"PENDIENTE"`
 - **AND** existe exactamente una fila en `order_state_history` con `pedido_id` del nuevo pedido, `estado_anterior_codigo=NULL`, `estado_nuevo_codigo="PENDIENTE"` y `cambiado_por_id` igual al `user_id` del cliente autenticado
 
+#### Scenario: Items con mismo producto_id pero distinta personalización se aceptan como filas separadas (D13)
+- **WHEN** un cliente envía 2 items con el mismo `producto_id=1`: uno con `personalizacion=[3]` (sin cebolla) y otro con `personalizacion=[]` o `null` (con cebolla)
+- **THEN** el sistema responde `201 Created`
+- **AND** en BD existen **2 filas independientes** en `order_items` con el mismo `producto_id` y `pedido_id` pero distinta `personalizacion`
+- **AND** el `total` suma correctamente ambos subtotales (no se deduplica ni agrega cantidades)
+
 ---
 
 ### Requirement: Snapshots inmutables de precio y dirección
 
-El sistema SHALL capturar y persistir snapshots inmutables al crear un pedido: `precio_snapshot` y `nombre_snapshot` en cada `DetallePedido`, y `direccion_snapshot` en `Pedido` (cuando aplica). Cambios futuros en el catálogo de productos o en las direcciones del cliente NO MUST alterar los snapshots de pedidos ya creados.
+El sistema SHALL capturar y persistir snapshots inmutables al crear un pedido: `precio_snapshot` y `nombre_snapshot` en cada `DetallePedido`, y `direccion_snapshot` en `Pedido` (cuando aplica). Cambios futuros en el catálogo de productos o en las direcciones del cliente SHALL NOT alterar los snapshots de pedidos ya creados.
 
 #### Scenario: Cambio posterior de precio no altera snapshot del pedido
 - **WHEN** un cliente crea un pedido con un producto cuyo `precio` actual es `100.00`
@@ -137,7 +143,7 @@ El sistema SHALL calcular `total = sum(cantidad × precio_snapshot) + costo_envi
 
 #### Scenario: Total exacto con precios fraccionarios
 - **WHEN** un cliente crea un pedido con `direccion_id` propia y 2 items: producto A (precio `19.99`, cantidad 3) y producto B (precio `10.50`, cantidad 2)
-- **THEN** `orders.total` es exactamente `60.00 + 21.00 + 50.00 = 131.97` (en `Decimal`, sin pérdida de precisión)
+- **THEN** `orders.total` es exactamente `59.97 + 21.00 + 50.00 = 130.97` (en `Decimal`, sin pérdida de precisión: `19.99 × 3 = 59.97`, NO `60.00`)
 - **AND** `orders.costo_envio` es `50.00`
 
 #### Scenario: Total sin costo de envío en retiro en local
@@ -238,7 +244,7 @@ El sistema SHALL aceptar opcionalmente un array de IDs de ingredientes (`persona
 
 ### Requirement: Schema PedidoRead compacto en la respuesta
 
-El sistema SHALL devolver `PedidoRead` en el response `201 Created`, con los campos `id`, `estado_codigo`, `total`, `created_at` (RN-PE08 alineado con §6.2 de la spec). El response NO MUST incluir los items, el historial ni los snapshots — esa información se obtiene via `GET /api/v1/pedidos/{id}` (cubierto por `order-visualization-backend`).
+El sistema SHALL devolver `PedidoRead` en el response `201 Created`, con los campos `id`, `estado_codigo`, `total`, `created_at` (RN-PE08 alineado con §6.2 de la spec). El response SHALL NOT incluir los items, el historial ni los snapshots — esa información se obtiene via `GET /api/v1/pedidos/{id}` (cubierto por `order-visualization-backend`).
 
 #### Scenario: Response 201 contiene los campos compactos
 - **WHEN** un cliente crea un pedido exitoso
