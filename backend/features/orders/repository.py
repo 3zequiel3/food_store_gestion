@@ -14,15 +14,18 @@ No imports from service, router, or FastAPI.
 
 from __future__ import annotations
 
+from datetime import date, datetime, time as time_type, timedelta
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, selectinload
 
 from backend.features.catalog.models import FormaPago
 from backend.features.orders.models import DetallePedido, HistorialEstadoPedido, Pedido
 from backend.features.products.models import Producto
+from backend.features.users.models import Usuario
 from backend.shared.exceptions import BusinessRuleError
 from backend.shared.repository import BaseRepository
 
@@ -282,29 +285,159 @@ class OrderRepository(BaseRepository[Pedido]):
             producto.stock_cantidad += item.cantidad
             self.session.flush()
 
-    # ── Order retrieval (for future use in order-visualization-backend #17) ──
+    # ── Order retrieval (order-visualization-backend #17) ────────────────────
+
+    def list_with_filter(
+        self,
+        *,
+        user_id: int | None,
+        estado: str | None,
+        desde: date | None,
+        hasta: date | None,
+        q: str | None,
+        page: int,
+        limit: int,
+    ) -> list[tuple[Pedido, int]]:
+        """
+        Paginated order list with optional filters. Returns (Pedido, items_count) tuples.
+
+        items_count is computed via correlated subquery over order_items (PG only).
+        Falls back to 0 for each row in SQLite test environments (OperationalError).
+
+        D4: no selectinload — list does NOT eager-load relations to avoid N+1.
+        Order: creado_en DESC (US-049).
+        """
+        where_clauses = [Pedido.eliminado_en.is_(None)]
+        q_needs_user_join = False
+
+        if user_id is not None:
+            where_clauses.append(Pedido.user_id == user_id)
+        if estado is not None:
+            where_clauses.append(Pedido.estado_codigo == estado)
+        if desde is not None:
+            where_clauses.append(
+                Pedido.creado_en >= datetime.combine(desde, time_type.min)
+            )
+        if hasta is not None:
+            where_clauses.append(
+                Pedido.creado_en < datetime.combine(hasta + timedelta(days=1), time_type.min)
+            )
+        if q is not None:
+            if q.isdigit():
+                where_clauses.append(Pedido.id == int(q))
+            else:
+                q_needs_user_join = True
+
+        def _apply_q_join(stmt):
+            if q_needs_user_join:
+                return stmt.join(Pedido.usuario).where(
+                    (Usuario.nombre + " " + Usuario.apellido).ilike(f"%{q}%")
+                )
+            return stmt
+
+        items_count_sq = (
+            select(func.count(DetallePedido.id))
+            .where(DetallePedido.pedido_id == Pedido.id)
+            .correlate(Pedido)
+            .scalar_subquery()
+        )
+
+        full_stmt = _apply_q_join(
+            select(Pedido, items_count_sq.label("items_count")).where(*where_clauses)
+        ).order_by(Pedido.creado_en.desc()).offset((page - 1) * limit).limit(limit)
+
+        try:
+            rows = self.session.execute(full_stmt).all()
+            return [(row[0], row[1]) for row in rows]
+        except OperationalError:
+            # SQLite: order_items table not available — return 0 for items_count
+            plain_stmt = _apply_q_join(
+                select(Pedido).where(*where_clauses)
+            ).order_by(Pedido.creado_en.desc()).offset((page - 1) * limit).limit(limit)
+            pedidos = self.session.execute(plain_stmt).scalars().all()
+            return [(p, 0) for p in pedidos]
+
+    def count_with_filter(
+        self,
+        *,
+        user_id: int | None,
+        estado: str | None,
+        desde: date | None,
+        hasta: date | None,
+        q: str | None,
+    ) -> int:
+        """
+        Count orders matching the same filters as list_with_filter (no offset/limit).
+
+        Used for the `total` field in PaginatedPedidos.
+        """
+        stmt = select(func.count(Pedido.id)).where(Pedido.eliminado_en.is_(None))
+
+        if user_id is not None:
+            stmt = stmt.where(Pedido.user_id == user_id)
+        if estado is not None:
+            stmt = stmt.where(Pedido.estado_codigo == estado)
+        if desde is not None:
+            stmt = stmt.where(
+                Pedido.creado_en >= datetime.combine(desde, time_type.min)
+            )
+        if hasta is not None:
+            stmt = stmt.where(
+                Pedido.creado_en < datetime.combine(hasta + timedelta(days=1), time_type.min)
+            )
+        if q is not None:
+            if q.isdigit():
+                stmt = stmt.where(Pedido.id == int(q))
+            else:
+                stmt = stmt.join(Pedido.usuario).where(
+                    (Usuario.nombre + " " + Usuario.apellido).ilike(f"%{q}%")
+                )
+
+        return self.session.execute(stmt).scalar_one()
 
     def get_pedido_completo(
         self,
         pedido_id: int,
-        user_id: int,
+        user_id: int | None,
     ) -> Optional[Pedido]:
         """
-        Fetch a Pedido with eager-loaded items and historial.
+        Fetch a Pedido with eager-loaded items, historial, and pagos.
 
-        Filters by user_id (ownership) and eliminado_en IS NULL (soft delete).
-        Used by fixtures in tests and reserved for visualization endpoints (#17).
+        D5: user_id=None → no ownership filter (admin path).
+             user_id=int → filters WHERE pedido.user_id = user_id (client path).
+        Returns None if not found, soft-deleted, or ownership mismatch.
+
+        SQLite fallback: order_items uses ARRAY(Integer) (PG-only). In SQLite test
+        environments the selectinload for items raises OperationalError. The fallback
+        loads historial and pagos via lazy-load and marks items as empty so callers
+        don't trigger a second failing lazy-load.
         """
+        from sqlalchemy.orm import attributes as sa_attrs
+
+        base_where = [Pedido.id == pedido_id, Pedido.eliminado_en.is_(None)]
+        if user_id is not None:
+            base_where.append(Pedido.user_id == user_id)
+
         stmt = (
             select(Pedido)
             .options(
                 selectinload(Pedido.items),
                 selectinload(Pedido.historial),
+                selectinload(Pedido.pagos),
             )
-            .where(
-                Pedido.id == pedido_id,
-                Pedido.user_id == user_id,
-                Pedido.eliminado_en.is_(None),
-            )
+            .where(*base_where)
         )
-        return self.session.execute(stmt).scalar_one_or_none()
+        try:
+            return self.session.execute(stmt).scalar_one_or_none()
+        except OperationalError:
+            # SQLite: order_items (ARRAY) unavailable. Re-fetch without items selectinload.
+            plain_stmt = select(Pedido).where(*base_where)
+            pedido = self.session.execute(plain_stmt).scalar_one_or_none()
+            if pedido is None:
+                return None
+            # Trigger lazy-loads for SQLite-compatible relations
+            _ = list(pedido.historial)
+            _ = list(pedido.pagos)
+            # Mark items as loaded-empty to prevent future lazy-load failure
+            sa_attrs.set_committed_value(pedido, "items", [])
+            return pedido

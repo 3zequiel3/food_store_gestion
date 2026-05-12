@@ -1774,3 +1774,84 @@ class TestPrecisionAndMigration:
         assert row is not None
         # SQLite returns 0/1 for booleans — normalize before comparing
         assert not bool(row[0])
+
+
+# ===========================================================================
+# 7.9 incluir_eliminados — RN-CA10 (US-064)
+# ===========================================================================
+
+
+class TestIncluidoEliminados:
+    """GET /api/v1/productos?incluir_eliminados=true — RN-CA10.
+
+    Only ADMIN can see soft-deleted products. Other roles and unauthenticated
+    requests ignore the flag and always see only active products.
+    """
+
+    def test_admin_incluir_eliminados_ve_soft_deleted(
+        self, client: TestClient, sample_roles, admin_user
+    ):
+        """ADMIN + incluir_eliminados=true → response includes soft-deleted product."""
+        headers = _admin_headers(client)
+        prod = _create_product(client, headers, nombre="Prod-a-eliminar")
+        # Soft-delete the product
+        client.delete(f"/api/v1/productos/{prod['id']}", headers=headers)
+
+        # Without flag: not visible
+        resp_sin = client.get("/api/v1/productos?disponible=true", headers=headers)
+        ids_sin = [p["id"] for p in resp_sin.json()["items"]]
+        assert prod["id"] not in ids_sin
+
+        # With flag: visible
+        resp_con = client.get(
+            "/api/v1/productos?incluir_eliminados=true&disponible=true",
+            headers=headers,
+        )
+        assert resp_con.status_code == 200
+        ids_con = [p["id"] for p in resp_con.json()["items"]]
+        assert prod["id"] in ids_con
+
+    def test_client_incluir_eliminados_no_ve_soft_deleted(
+        self, client: TestClient, sample_roles, admin_user, client_user
+    ):
+        """CLIENT + incluir_eliminados=true → soft-deleted product NOT visible."""
+        admin_h = _admin_headers(client)
+        prod = _create_product(client, admin_h, nombre="Prod-client-no-ve")
+        client.delete(f"/api/v1/productos/{prod['id']}", headers=admin_h)
+
+        resp = client.get(
+            "/api/v1/productos?incluir_eliminados=true",
+            headers=_client_headers(client),
+        )
+        assert resp.status_code == 200
+        ids = [p["id"] for p in resp.json()["items"]]
+        assert prod["id"] not in ids
+
+    def test_sin_auth_incluir_eliminados_no_ve_soft_deleted(
+        self, client: TestClient, sample_roles, admin_user
+    ):
+        """Unauthenticated + incluir_eliminados=true → soft-deleted NOT visible."""
+        headers = _admin_headers(client)
+        prod = _create_product(client, headers, nombre="Prod-anon-no-ve")
+        client.delete(f"/api/v1/productos/{prod['id']}", headers=headers)
+
+        resp = client.get("/api/v1/productos?incluir_eliminados=true")
+        assert resp.status_code == 200
+        ids = [p["id"] for p in resp.json()["items"]]
+        assert prod["id"] not in ids
+
+    def test_stock_incluir_eliminados_no_ve_soft_deleted(
+        self, client: TestClient, sample_roles, admin_user, stock_user
+    ):
+        """STOCK + incluir_eliminados=true → soft-deleted NOT visible."""
+        admin_h = _admin_headers(client)
+        prod = _create_product(client, admin_h, nombre="Prod-stock-no-ve")
+        client.delete(f"/api/v1/productos/{prod['id']}", headers=admin_h)
+
+        resp = client.get(
+            "/api/v1/productos?incluir_eliminados=true",
+            headers=_stock_headers(client),
+        )
+        assert resp.status_code == 200
+        ids = [p["id"] for p in resp.json()["items"]]
+        assert prod["id"] not in ids

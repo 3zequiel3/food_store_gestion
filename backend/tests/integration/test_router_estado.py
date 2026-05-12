@@ -81,6 +81,31 @@ def auth_headers_pedidos(client, test_db_session: Session, sample_roles):
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
+@pytest.fixture
+def auth_headers_admin(client, test_db_session: Session, sample_roles):
+    """Auth headers for an ADMIN user (US-065)."""
+    from backend.features.users.models import Usuario, UsuarioRol
+    from backend.shared.security import hash_password
+
+    user = Usuario(
+        email="admin_router@example.com",
+        password_hash=hash_password("admin_router_pw"),
+        nombre="Admin",
+        apellido="Router",
+        is_active=True,
+    )
+    test_db_session.add(user)
+    test_db_session.flush()
+    test_db_session.add(UsuarioRol(user_id=user.id, role_id=1))  # ADMIN
+    test_db_session.commit()
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin_router@example.com", "password": "admin_router_pw"},
+    )
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -203,3 +228,29 @@ class TestPatchEstado:
         assert response.status_code == 200
         body = response.json()
         assert body["estado_codigo"] == "CANCELADO"
+
+    def test_patch_estado_admin_puede_cancelar_pendiente(
+        self, client: TestClient, auth_headers_admin, pedido_pendiente
+    ):
+        """ADMIN can cancel a PENDIENTE order → 200 (US-065)."""
+        url = ESTADO_URL.format(pedido_id=pedido_pendiente.id)
+        response = client.patch(
+            url,
+            json={"nuevo_estado": "CANCELADO"},
+            headers=auth_headers_admin,
+        )
+        assert response.status_code == 200
+        assert response.json()["estado_codigo"] == "CANCELADO"
+
+    def test_patch_estado_admin_puede_avanzar_confirmado_a_en_preparacion(
+        self, client: TestClient, auth_headers_admin, pedido_confirmado
+    ):
+        """ADMIN can advance CONFIRMADO → EN_PREPARACION → 200 (US-065)."""
+        url = ESTADO_URL.format(pedido_id=pedido_confirmado.id)
+        response = client.patch(
+            url,
+            json={"nuevo_estado": "EN_PREPARACION"},
+            headers=auth_headers_admin,
+        )
+        assert response.status_code == 200
+        assert response.json()["estado_codigo"] == "EN_PREPARACION"

@@ -24,14 +24,27 @@ from typing import Optional
 
 from sqlalchemy.exc import OperationalError
 
+from decimal import Decimal
+
 from backend.features.addresses.repository import AddressRepository
 from backend.features.orders.models import Pedido
 from backend.features.orders.repository import OrderRepository
-from backend.features.orders.schemas import CrearPedidoRequest
+from backend.features.orders.schemas import (
+    CrearPedidoRequest,
+    HistorialItem,
+    ItemDetalle,
+    PaginatedPedidos,
+    PagoSummary,
+    PedidoDetalle,
+    PedidoListFilters,
+    PedidoListItem,
+)
 from backend.features.orders.state_machine import validate_transition
+from backend.features.users.models import Usuario
 from backend.features.users.repository import UserProfileRepository
 from backend.shared.exceptions import (
     BusinessRuleError,
+    ForbiddenError,
     InvalidStateTransitionError,
     NotFoundError,
 )
@@ -39,6 +52,22 @@ from backend.shared.unit_of_work import UnitOfWork
 
 # D5 — v1 fixed shipping cost. Replace with dynamic calculation in a future change.
 SHIPPING_COST_DEFAULT = Decimal("50.00")
+
+
+def _is_admin_view(user: Usuario) -> bool:
+    """
+    Determine if the user has admin-level access to orders.
+
+    Returns True for PEDIDOS or ADMIN roles (sees all orders).
+    Returns False for CLIENT role (sees only own orders).
+    Raises ForbiddenError for STOCK-only users (no order access).
+    """
+    roles = {r.codigo for r in user.roles}
+    if roles & {"PEDIDOS", "ADMIN"}:
+        return True
+    if roles & {"CLIENT"}:
+        return False
+    raise ForbiddenError("Rol STOCK no autorizado para acceder a pedidos")
 
 
 def _build_direccion_snapshot(direccion) -> str:
@@ -247,6 +276,125 @@ class OrderService:
 
             uow.session.refresh(pedido, attribute_names=["estado_codigo", "creado_en"])
             return pedido
+
+    def listar_pedidos(self, user: Usuario, filtros: PedidoListFilters) -> PaginatedPedidos:
+        """
+        List orders with role-aware filtering and pagination.
+
+        CLIENT: filters by user_id == current_user.id.
+        PEDIDOS/ADMIN: no ownership filter.
+        STOCK-only: ForbiddenError.
+
+        D3: short-circuits before the list query when total == 0.
+        """
+        admin_view = _is_admin_view(user)
+        user_id_filter: int | None = None if admin_view else user.id
+
+        with UnitOfWork() as uow:
+            uow.register_repository("orders", OrderRepository(uow.session))
+
+            total = uow.orders.count_with_filter(
+                user_id=user_id_filter,
+                estado=filtros.estado,
+                desde=filtros.desde,
+                hasta=filtros.hasta,
+                q=filtros.q,
+            )
+
+            if total == 0:
+                return PaginatedPedidos(
+                    items=[], total=0, page=filtros.page, limit=filtros.limit
+                )
+
+            rows = uow.orders.list_with_filter(
+                user_id=user_id_filter,
+                estado=filtros.estado,
+                desde=filtros.desde,
+                hasta=filtros.hasta,
+                q=filtros.q,
+                page=filtros.page,
+                limit=filtros.limit,
+            )
+
+        items = [
+            PedidoListItem(
+                id=pedido.id,
+                estado_codigo=pedido.estado_codigo,
+                total=Decimal(str(pedido.total)),
+                costo_envio=Decimal(str(pedido.costo_envio)),
+                forma_pago_codigo=pedido.forma_pago_codigo,
+                creado_en=pedido.creado_en,
+                items_count=count,
+            )
+            for pedido, count in rows
+        ]
+
+        return PaginatedPedidos(
+            items=items, total=total, page=filtros.page, limit=filtros.limit
+        )
+
+    def get_pedido_detalle(self, user: Usuario, pedido_id: int) -> PedidoDetalle:
+        """
+        Fetch full order detail with items, historial, and pagos.
+
+        Anti-leak 404 (D2): CLIENT gets None when pedido exists but is not theirs —
+        same 404 as pedido not found. No branching that reveals ownership.
+
+        historial ordered by creado_en ASC, pagos by fecha DESC, items by id ASC.
+        """
+        admin_view = _is_admin_view(user)
+        user_id_filter: int | None = None if admin_view else user.id
+
+        with UnitOfWork() as uow:
+            uow.register_repository("orders", OrderRepository(uow.session))
+            pedido = uow.orders.get_pedido_completo(pedido_id, user_id=user_id_filter)
+
+        if pedido is None:
+            raise NotFoundError("Pedido no encontrado")
+
+        return PedidoDetalle(
+            id=pedido.id,
+            user_id=pedido.user_id,
+            estado_codigo=pedido.estado_codigo,
+            total=Decimal(str(pedido.total)),
+            costo_envio=Decimal(str(pedido.costo_envio)),
+            forma_pago_codigo=pedido.forma_pago_codigo,
+            direccion_snapshot=pedido.direccion_snapshot,
+            notas=pedido.notas,
+            creado_en=pedido.creado_en,
+            actualizado_en=pedido.actualizado_en,
+            items=sorted(
+                [
+                    ItemDetalle(
+                        id=item.id,
+                        producto_id=item.producto_id,
+                        nombre_snapshot=item.nombre_snapshot,
+                        precio_snapshot=Decimal(str(item.precio_snapshot)),
+                        cantidad=item.cantidad,
+                        personalizacion=item.personalizacion,
+                    )
+                    for item in pedido.items
+                ],
+                key=lambda x: x.id,
+            ),
+            historial=sorted(
+                [HistorialItem.model_validate(h) for h in pedido.historial],
+                key=lambda x: x.creado_en,
+            ),
+            pagos=sorted(
+                [
+                    PagoSummary(
+                        id=p.id,
+                        status=p.mp_status or "",
+                        monto=Decimal(str(p.monto)),
+                        fecha=p.creado_en,
+                    )
+                    for p in pedido.pagos
+                ],
+                key=lambda x: x.fecha,
+                reverse=True,
+            ),
+        )
 
     def avanzar_estado(
         self,

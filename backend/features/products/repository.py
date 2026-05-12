@@ -68,14 +68,19 @@ class ProductRepository(BaseRepository[Producto]):
         search: str | None = None,
         disponible: bool | None = None,
         excluir_alergenos: bool = False,
+        incluir_eliminados: bool = False,
     ) -> tuple[list[Producto], int]:
         """Return (items, total) for a paginated, filtered product listing.
 
         Filter logic (all applied with AND):
-        1. categoria_id  — INNER JOIN on product_categories pivot.
-        2. search        — LOWER(nombre) LIKE LOWER('%term%') for SQLite compat.
-        3. disponible    — exact boolean match.
-        4. excluir_alergenos — NOT EXISTS subquery: excludes products with at
+        1. incluir_eliminados — if False (default), only active products
+           (eliminado_en IS NULL) are included; if True, all products are
+           included regardless of soft-delete status. Only ADMIN may set this
+           to True — the service enforces the role check.
+        2. categoria_id  — INNER JOIN on product_categories pivot.
+        3. search        — LOWER(nombre) LIKE LOWER('%term%') for SQLite compat.
+        4. disponible    — exact boolean match.
+        5. excluir_alergenos — NOT EXISTS subquery: excludes products with at
            least one non-removable allergen ingredient.
 
         Args:
@@ -86,11 +91,17 @@ class ProductRepository(BaseRepository[Producto]):
             disponible: If not None, filter by exact value.
             excluir_alergenos: If True, exclude products with non-removable
                 allergens per RN-CA08.
+            incluir_eliminados: If True, include soft-deleted products.
+                The service MUST verify ADMIN role before setting this True.
 
         Returns:
             Tuple of (items, total_matching_count).
         """
-        base = self._get_base_query()  # already filters eliminado_en IS NULL
+        if incluir_eliminados:
+            # Skip soft-delete filter — include all products
+            base = select(Producto)
+        else:
+            base = self._get_base_query()  # already filters eliminado_en IS NULL
 
         # 1. Category filter — INNER JOIN on active pivot rows only
         if categoria_id is not None:

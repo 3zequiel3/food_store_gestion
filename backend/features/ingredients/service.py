@@ -14,9 +14,12 @@ by ``__exit__`` on clean exit. The router never calls uow.commit().
 
 from __future__ import annotations
 
+from typing import Optional
+
 from backend.features.catalog.models import Ingrediente
 from backend.features.ingredients.repository import IngredientRepository
 from backend.features.ingredients.schemas import IngredienteCreate, IngredienteUpdate
+from backend.features.users.models import Usuario
 from backend.shared.exceptions import BusinessRuleError, ConflictError, NotFoundError
 from backend.shared.unit_of_work import UnitOfWork
 
@@ -94,24 +97,45 @@ class IngredientService:
         page: int,
         limit: int,
         es_alergeno: bool | None,
+        current_user: Optional[Usuario] = None,
+        incluir_eliminados: bool = False,
     ) -> tuple[list[Ingrediente], int]:
-        """Return a paginated list of active ingredients.
+        """Return a paginated list of ingredients.
+
+        The ``incluir_eliminados`` flag is only honoured for ADMIN users
+        (RN-CA10, D1). For any other role or unauthenticated requests it
+        is silently forced to False, preventing information disclosure.
 
         Args:
             page: 1-based page number (converted to skip internally).
             limit: Maximum items per page.
             es_alergeno: Optional filter; None means no filter.
+            current_user: Authenticated user, or None for public requests.
+            incluir_eliminados: Show soft-deleted ingredients (ADMIN only).
 
         Returns:
             Tuple of (items, total) where total is the filtered count
             across all pages.
         """
+        # RN-CA10 / D1: only ADMIN may see soft-deleted ingredients
+        if incluir_eliminados and current_user is not None:
+            roles = {r.codigo for r in current_user.roles}
+            if "ADMIN" not in roles:
+                incluir_eliminados = False
+        elif incluir_eliminados and current_user is None:
+            incluir_eliminados = False
+
         with UnitOfWork() as uow:
             uow.register_repository("ingredientes", IngredientRepository(uow.session))
             repo: IngredientRepository = uow.ingredientes  # type: ignore[assignment]
 
             skip = (page - 1) * limit
-            return repo.list_paginated(skip=skip, limit=limit, es_alergeno=es_alergeno)
+            return repo.list_paginated(
+                skip=skip,
+                limit=limit,
+                es_alergeno=es_alergeno,
+                incluir_eliminados=incluir_eliminados,
+            )
 
     # ── Update ────────────────────────────────────────────────────────────
 

@@ -780,3 +780,67 @@ class TestRouting:
         assert resp_no_version.status_code == 404, (
             "Unversioned /api/ingredientes should not exist"
         )
+
+
+# =========================================================================
+# incluir_eliminados — RN-CA10 (US-064)
+# =========================================================================
+
+
+class TestIncluidoEliminados:
+    """GET /api/v1/ingredientes?incluir_eliminados=true — RN-CA10.
+
+    Only ADMIN can see soft-deleted ingredients. Other roles and
+    unauthenticated requests ignore the flag and always see only active ones.
+    """
+
+    def test_admin_incluir_eliminados_ve_soft_deleted(
+        self, client: TestClient, sample_roles, admin_user
+    ):
+        """ADMIN + incluir_eliminados=true → response includes soft-deleted ingredient."""
+        headers = _admin_headers(client)
+        ing = _create_ing(client, headers, nombre="Ing-a-eliminar")
+        # Soft-delete the ingredient
+        client.delete(f"/api/v1/ingredientes/{ing['id']}", headers=headers)
+
+        # Without flag: not visible
+        resp_sin = client.get("/api/v1/ingredientes")
+        ids_sin = [i["id"] for i in resp_sin.json()["items"]]
+        assert ing["id"] not in ids_sin
+
+        # With flag: visible
+        resp_con = client.get(
+            "/api/v1/ingredientes?incluir_eliminados=true", headers=headers
+        )
+        assert resp_con.status_code == 200
+        ids_con = [i["id"] for i in resp_con.json()["items"]]
+        assert ing["id"] in ids_con
+
+    def test_client_incluir_eliminados_no_ve_soft_deleted(
+        self, client: TestClient, sample_roles, admin_user, sample_user
+    ):
+        """CLIENT + incluir_eliminados=true → soft-deleted ingredient NOT visible."""
+        admin_h = _admin_headers(client)
+        ing = _create_ing(client, admin_h, nombre="Ing-client-no-ve")
+        client.delete(f"/api/v1/ingredientes/{ing['id']}", headers=admin_h)
+
+        resp = client.get(
+            "/api/v1/ingredientes?incluir_eliminados=true",
+            headers=_client_headers(client),
+        )
+        assert resp.status_code == 200
+        ids = [i["id"] for i in resp.json()["items"]]
+        assert ing["id"] not in ids
+
+    def test_sin_auth_incluir_eliminados_no_ve_soft_deleted(
+        self, client: TestClient, sample_roles, admin_user
+    ):
+        """Unauthenticated + incluir_eliminados=true → soft-deleted NOT visible."""
+        headers = _admin_headers(client)
+        ing = _create_ing(client, headers, nombre="Ing-anon-no-ve")
+        client.delete(f"/api/v1/ingredientes/{ing['id']}", headers=headers)
+
+        resp = client.get("/api/v1/ingredientes?incluir_eliminados=true")
+        assert resp.status_code == 200
+        ids = [i["id"] for i in resp.json()["items"]]
+        assert ing["id"] not in ids

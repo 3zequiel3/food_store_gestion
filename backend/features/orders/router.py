@@ -13,14 +13,78 @@ D3: Service-driven UoW — the router does NOT open a UnitOfWork.
     OrderService.crear_pedido() owns the transaction boundary.
 """
 
-from fastapi import APIRouter, Depends, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, status
 
 from backend.features.auth.dependencies import get_current_user, require_role
-from backend.features.orders.schemas import AvanzarEstadoRequest, CrearPedidoRequest, PedidoRead
+from backend.features.orders.schemas import (
+    AvanzarEstadoRequest,
+    CrearPedidoRequest,
+    PaginatedPedidos,
+    PedidoDetalle,
+    PedidoListFilters,
+    PedidoRead,
+)
 from backend.features.orders.service import OrderService
 from backend.features.users.models import Usuario
 
 router = APIRouter()
+
+
+@router.get(
+    "",
+    response_model=PaginatedPedidos,
+    status_code=status.HTTP_200_OK,
+    summary="Listar pedidos",
+    description=(
+        "Lista pedidos con filtros y paginación. "
+        "CLIENT ve solo sus propios pedidos; PEDIDOS/ADMIN ven todos. "
+        "STOCK recibe 403. Requiere autenticación JWT."
+    ),
+)
+async def listar_pedidos(
+    current_user: Annotated[Usuario, Depends(get_current_user)],
+    filtros: Annotated[PedidoListFilters, Query()],
+) -> PaginatedPedidos:
+    """
+    GET /api/v1/pedidos — role-aware order list.
+
+    Authentication: Bearer JWT required (401 if missing/invalid).
+    Authorization: dynamic RBAC in OrderService.listar_pedidos().
+    HTTP mapping (global exception handler):
+      ForbiddenError → 403
+    """
+    service = OrderService()
+    return service.listar_pedidos(current_user, filtros)
+
+
+@router.get(
+    "/{pedido_id}",
+    response_model=PedidoDetalle,
+    status_code=status.HTTP_200_OK,
+    summary="Detalle de pedido",
+    description=(
+        "Retorna el detalle completo de un pedido (items, historial, pagos). "
+        "CLIENT solo puede ver sus propios pedidos (anti-leak 404 si es ajeno). "
+        "PEDIDOS/ADMIN ven cualquier pedido. STOCK recibe 403."
+    ),
+)
+async def get_pedido_detalle(
+    pedido_id: int,
+    current_user: Annotated[Usuario, Depends(get_current_user)],
+) -> PedidoDetalle:
+    """
+    GET /api/v1/pedidos/{pedido_id} — role-aware order detail.
+
+    Authentication: Bearer JWT required (401 if missing/invalid).
+    Authorization: dynamic RBAC in OrderService.get_pedido_detalle().
+    HTTP mapping (global exception handler):
+      NotFoundError → 404  (pedido inexistente O ajeno para CLIENT — anti-leak D2)
+      ForbiddenError → 403
+    """
+    service = OrderService()
+    return service.get_pedido_detalle(current_user, pedido_id)
 
 
 @router.post(

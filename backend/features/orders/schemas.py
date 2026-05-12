@@ -1,25 +1,22 @@
 """
-Orders schemas — Pydantic v2 models for the order creation endpoint.
+Orders schemas — Pydantic v2 models for order endpoints.
 
 Design decisions:
 - D10: extra="forbid" in CrearPedidoRequest and ItemPedidoRequest prevents
   anti-smuggling (client cannot inject total, estado_codigo, usuario_id, etc.)
 - D11: Decimal end-to-end, never float.
 - D9: Naming in castellano (domain language of the project).
-
-Out of scope (belong to order-visualization-backend #17):
-- DetallePedidoRead
-- HistorialEstadoRead
-- PedidoDetail
+- D4: list schemas (PedidoListItem) do NOT include relations; only PedidoDetalle
+  eager-loads items/historial/pagos.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ItemPedidoRequest(BaseModel):
@@ -110,8 +107,6 @@ class PedidoRead(BaseModel):
 
     Returns only what the client needs: id, estado_codigo, total, creado_en.
 
-    Full detail (items, historial) belongs to order-visualization-backend #17.
-
     D11 — Decimal end-to-end: Pydantic v2 serializes Decimal as string
     (no precision loss, safe for monetary values).
 
@@ -124,3 +119,110 @@ class PedidoRead(BaseModel):
     estado_codigo: str
     total: Decimal
     creado_en: datetime
+
+
+# ---------------------------------------------------------------------------
+# Visualization schemas (order-visualization-backend #17)
+# ---------------------------------------------------------------------------
+
+class PedidoListItem(BaseModel):
+    """Compact schema for order list items — no relations, no N+1."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    estado_codigo: str
+    total: Decimal
+    costo_envio: Decimal
+    forma_pago_codigo: str
+    creado_en: datetime
+    items_count: int
+
+
+class PaginatedPedidos(BaseModel):
+    """Paginated order list — shape matches productos/categorias convention (D6)."""
+
+    items: list[PedidoListItem]
+    total: int
+    page: int
+    limit: int
+
+
+class ItemDetalle(BaseModel):
+    """Order line item with immutable snapshots."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    producto_id: int
+    nombre_snapshot: str
+    precio_snapshot: Decimal
+    cantidad: int
+    personalizacion: Optional[list[int]] = None
+
+
+class HistorialItem(BaseModel):
+    """Single entry in the order state transition log."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    estado_anterior_codigo: Optional[str] = None
+    estado_nuevo_codigo: str
+    cambiado_por_id: Optional[int] = None
+    motivo: Optional[str] = None
+    creado_en: datetime
+
+
+class PagoSummary(BaseModel):
+    """Payment summary for order detail — maps mp_status to status."""
+
+    id: int
+    status: str
+    monto: Decimal
+    fecha: datetime
+
+
+class PedidoDetalle(BaseModel):
+    """Full order detail with eager-loaded items, historial, and pagos."""
+
+    id: int
+    user_id: int
+    estado_codigo: str
+    total: Decimal
+    costo_envio: Decimal
+    forma_pago_codigo: str
+    direccion_snapshot: Optional[str] = None
+    notas: Optional[str] = None
+    creado_en: datetime
+    actualizado_en: Optional[datetime] = None
+    items: list[ItemDetalle]
+    historial: list[HistorialItem]
+    pagos: list[PagoSummary]
+
+
+_ESTADOS_PEDIDO = Literal[
+    "PENDIENTE", "CONFIRMADO", "EN_PREPARACION", "EN_CAMINO", "ENTREGADO", "CANCELADO"
+]
+
+
+class PedidoListFilters(BaseModel):
+    """
+    Query params for GET /api/v1/pedidos.
+
+    Internal model — not exposed as response schema. FastAPI reads each field
+    from the query string via Annotated[PedidoListFilters, Query()].
+    """
+
+    estado: Optional[_ESTADOS_PEDIDO] = None
+    desde: Optional[date] = None
+    hasta: Optional[date] = None
+    q: Optional[str] = None
+    page: int = Field(default=1, ge=1)
+    limit: int = Field(default=20, ge=1, le=100)
+
+    @model_validator(mode="after")
+    def _validate_rango_fechas(self) -> "PedidoListFilters":
+        if self.desde is not None and self.hasta is not None and self.desde > self.hasta:
+            raise ValueError("desde no puede ser posterior a hasta")
+        return self

@@ -166,12 +166,13 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 - **Razón**: Define todo el ciclo de vida del pedido. Endpoints para que gestores avancen estados.
 - **Duración estimada**: 5-6 horas
 
-### 17. **order-visualization-backend**
+### 17. **order-visualization-backend** ✅
 - **Funcionalidad**: GET /pedidos (listado filtrado por usuario si es CLIENT, todos si ADMIN/PEDIDOS), GET /pedidos/{id} con snapshots y historial, paginación, filtros por estado y fecha
 - **Historias**: US-049, US-050, US-051, US-052
 - **Dependencias**: order-state-machine-fsm
 - **Razón**: Endpoints read-only para clientes y gestores.
 - **Duración estimada**: 3-4 horas
+- **Estado**: Completado — 45/45 tests verdes
 
 ---
 
@@ -366,7 +367,7 @@ admin-dashboard-frontend (admin-metrics-backend ✅)
 | A | **4** | user-profile-backend, delivery-addresses-backend | 4-5h | ✅ Archivado |
 | — | **Refactors** | refactor-uow-to-context-manager, refactor-auth-to-uow, refactor-users-route-to-spanish | — | ✅ Archivados |
 | A | **5** | order-creation-backend ✅, payment-mercadopago-backend, order-state-machine-fsm, order-visualization-backend | 17-21h | 🔄 En progreso |
-| A | **6** | admin-users-backend, admin-catalog-permissions, admin-metrics-backend | 5-8h | Pendiente |
+| A | **6** | admin-users-backend ✅, admin-catalog-permissions ✅, admin-metrics-backend | 5-8h | 🔄 En progreso |
 | B | **7** | products-frontend-catalog | 4-5h | Pendiente |
 | B | **8** | user-profile-frontend, delivery-addresses-frontend | 4-5h | Pendiente |
 | B | **9** | shopping-cart-zustand, checkout-validation-frontend, order-creation-frontend-checkout | 7-10h | Pendiente |

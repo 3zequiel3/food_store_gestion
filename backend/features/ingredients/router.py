@@ -14,9 +14,12 @@ service — no raw HTTPException is raised here.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Query, Response, status
 
-from backend.features.auth.dependencies import require_role
+from backend.features.auth.dependencies import get_optional_user, require_role
+from backend.features.users.models import Usuario
 from backend.features.ingredients.schemas import (
     IngredienteCreate,
     IngredienteRead,
@@ -48,15 +51,27 @@ async def listar_ingredientes(
     page: int = Query(1, ge=1, description="1-based page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     es_alergeno: bool | None = Query(None, description="Filter by allergen flag"),
+    incluir_eliminados: bool = Query(
+        False,
+        description="Include soft-deleted ingredients (ADMIN only, RN-CA10). Ignored for other roles.",
+    ),
+    current_user: Optional[Usuario] = Depends(get_optional_user),
 ) -> PaginatedIngredientes:
-    """List active ingredients with optional filtering and pagination.
+    """List ingredients with optional filtering and pagination.
 
-    Public endpoint — no authentication required.
-    Soft-deleted ingredients are excluded automatically.
+    Public endpoint — no authentication required for standard catalog access.
+    Soft-deleted ingredients are excluded by default.
+
+    The ``incluir_eliminados`` flag is only effective for ADMIN users (RN-CA10).
+    For other roles or unauthenticated requests it is silently ignored.
     """
     service = IngredientService()
     items, total = service.list_paginated(
-        page=page, limit=limit, es_alergeno=es_alergeno
+        page=page,
+        limit=limit,
+        es_alergeno=es_alergeno,
+        current_user=current_user,
+        incluir_eliminados=incluir_eliminados,
     )
     return PaginatedIngredientes(
         items=[IngredienteRead.model_validate(i) for i in items],

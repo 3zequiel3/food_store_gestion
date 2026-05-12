@@ -19,12 +19,15 @@ Rules:
 
 from __future__ import annotations
 
+from typing import Optional
+
 from backend.features.catalog.models import Categoria, Ingrediente
 from backend.features.categories.repository import CategoryRepository
 from backend.features.ingredients.repository import IngredientRepository
 from backend.features.products.models import Producto, ProductoIngrediente
 from backend.features.products.repository import ProductRepository
 from backend.features.products.schemas import ProductoCreate, ProductoUpdate
+from backend.features.users.models import Usuario
 from backend.shared.exceptions import BusinessRuleError, NotFoundError
 from backend.shared.unit_of_work import UnitOfWork
 
@@ -153,11 +156,18 @@ class ProductService:
         search: str | None,
         disponible: bool | None,
         excluir_alergenos: bool,
+        current_user: Optional[Usuario] = None,
+        incluir_eliminados: bool = False,
     ) -> tuple[list[Producto], int]:
         """Return paginated filtered products.
 
         The default value for disponible (True) is applied in the router
         before calling this method (RN-CA08). The service is filter-agnostic.
+
+        The ``incluir_eliminados`` flag is only honoured when the requesting
+        user has the ADMIN role (RN-CA10, D1). For any other role or
+        unauthenticated requests the flag is silently forced to False,
+        preventing information disclosure.
 
         Args:
             page: 1-based page number.
@@ -166,10 +176,20 @@ class ProductService:
             search: Optional substring search (case-insensitive).
             disponible: Optional availability filter (None = no filter).
             excluir_alergenos: Exclude products with non-removable allergens.
+            current_user: Authenticated user, or None for public requests.
+            incluir_eliminados: Show soft-deleted products (ADMIN only).
 
         Returns:
             (items, total_count).
         """
+        # RN-CA10 / D1: only ADMIN may see soft-deleted products
+        if incluir_eliminados and current_user is not None:
+            roles = {r.codigo for r in current_user.roles}
+            if "ADMIN" not in roles:
+                incluir_eliminados = False
+        elif incluir_eliminados and current_user is None:
+            incluir_eliminados = False
+
         with UnitOfWork() as uow:
             repo, _, _ = self._register_repos(uow)
 
@@ -181,6 +201,7 @@ class ProductService:
                 search=search,
                 disponible=disponible,
                 excluir_alergenos=excluir_alergenos,
+                incluir_eliminados=incluir_eliminados,
             )
 
     # ── Update ────────────────────────────────────────────────────────────

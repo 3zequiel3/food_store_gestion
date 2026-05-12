@@ -29,9 +29,12 @@ RFC 7807 Problem Details.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Query, Response, status
 
-from backend.features.auth.dependencies import require_role
+from backend.features.auth.dependencies import get_optional_user, require_role
+from backend.features.users.models import Usuario
 from backend.features.products.schemas import (
     AsociarIngrediente,
     CategoriaRead,
@@ -78,14 +81,22 @@ async def listar_productos(
     search: str | None = Query(None, description="Case-insensitive substring match on nombre"),
     disponible: bool | None = Query(None, description="Filter by availability (default: true)"),
     excluir_alergenos: bool = Query(False, description="Exclude products with non-removable allergens"),
+    incluir_eliminados: bool = Query(
+        False,
+        description="Include soft-deleted products (ADMIN only, RN-CA10). Ignored for other roles.",
+    ),
+    current_user: Optional[Usuario] = Depends(get_optional_user),
 ) -> PaginatedProductos:
     """List products with pagination and optional filters.
 
-    Public endpoint — no authentication required.
+    Public endpoint — no authentication required for standard catalog access.
 
     Default behaviour when ``disponible`` is not specified: only available
     products are returned (disponible=true), per RN-CA08 (public catalog).
     Pass ``?disponible=false`` explicitly to retrieve unavailable products.
+
+    The ``incluir_eliminados`` flag is only effective for ADMIN users (RN-CA10).
+    For other roles or unauthenticated requests it is silently ignored.
     """
     # Apply RN-CA08 default: public catalog shows only available products
     if disponible is None:
@@ -99,6 +110,8 @@ async def listar_productos(
         search=search,
         disponible=disponible,
         excluir_alergenos=excluir_alergenos,
+        current_user=current_user,
+        incluir_eliminados=incluir_eliminados,
     )
     return PaginatedProductos(
         items=[ProductoRead.model_validate(p) for p in items],

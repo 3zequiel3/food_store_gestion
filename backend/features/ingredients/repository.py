@@ -55,11 +55,15 @@ class IngredientRepository(BaseRepository[Ingrediente]):
         skip: int,
         limit: int,
         es_alergeno: bool | None = None,
+        incluir_eliminados: bool = False,
     ) -> tuple[list[Ingrediente], int]:
-        """Return (items, total) for a paginated list of active ingredients.
+        """Return (items, total) for a paginated list of ingredients.
 
-        Only non-deleted ingredients are returned (eliminado_en IS NULL),
-        as enforced by _get_base_query() inherited from BaseRepository.
+        By default only non-deleted ingredients are returned (eliminado_en IS
+        NULL). When ``incluir_eliminados`` is True, soft-deleted ingredients
+        are also included. The service MUST verify ADMIN role before setting
+        this flag (RN-CA10, D1).
+
         Optionally filters by es_alergeno when provided.
 
         Args:
@@ -68,12 +72,17 @@ class IngredientRepository(BaseRepository[Ingrediente]):
             limit: Maximum number of rows to return.
             es_alergeno: When not None, restrict to ingredients matching
                 this allergen flag.
+            incluir_eliminados: When True, include soft-deleted ingredients.
+                The service is responsible for enforcing ADMIN-only access.
 
         Returns:
             Tuple of (items_list, total_count) where total_count reflects
             the filtered count across all pages.
         """
-        base = self._get_base_query()  # already filters eliminado_en IS NULL
+        if incluir_eliminados:
+            base = select(Ingrediente)
+        else:
+            base = self._get_base_query()  # already filters eliminado_en IS NULL
 
         if es_alergeno is not None:
             base = base.where(Ingrediente.es_alergeno == es_alergeno)
