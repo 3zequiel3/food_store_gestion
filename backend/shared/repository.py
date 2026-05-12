@@ -101,11 +101,17 @@ class BaseRepository(Generic[T]):
                 setattr(instance, key, value)
 
         self.session.flush()
-        # Refresh server-generated columns (e.g. actualizado_en with onupdate=func.now())
-        # so their value is available before the UnitOfWork closes the session.
-        # Only refresh if the model has actualizado_en to avoid unnecessary round-trips.
+        # Refresh the FULL instance (no `attribute_names`) so server-generated
+        # columns like `actualizado_en` (onupdate=func.now()) are populated AND
+        # no scalar attribute is left in an "expired" state. Passing a subset
+        # via `attribute_names=[...]` would refresh only those and mark every
+        # other column as expired — causing a DetachedInstanceError later when
+        # the UoW closes the session and Pydantic tries to read those columns
+        # for serialization. Guarded by hasattr to skip the SELECT for models
+        # without `actualizado_en` (which usually means the model is not meant
+        # to be UPDATEd through this generic path).
         if hasattr(self.model, "actualizado_en"):
-            self.session.refresh(instance, attribute_names=["actualizado_en"])
+            self.session.refresh(instance)
         logger.debug(f"Updated {self.model.__name__}: {id}")
         return instance
 

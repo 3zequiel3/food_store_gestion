@@ -114,8 +114,19 @@ def _patch_uow_session_factory(monkeypatch, test_db_session: Session):
     # Obtain the underlying connection that test_db_session is bound to.
     connection = test_db_session.get_bind()
 
-    # Create a sessionmaker for UoW sessions: same connection, separate identity maps,
-    # expire_on_commit=False so ORM attributes survive after the session is closed.
+    # Create a sessionmaker for UoW sessions: same connection, separate identity maps.
+    #
+    # expire_on_commit=False — PRODUCTION PARITY, NOT A SQLITE WORKAROUND.
+    # This value mirrors the production sessionmaker in backend/shared/database.py.
+    # Production uses expire_on_commit=False so that ORM entities returned by
+    # services survive the UoW commit + session close long enough for Pydantic
+    # to call model_validate() on them. Without it, SQLAlchemy's default (True)
+    # expires all attributes at commit time; the subsequent close() detaches the
+    # object, and any attribute read by Pydantic raises DetachedInstanceError.
+    #
+    # DO NOT remove expire_on_commit=False from here — doing so would break
+    # the tests↔production parity and mask future regressions on this axis.
+    # See openspec/changes/fix-detached-instance-error-postgres/design.md — D5.
     _UoWSessionFactory = sessionmaker(
         autocommit=False,
         autoflush=False,

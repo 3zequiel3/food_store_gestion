@@ -85,9 +85,23 @@ def get_session_factory():
     """Return (or lazily create) the session factory."""
     global _SessionLocal  # noqa: PLW0603
     if _SessionLocal is None:
+        # expire_on_commit=False: mirror of conftest._UoWSessionFactory config.
+        # Required so service-returned ORM entities survive the UoW commit for
+        # response serialization (Pydantic model_validate). Without this, the
+        # SQLAlchemy default expire_on_commit=True expires all attributes after
+        # commit; the subsequent session.close() detaches the object and any
+        # attribute access by Pydantic raises DetachedInstanceError → HTTP 500.
+        #
+        # Safe because the project's UoW pattern is ultracorta (1 request = 1
+        # commit + immediate close): no code reads attributes post-commit AND
+        # pre-close, so stale-read risk is zero in practice.
+        #
+        # If long-lived sessions are introduced in the future, revisit this.
+        # See openspec/changes/fix-detached-instance-error-postgres/ for rationale.
         _SessionLocal = sessionmaker(
             autocommit=False,
             autoflush=False,
+            expire_on_commit=False,
             bind=get_engine(),
         )
     return _SessionLocal
