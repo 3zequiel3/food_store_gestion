@@ -14,6 +14,7 @@ import { PlaceholderPage } from '../components/common/PlaceholderPage';
 import { useAuthStore } from '../features/auth/stores/authStore';
 import { CatalogPage } from '../pages/client/CatalogPage';
 import { ProductDetailPage } from '../pages/client/ProductDetailPage';
+import { ProfilePage } from '../pages/client/ProfilePage';
 
 /**
  * Redirige la raíz `/` según el rol del usuario:
@@ -112,10 +113,7 @@ export default function AppRoute() {
                 path="direcciones"
                 element={<PlaceholderPage title="Mis direcciones" description="ABM de direcciones de delivery." />}
               />
-              <Route
-                path="perfil"
-                element={<PlaceholderPage title="Mi perfil" description="Datos personales y cambio de contraseña." />}
-              />
+              <Route path="perfil" element={<ProfilePage />} />
             </Route>
           </Route>
         </Route>
