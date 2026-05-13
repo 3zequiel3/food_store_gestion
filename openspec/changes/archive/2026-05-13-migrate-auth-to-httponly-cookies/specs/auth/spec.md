@@ -1,6 +1,9 @@
 # auth delta
 
-## MODIFIED Requirements
+## Purpose
+Define the cookie-backed auth contract for the backend auth endpoints and session handling.
+
+## ADDED Requirements
 
 ### Requirement: Cookie-backed auth endpoints
 Auth endpoints SHALL transport tokens via HttpOnly cookies instead of JSON response bodies.

@@ -1,6 +1,9 @@
 # http-client delta
 
-## MODIFIED Requirements
+## Purpose
+Define the HTTP client behavior for cookie-based authentication and avoid Bearer token injection.
+
+## ADDED Requirements
 
 ### Requirement: Axios sends cookies and does not inject Bearer tokens
 The HTTP client SHALL use `withCredentials: true` and SHALL NOT attach `Authorization: Bearer` from local state.

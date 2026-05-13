@@ -2,9 +2,7 @@
 
 ## Purpose
 Centralized Axios instance with JWT request interceptor, singleton-refresh response interceptor, and RFC 7807 error-to-toast handler. All API calls in the frontend go through this client.
-
 ## Requirements
-
 ### Requirement: Axios instance with base configuration
 The system SHALL provide a centralized Axios instance configured with the API base URL, default headers, and timeout.
 
@@ -87,3 +85,12 @@ The system SHALL provide TypeScript types for API responses to ensure type safet
 #### Scenario: Error responses are typed
 - **WHEN** an API call returns an error
 - **THEN** the error response matches `ApiError` type with message, statusCode, and details fields
+
+### Requirement: Axios sends cookies and does not inject Bearer tokens
+The HTTP client SHALL use `withCredentials: true` and SHALL NOT attach `Authorization: Bearer` from local state.
+
+#### Scenario: Request uses browser cookies
+- **WHEN** an API request is made
+- **THEN** auth cookies are sent by the browser/client cookie jar
+- **AND** no localStorage token is read
+

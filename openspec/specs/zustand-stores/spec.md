@@ -122,3 +122,10 @@ The system SHALL persist selected store slices to `localStorage` using Zustand's
 - **WHEN** a component subscribes via an atomic selector (e.g., `useCartStore(selectTotalItems)`)
 - **THEN** the component re-renders only when the selected slice changes, not when any other field of the store changes
 
+### Requirement: Auth store does not persist tokens
+The auth store SHALL NOT store or persist `accessToken` or `refreshToken`.
+
+#### Scenario: Auth persistence contains no tokens
+- **WHEN** auth state is persisted
+- **THEN** only non-sensitive user/session fields are written to localStorage
+

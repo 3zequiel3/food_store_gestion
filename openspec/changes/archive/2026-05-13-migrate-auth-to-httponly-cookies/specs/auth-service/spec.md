@@ -1,6 +1,9 @@
 # auth-service delta
 
-## MODIFIED Requirements
+## Purpose
+Define the frontend auth-service contract for cookie-backed sessions and session-only login responses.
+
+## ADDED Requirements
 
 ### Requirement: Frontend auth service uses cookie session responses
 The frontend auth service SHALL not receive, pass, or persist raw access/refresh tokens.

@@ -1,5 +1,6 @@
-## ADDED Requirements
-
+## Purpose
+Define backend authentication behavior, focusing on cookie-backed auth endpoints, transaction boundaries, refresh handling, and auth dependency contracts.
+## Requirements
 ### Requirement: Auth service owns the transaction boundary
 The `AuthService` SHALL own the lifecycle of the database transaction for every public operation. Each public method (`register`, `login`, `refresh`, `logout`) SHALL open a `UnitOfWork` context, perform all DB operations within it, and rely on the context manager's `__exit__` to commit on success or rollback on exception. The HTTP adapter (router) SHALL NOT receive any `Session` or `UnitOfWork` via dependency injection, and SHALL NOT call `commit()` or `rollback()` explicitly.
 
@@ -364,3 +365,20 @@ The system SHALL register exception handlers in `main.py` for every typed except
 #### Scenario: Validation error yields RFC 7807 422 with errors[]
 - **WHEN** a POST request fails Pydantic validation
 - **THEN** the response is 422 with body containing `errors[]` of `{field, message}`
+
+### Requirement: Cookie-backed auth endpoints
+Auth endpoints SHALL transport tokens via HttpOnly cookies instead of JSON response bodies.
+
+#### Scenario: Login sets auth cookies
+- **WHEN** valid credentials are posted to `/api/v1/auth/login`
+- **THEN** the response sets `access_token` and `refresh_token` HttpOnly cookies with `SameSite=Lax` and `Secure=false` in dev
+- **AND** the JSON body does not include raw token values
+
+#### Scenario: Refresh rotates cookies
+- **WHEN** `/api/v1/auth/refresh` receives a valid `refresh_token` cookie
+- **THEN** the backend revokes the old refresh token and sets new access/refresh cookies
+
+#### Scenario: Current user reads cookie
+- **WHEN** a protected endpoint is requested with a valid `access_token` cookie
+- **THEN** `get_current_user` authenticates the request successfully
+

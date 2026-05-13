@@ -58,3 +58,10 @@ The system SHALL display appropriate error pages for 404 (Not Found) and 403 (Fo
 - **WHEN** a user accesses a route they don't have permission for
 - **THEN** a 403 Forbidden page is displayed with explanation
 
+### Requirement: Guards use cookie-backed session state
+Route guards SHALL derive local authentication from the user/session state, not token presence.
+
+#### Scenario: User session allows private route
+- **WHEN** `authStore.user` is present
+- **THEN** private routes render without reading access tokens from localStorage
+

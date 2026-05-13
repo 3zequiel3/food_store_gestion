@@ -2,9 +2,7 @@
 
 ## Purpose
 Typed API layer for authentication endpoints. Provides `register`, `login`, `refresh`, and `logout` functions that consume `/api/v1/auth/*` and return domain-ready types compatible with `useAuthStore`. Implements US-001, US-002, US-003, US-004, US-066.
-
 ## Requirements
-
 ### Requirement: Auth service register function
 The system SHALL provide `authService.register(data: RegisterRequest): Promise<AuthSuccessResponse>` that posts to `POST /api/v1/auth/register` and returns the token pair plus user info on success (HTTP 201). On failure it SHALL re-throw the `AxiosError` so the caller can inspect the status code. (US-001)
 
@@ -69,3 +67,11 @@ The `user` field SHALL be typed as `Usuario` (from `entities/user/model`) — ro
 #### Scenario: User roles are mapped to Rol array
 - **WHEN** the backend `/me` returns `roles: ["CLIENT"]`
 - **THEN** the mapper produces `roles: [{ id: 0, codigo: "CLIENT" }]` compatible with `Usuario.roles: Rol[]`
+
+### Requirement: Frontend auth service uses cookie session responses
+The frontend auth service SHALL not receive, pass, or persist raw access/refresh tokens.
+
+#### Scenario: Login returns user session only
+- **WHEN** `login()` succeeds
+- **THEN** it resolves with `{ user, expires_in, token_type: "cookie" }`
+
