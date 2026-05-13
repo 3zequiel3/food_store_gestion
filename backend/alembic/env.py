@@ -1,9 +1,11 @@
 """
 Alembic environment configuration.
 
+Root directory = backend/, so:
 - DATABASE_URL is read from the environment variable DATABASE_URL.
-- Base.metadata from backend.shared.database is used as target_metadata so
-  that autogenerate compares the current ORM models against the live schema.
+- Base.metadata from `shared.database` (resolved from /app=backend/) is used
+  as target_metadata so autogenerate compares the current ORM models against
+  the live schema.
 - All feature model modules are imported here so SQLAlchemy registers every
   table in Base.metadata before autogenerate runs.
 """
@@ -19,14 +21,14 @@ from sqlalchemy import engine_from_config
 from alembic import context
 
 # ---------------------------------------------------------------------------
-# Make "backend" package importable when running from the backend/ directory.
-# The alembic.ini sets prepend_sys_path = .. so the project root is on sys.path,
-# but we also add the backend parent explicitly just in case.
+# Make backend/ itself importable when running alembic from a different cwd.
+# alembic.ini sets `prepend_sys_path = .` so backend/ is on sys.path; we also
+# add it explicitly as a safety net for tooling that bypasses alembic.ini.
 # ---------------------------------------------------------------------------
 _HERE = Path(__file__).resolve().parent  # backend/alembic/
-_BACKEND_PARENT = _HERE.parent.parent    # project root (contains backend/)
-if str(_BACKEND_PARENT) not in sys.path:
-    sys.path.insert(0, str(_BACKEND_PARENT))
+_BACKEND = _HERE.parent                  # backend/  (root of the package)
+if str(_BACKEND) not in sys.path:
+    sys.path.insert(0, str(_BACKEND))
 
 # ---------------------------------------------------------------------------
 # Alembic config object
@@ -45,9 +47,9 @@ _database_url = os.environ.get("DATABASE_URL")
 if _database_url:
     config.set_main_option("sqlalchemy.url", _database_url)
 else:
-    # Fallback: try to read from backend.config (app running with .env)
+    # Fallback: try to read from config (app running with .env)
     try:
-        from backend.config import settings  # noqa: PLC0415
+        from config import settings  # noqa: PLC0415
         config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
     except Exception:
         raise RuntimeError(
@@ -60,28 +62,28 @@ else:
 # Import Base and all model modules so SQLAlchemy populates metadata.
 # ADD new model modules here as new features are created.
 # ---------------------------------------------------------------------------
-from backend.shared.database import Base  # noqa: E402, F401
+from shared.database import Base  # noqa: E402, F401
 
 # Catalog models (roles, payment_methods, order_states, categories, ingredients)
-import backend.features.catalog.models  # noqa: F401, E402
+import features.catalog.models  # noqa: F401, E402
 
 # User identity models (users, user_roles)
-import backend.features.users.models  # noqa: F401, E402
+import features.users.models  # noqa: F401, E402
 
 # Auth models (refresh_tokens)
-import backend.features.auth.models  # noqa: F401, E402
+import features.auth.models  # noqa: F401, E402
 
 # Address models (delivery_addresses)
-import backend.features.addresses.models  # noqa: F401, E402
+import features.addresses.models  # noqa: F401, E402
 
 # Product models (products, product_categories, product_ingredients)
-import backend.features.products.models  # noqa: F401, E402
+import features.products.models  # noqa: F401, E402
 
 # Order models (orders, order_items, order_state_history)
-import backend.features.orders.models  # noqa: F401, E402
+import features.orders.models  # noqa: F401, E402
 
 # Payment models (payments)
-import backend.features.payments.models  # noqa: F401, E402
+import features.payments.models  # noqa: F401, E402
 
 target_metadata = Base.metadata
 

@@ -13,7 +13,7 @@ from typing import Optional
 from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.shared.models import BaseModel
+from shared.models import BaseModel
 
 
 class DireccionEntrega(BaseModel):
@@ -41,7 +41,7 @@ class DireccionEntrega(BaseModel):
     es_principal: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationship back to user
-    usuario: Mapped["backend.features.users.models.Usuario"] = relationship(
+    usuario: Mapped["features.users.models.Usuario"] = relationship(
         "Usuario",
         back_populates="direcciones",
         lazy="select",

@@ -17,8 +17,8 @@ from typing import List, Optional, Tuple
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from backend.features.orders.models import DetallePedido, Pedido
-from backend.features.users.models import Usuario
+from features.orders.models import DetallePedido, Pedido
+from features.users.models import Usuario
 
 
 class MetricsRepository:

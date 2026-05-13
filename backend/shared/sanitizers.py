@@ -1,5 +1,5 @@
 """
-Input sanitization utilities for Food Store backend.
+Input sanitization utilities for Food Store  
 
 These functions are meant to be used in Pydantic field validators
 to clean user input before it reaches the database.

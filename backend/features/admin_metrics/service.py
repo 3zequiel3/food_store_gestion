@@ -18,8 +18,8 @@ from decimal import Decimal
 from enum import Enum
 from typing import Optional
 
-from backend.features.admin_metrics.repository import MetricsRepository
-from backend.features.admin_metrics.schemas import (
+from features.admin_metrics.repository import MetricsRepository
+from features.admin_metrics.schemas import (
     DistribucionEstado,
     PedidosPorEstadoResponse,
     ProductoTop,
@@ -28,7 +28,7 @@ from backend.features.admin_metrics.schemas import (
     TopProductosResponse,
     VentasPorPeriodoResponse,
 )
-from backend.shared.unit_of_work import UnitOfWork
+from shared.unit_of_work import UnitOfWork
 
 
 class Granularidad(str, Enum):

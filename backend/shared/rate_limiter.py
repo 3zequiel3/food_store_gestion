@@ -12,7 +12,7 @@ without tripping defensive throttling.
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from backend.config import settings
+from config import settings
 
 # Global limiter instance using IP address as key.
 limiter = Limiter(key_func=get_remote_address)

@@ -18,8 +18,8 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from backend.features.catalog.models import Ingrediente
-from backend.shared.repository import BaseRepository
+from features.catalog.models import Ingrediente
+from shared.repository import BaseRepository
 
 
 class IngredientRepository(BaseRepository[Ingrediente]):

@@ -18,14 +18,14 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from backend.features.admin_metrics.schemas import (
+from features.admin_metrics.schemas import (
     PedidosPorEstadoResponse,
     ResumenMetricas,
     TopProductosResponse,
     VentasPorPeriodoResponse,
 )
-from backend.features.admin_metrics.service import Granularidad, MetricsService
-from backend.features.auth.dependencies import require_role
+from features.admin_metrics.service import Granularidad, MetricsService
+from features.auth.dependencies import require_role
 
 router = APIRouter()
 

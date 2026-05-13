@@ -13,9 +13,9 @@ from __future__ import annotations
 from sqlalchemy import exists, func, literal, select
 from sqlalchemy.orm import Session
 
-from backend.features.catalog.models import Categoria
-from backend.features.products.models import Producto, ProductoCategoria
-from backend.shared.repository import BaseRepository
+from features.catalog.models import Categoria
+from features.products.models import Producto, ProductoCategoria
+from shared.repository import BaseRepository
 
 from .schemas import CategoryFlatRow
 

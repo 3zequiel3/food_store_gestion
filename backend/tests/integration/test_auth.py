@@ -49,7 +49,7 @@ class TestRegistration:
         assert_auth_cookies(response)
 
         # Verify user was created with CLIENT role
-        from backend.features.users.models import Usuario
+        from features.users.models import Usuario
         user = test_db_session.query(Usuario).filter_by(email="newuser@example.com").first()
         assert user is not None
         assert user.nombre == "New"
@@ -204,8 +204,8 @@ class TestTokenRefresh:
     def test_refresh_expired_token(self, client: TestClient, test_db_session: Session, sample_user):
         """Refresh with expired token returns 401."""
         from datetime import datetime, timedelta, timezone
-        from backend.features.auth.models import RefreshToken
-        from backend.shared.security import create_refresh_token, hash_token
+        from features.auth.models import RefreshToken
+        from shared.security import create_refresh_token, hash_token
 
         # Create an expired token (no family_id — D1 removed that field)
         expired_token = create_refresh_token()

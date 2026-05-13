@@ -32,7 +32,7 @@ ESTADO_URL = "/api/v1/pedidos/{pedido_id}/estado"
 @pytest.fixture
 def pedido_pendiente_via_db(test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido):
     """A minimal Pedido in PENDIENTE state (no items — SQLite compatible)."""
-    from backend.features.orders.models import Pedido
+    from features.orders.models import Pedido
 
     pedido = Pedido(
         user_id=sample_user.id,
@@ -50,8 +50,8 @@ def pedido_pendiente_via_db(test_db_session: Session, sample_user, sample_formas
 @pytest.fixture
 def auth_headers_pedidos_e2e(client, test_db_session: Session, sample_roles):
     """Auth headers for a PEDIDOS role user."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="pedidos_e2e@example.com",
@@ -75,8 +75,8 @@ def auth_headers_pedidos_e2e(client, test_db_session: Session, sample_roles):
 @pytest.fixture
 def auth_headers_admin_e2e(client, test_db_session: Session, sample_roles):
     """Auth headers for an ADMIN user."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="admin_e2e@example.com",
@@ -111,7 +111,7 @@ class TestFlowEstados:
         Flow: CONFIRMADO → EN_PREPARACION → EN_CAMINO → ENTREGADO (PEDIDOS role).
         Each transition returns 200 with updated estado_codigo.
         """
-        from backend.features.orders.models import HistorialEstadoPedido, Pedido
+        from features.orders.models import HistorialEstadoPedido, Pedido
         from sqlalchemy import select
 
         # Start in CONFIRMADO (simulating post-webhook)
@@ -160,7 +160,7 @@ class TestFlowEstados:
         """
         ADMIN cancels CONFIRMADO with motivo → 200, historial with motivo.
         """
-        from backend.features.orders.models import HistorialEstadoPedido, Pedido
+        from features.orders.models import HistorialEstadoPedido, Pedido
         from sqlalchemy import select
 
         pedido = Pedido(
@@ -200,7 +200,7 @@ class TestFlowEstados:
         """
         CLIENT cancels PENDIENTE without motivo → 200, historial with motivo=NULL.
         """
-        from backend.features.orders.models import HistorialEstadoPedido
+        from features.orders.models import HistorialEstadoPedido
         from sqlalchemy import select
 
         url = ESTADO_URL.format(pedido_id=pedido_pendiente_via_db.id)
@@ -215,7 +215,7 @@ class TestFlowEstados:
         """
         ADMIN cancels EN_PREPARACION: motivo required → 422 without, 200 with.
         """
-        from backend.features.orders.models import Pedido
+        from features.orders.models import Pedido
 
         pedido = Pedido(
             user_id=sample_user.id,

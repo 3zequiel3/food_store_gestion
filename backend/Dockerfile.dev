@@ -1,6 +1,13 @@
 # Backend dev image — FastAPI + uvicorn --reload
 # El código se monta como bind volume desde docker-compose; este Dockerfile
 # solo prepara el entorno Python con las dependencias.
+#
+# Layout en runtime (root directory = backend/ a la Railway):
+#   /app/main.py
+#   /app/config.py
+#   /app/features/...
+#   /app/shared/...
+# Los imports en el código son `from config import ...`, `from features.X import ...`.
 
 FROM python:3.12-slim
 
@@ -14,14 +21,14 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Cacheamos la capa de pip install copiando solo requirements.txt
+# Cacheamos la capa de pip install copiando solo requirements.txt.
+# El contexto del build es la raíz del repo, así que el path tiene el prefix backend/.
 COPY backend/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r /tmp/requirements.txt \
     && rm /tmp/requirements.txt
 
-# El código se monta como volumen en runtime — NO se copia acá.
-# Estructura esperada en runtime: /app/backend/<modules>
+# El código se monta como volumen en runtime (./backend:/app) — NO se copia acá.
 
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
@@ -29,10 +36,9 @@ ENV PYTHONPATH=/app \
 
 EXPOSE 8000
 
-# --reload-dir limita el watch a backend/ para evitar reloads espurios por mounts
-# de otras carpetas del host.
-CMD ["uvicorn", "backend.main:app", \
+# Watch /app entero (que es backend/ del host) para que --reload detecte cambios.
+CMD ["uvicorn", "main:app", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
      "--reload", \
-     "--reload-dir", "/app/backend"]
+     "--reload-dir", "/app"]

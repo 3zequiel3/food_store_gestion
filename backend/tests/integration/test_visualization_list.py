@@ -29,7 +29,7 @@ BASE_URL = "/api/v1/pedidos"
 @pytest.fixture
 def sample_pedidos_user_a(test_db_session: Session, sample_user, sample_estados_pedido, sample_formas_pago):
     """Create 3 Pedidos belonging to sample_user (CLIENT)."""
-    from backend.features.orders.models import Pedido
+    from features.orders.models import Pedido
 
     pedidos = [
         Pedido(
@@ -65,8 +65,8 @@ def sample_pedidos_user_a(test_db_session: Session, sample_user, sample_estados_
 @pytest.fixture
 def user_b(test_db_session: Session, sample_roles):
     """A second CLIENT user."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="userb@example.com",
@@ -86,7 +86,7 @@ def user_b(test_db_session: Session, sample_roles):
 @pytest.fixture
 def pedidos_user_b(test_db_session: Session, user_b, sample_estados_pedido, sample_formas_pago):
     """Create 2 Pedidos belonging to user_b."""
-    from backend.features.orders.models import Pedido
+    from features.orders.models import Pedido
 
     pedidos = [
         Pedido(
@@ -115,8 +115,8 @@ def pedidos_user_b(test_db_session: Session, user_b, sample_estados_pedido, samp
 @pytest.fixture
 def pedidos_role(test_db_session: Session, sample_roles):
     """Create a PEDIDOS user and return JWT headers."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="pedidos@example.com",
@@ -136,8 +136,8 @@ def pedidos_role(test_db_session: Session, sample_roles):
 @pytest.fixture
 def admin_user(test_db_session: Session, sample_roles):
     """Create an ADMIN user."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="admin@example.com",
@@ -157,8 +157,8 @@ def admin_user(test_db_session: Session, sample_roles):
 @pytest.fixture
 def stock_user(test_db_session: Session, sample_roles):
     """Create a STOCK-only user."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="stock@example.com",
@@ -325,7 +325,7 @@ class TestPaginationOrdering:
         sample_formas_pago,
     ):
         """Seed 25 pedidos for sample_user."""
-        from backend.features.orders.models import Pedido
+        from features.orders.models import Pedido
 
         pedidos = [
             Pedido(

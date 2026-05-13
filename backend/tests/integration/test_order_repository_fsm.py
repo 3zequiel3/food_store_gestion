@@ -17,7 +17,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.orm import Session
 
-from backend.shared.exceptions import BusinessRuleError
+from shared.exceptions import BusinessRuleError
 
 
 # ---------------------------------------------------------------------------
@@ -27,14 +27,14 @@ from backend.shared.exceptions import BusinessRuleError
 @pytest.fixture
 def repo(test_db_session: Session):
     """OrderRepository bound to the test session."""
-    from backend.features.orders.repository import OrderRepository
+    from features.orders.repository import OrderRepository
     return OrderRepository(test_db_session)
 
 
 @pytest.fixture
 def pedido_pendiente(test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido):
     """A bare Pedido in PENDIENTE state (no items — used for repo-level tests)."""
-    from backend.features.orders.models import Pedido
+    from features.orders.models import Pedido
 
     pedido = Pedido(
         user_id=sample_user.id,
@@ -52,7 +52,7 @@ def pedido_pendiente(test_db_session: Session, sample_user, sample_formas_pago, 
 @pytest.fixture
 def producto_con_stock(test_db_session: Session):
     """A product with stock=10."""
-    from backend.features.products.models import Producto
+    from features.products.models import Producto
 
     p = Producto(
         nombre="Producto FSM Test",
@@ -114,7 +114,7 @@ class TestCreateHistorialTransicion:
         self, repo, test_db_session: Session, pedido_pendiente, sample_user
     ):
         """Historial row is persisted with motivo when provided."""
-        from backend.features.orders.models import HistorialEstadoPedido
+        from features.orders.models import HistorialEstadoPedido
         from sqlalchemy import select
 
         historial = repo.create_historial_transicion(
@@ -140,7 +140,7 @@ class TestCreateHistorialTransicion:
         self, repo, test_db_session: Session, pedido_pendiente, sample_user
     ):
         """Historial row persisted without motivo keeps motivo=NULL."""
-        from backend.features.orders.models import HistorialEstadoPedido
+        from features.orders.models import HistorialEstadoPedido
         from sqlalchemy import select
 
         historial = repo.create_historial_transicion(
@@ -170,7 +170,7 @@ class TestDecrementStockForItems:
         self, repo, test_db_session: Session, detalle_item, producto_con_stock
     ):
         """Stock decreases by item.cantidad after decrement."""
-        from backend.features.products.models import Producto
+        from features.products.models import Producto
         from sqlalchemy import select
 
         repo.decrement_stock_for_items([detalle_item])
@@ -187,7 +187,7 @@ class TestDecrementStockForItems:
     ):
         """BusinessRuleError when stock would go negative."""
         from types import SimpleNamespace
-        from backend.features.products.models import Producto
+        from features.products.models import Producto
 
         producto_poco_stock = Producto(
             nombre="Producto Escaso",
@@ -219,7 +219,7 @@ class TestRestoreStockForItems:
         self, repo, test_db_session: Session, detalle_item, producto_con_stock
     ):
         """Stock increases by item.cantidad after restore."""
-        from backend.features.products.models import Producto
+        from features.products.models import Producto
         from sqlalchemy import select
 
         # Simulate previously decremented stock

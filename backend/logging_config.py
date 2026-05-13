@@ -1,12 +1,12 @@
 """
-Logging configuration for the Food Store backend.
+Logging configuration for the Food Store  
 
 Sets up structured logging with timestamps, log levels, and module context.
 """
 
 import logging
 import logging.config
-from backend.config import settings
+from config import settings
 
 
 def setup_logging():
@@ -85,13 +85,13 @@ SLOW_ENDPOINT_THRESHOLD_MS = 5000
 
 def log_slow_query(duration_ms: float, query: str):
     """Log a slow database query."""
-    logger = logging.getLogger("backend.database")
+    logger = logging.getLogger(" database")
     if duration_ms > SLOW_QUERY_THRESHOLD_MS:
         logger.warning(f"⚠️  SLOW QUERY ({duration_ms:.2f}ms): {query[:100]}...")
 
 
 def log_slow_endpoint(duration_ms: float, method: str, path: str):
     """Log a slow API endpoint."""
-    logger = logging.getLogger("backend.http")
+    logger = logging.getLogger(" http")
     if duration_ms > SLOW_ENDPOINT_THRESHOLD_MS:
         logger.warning(f"⚠️  SLOW ENDPOINT ({duration_ms:.2f}ms): {method} {path}")

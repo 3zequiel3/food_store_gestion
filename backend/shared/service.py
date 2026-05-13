@@ -5,7 +5,7 @@ Base service class with business logic layer.
 import logging
 from typing import Generic, Optional, TypeVar
 
-from backend.shared.repository import BaseRepository
+from shared.repository import BaseRepository
 from sqlalchemy.orm import Session
 
 T = TypeVar("T")

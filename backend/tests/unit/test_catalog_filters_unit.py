@@ -1,5 +1,5 @@
 """
-Unit tests for catalog-filters-and-leaf-categories-backend.
+Unit tests for catalog-filters-and-leaf-categories- 
 
 Covers:
 - ProductService._validate_categorias_are_leaves (tasks 3.1–3.6)
@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 def _make_cat(session: Session, nombre: str, padre_id: int | None = None) -> int:
     """Insert Categoria, return id."""
-    from backend.features.catalog.models import Categoria
+    from features.catalog.models import Categoria
 
     cat = Categoria(nombre=nombre, padre_id=padre_id)
     session.add(cat)
@@ -38,7 +38,7 @@ def _make_cat(session: Session, nombre: str, padre_id: int | None = None) -> int
 def _make_producto(session: Session, nombre: str = "Prod", disponible: bool = True) -> int:
     """Insert Producto, return id."""
     from decimal import Decimal
-    from backend.features.products.models import Producto
+    from features.products.models import Producto
 
     p = Producto(nombre=nombre, precio=Decimal("10.00"), disponible=disponible)
     session.add(p)
@@ -48,7 +48,7 @@ def _make_producto(session: Session, nombre: str = "Prod", disponible: bool = Tr
 
 def _assoc_cat(session: Session, product_id: int, category_id: int) -> None:
     """Insert active ProductoCategoria pivot row."""
-    from backend.features.products.models import ProductoCategoria
+    from features.products.models import ProductoCategoria
 
     pc = ProductoCategoria(product_id=product_id, category_id=category_id)
     session.add(pc)
@@ -88,8 +88,8 @@ class TestValidateCategoriasAreLeaves:
 
     def test_leaf_category_does_not_raise(self, test_db_session: Session):
         """Task 3.1: categoría sin hijas activas → no raisea."""
-        from backend.features.products.service import ProductService
-        from backend.features.products.repository import ProductRepository
+        from features.products.service import ProductService
+        from features.products.repository import ProductRepository
 
         leaf_id = _make_cat(test_db_session, "Leaf-unit-ok")
         test_db_session.commit()
@@ -100,8 +100,8 @@ class TestValidateCategoriasAreLeaves:
 
     def test_non_leaf_category_raises_business_rule_error(self, test_db_session: Session):
         """Task 3.2: categoría con hija activa raisea BusinessRuleError con nombre y hijas."""
-        from backend.features.products.service import ProductService
-        from backend.shared.exceptions import BusinessRuleError
+        from features.products.service import ProductService
+        from shared.exceptions import BusinessRuleError
 
         parent_id = _make_cat(test_db_session, "NonLeaf-unit")
         _make_cat(test_db_session, "HijaNL-unit", padre_id=parent_id)
@@ -117,8 +117,8 @@ class TestValidateCategoriasAreLeaves:
 
     def test_multiple_non_leaf_all_reported(self, test_db_session: Session):
         """Task 3.3: mezcla de leaf + non-leaf → error reporta TODAS las non-leaf."""
-        from backend.features.products.service import ProductService
-        from backend.shared.exceptions import BusinessRuleError
+        from features.products.service import ProductService
+        from shared.exceptions import BusinessRuleError
 
         leaf_id = _make_cat(test_db_session, "Leaf-multi-ok")
         nl1_id = _make_cat(test_db_session, "NonLeaf1-multi")
@@ -137,7 +137,7 @@ class TestValidateCategoriasAreLeaves:
 
     def test_softdeleted_child_does_not_block(self, test_db_session: Session):
         """Task 3.4: hija soft-deleted no bloquea el leaf-check (categoría es hoja efectiva)."""
-        from backend.features.products.service import ProductService
+        from features.products.service import ProductService
 
         parent_id = _make_cat(test_db_session, "Parent-SDchild-unit")
         child_id = _make_cat(test_db_session, "Child-SD-unit", padre_id=parent_id)
@@ -150,7 +150,7 @@ class TestValidateCategoriasAreLeaves:
 
     def test_empty_list_is_noop(self, test_db_session: Session):
         """Task 3.5: lista vacía → no dispara query ni raisea."""
-        from backend.features.products.service import ProductService
+        from features.products.service import ProductService
 
         svc = ProductService()
         # No debe lanzar excepción
@@ -167,7 +167,7 @@ class TestCountLeafActiveCategories:
 
     def test_count_zero_when_no_associations(self, test_db_session: Session):
         """Task 4.1: count=0 cuando el producto no tiene asociaciones activas."""
-        from backend.features.products.repository import ProductRepository
+        from features.products.repository import ProductRepository
 
         prod_id = _make_producto(test_db_session, "ProdNoAssoc-count")
         test_db_session.commit()
@@ -177,7 +177,7 @@ class TestCountLeafActiveCategories:
 
     def test_count_one_when_associated_with_leaf(self, test_db_session: Session):
         """Task 4.2: count=1 cuando tiene 1 asociación a categoría hoja activa."""
-        from backend.features.products.repository import ProductRepository
+        from features.products.repository import ProductRepository
 
         prod_id = _make_producto(test_db_session, "ProdLeaf-count")
         leaf_id = _make_cat(test_db_session, "LeafCount-unit")
@@ -191,7 +191,7 @@ class TestCountLeafActiveCategories:
         self, test_db_session: Session
     ):
         """count=0 cuando la única asociación es a una no-hoja."""
-        from backend.features.products.repository import ProductRepository
+        from features.products.repository import ProductRepository
 
         prod_id = _make_producto(test_db_session, "ProdNonLeaf-count")
         parent_id = _make_cat(test_db_session, "ParentNonLeaf-count")
@@ -204,7 +204,7 @@ class TestCountLeafActiveCategories:
 
     def test_count_zero_when_only_softdeleted_pivot(self, test_db_session: Session):
         """Task 4.3: count=0 cuando la única asociación tiene pivot soft-deleted."""
-        from backend.features.products.repository import ProductRepository
+        from features.products.repository import ProductRepository
 
         prod_id = _make_producto(test_db_session, "ProdSDPivot-count")
         leaf_id = _make_cat(test_db_session, "LeafSDPivot-count")
@@ -229,7 +229,7 @@ class TestAutoDisableHookUnit:
         Verificamos el estado del producto (la mutación real) y el log vía temporalmente
         habilitando propagation en el logger.
         """
-        from backend.features.products.service import ProductService
+        from features.products.service import ProductService
 
         prod_id = _make_producto(test_db_session, "HookDisable-unit", disponible=True)
         test_db_session.commit()
@@ -247,7 +247,7 @@ class TestAutoDisableHookUnit:
             backend_logger.propagate = original_propagate
 
         # Verificar que el producto se desactivó
-        from backend.features.products.models import Producto
+        from features.products.models import Producto
         test_db_session.expire_all()
         prod = test_db_session.get(Producto, prod_id)
         assert prod is not None
@@ -263,7 +263,7 @@ class TestAutoDisableHookUnit:
         self, test_db_session: Session, caplog
     ):
         """Task 4.5: hook con count>0 → no muta ni loguea."""
-        from backend.features.products.service import ProductService
+        from features.products.service import ProductService
 
         prod_id = _make_producto(test_db_session, "HookNoop-unit", disponible=True)
         leaf_id = _make_cat(test_db_session, "LeafHookNoop")
@@ -282,7 +282,7 @@ class TestAutoDisableHookUnit:
         finally:
             backend_logger.propagate = original_propagate
 
-        from backend.features.products.models import Producto
+        from features.products.models import Producto
         test_db_session.expire_all()
         prod = test_db_session.get(Producto, prod_id)
         assert prod is not None
@@ -299,7 +299,7 @@ class TestAutoDisableHookUnit:
         self, test_db_session: Session, caplog
     ):
         """Task 4.6: hook NO re-habilita producto con disponible=false cuando count>0."""
-        from backend.features.products.service import ProductService
+        from features.products.service import ProductService
 
         prod_id = _make_producto(test_db_session, "HookNoReEnable-unit", disponible=False)
         leaf_id = _make_cat(test_db_session, "LeafNoReEnable-unit")
@@ -309,7 +309,7 @@ class TestAutoDisableHookUnit:
         svc = ProductService()
         svc._auto_disable_if_no_leaf_categoria(prod_id, test_db_session)
 
-        from backend.features.products.models import Producto
+        from features.products.models import Producto
         test_db_session.expire_all()
         prod = test_db_session.get(Producto, prod_id)
         assert prod is not None
@@ -326,7 +326,7 @@ class TestListLeafCategories:
 
     def test_returns_only_leaves(self, test_db_session: Session):
         """Task 7.1: devuelve categorías sin hijas activas."""
-        from backend.features.categories.repository import CategoryRepository
+        from features.categories.repository import CategoryRepository
 
         root_id = _make_cat(test_db_session, "LLF-Root")
         leaf1_id = _make_cat(test_db_session, "LLF-Leaf1", padre_id=root_id)  # noqa: F841
@@ -343,7 +343,7 @@ class TestListLeafCategories:
 
     def test_softdeleted_not_returned(self, test_db_session: Session):
         """Task 7.2: categoría soft-deleted no aparece."""
-        from backend.features.categories.repository import CategoryRepository
+        from features.categories.repository import CategoryRepository
 
         leaf_id = _make_cat(test_db_session, "LLF-SDLeaf")
         _softdelete_cat(test_db_session, leaf_id)
@@ -358,7 +358,7 @@ class TestListLeafCategories:
         self, test_db_session: Session
     ):
         """Task 7.3: categoría con única hija soft-deleted SÍ aparece."""
-        from backend.features.categories.repository import CategoryRepository
+        from features.categories.repository import CategoryRepository
 
         parent_id = _make_cat(test_db_session, "LLF-EffLeaf")
         child_id = _make_cat(test_db_session, "LLF-ChildSD-unit", padre_id=parent_id)
@@ -372,7 +372,7 @@ class TestListLeafCategories:
 
     def test_empty_table_returns_empty_list(self, test_db_session: Session):
         """Task 7.4: tabla vacía → []."""
-        from backend.features.categories.repository import CategoryRepository
+        from features.categories.repository import CategoryRepository
 
         repo = CategoryRepository(test_db_session)
         leaves = repo.list_leaf_categories()
@@ -380,7 +380,7 @@ class TestListLeafCategories:
 
     def test_results_ordered_by_nombre(self, test_db_session: Session):
         """list_leaf_categories devuelve resultados ordenados alfabéticamente."""
-        from backend.features.categories.repository import CategoryRepository
+        from features.categories.repository import CategoryRepository
 
         root_id = _make_cat(test_db_session, "LLF-OrderRoot")
         _make_cat(test_db_session, "LLF-Zanahoria", padre_id=root_id)

@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, field_validator
 
-from backend.shared.exceptions import (
+from shared.exceptions import (
     NotFoundError,
     ForbiddenError,
     UnauthorizedError,
@@ -22,14 +22,14 @@ from backend.shared.exceptions import (
     BusinessRuleError,
     ConflictError,
 )
-from backend.shared.sanitizers import sanitize_string, sanitize_email, sanitize_phone
+from shared.sanitizers import sanitize_string, sanitize_email, sanitize_phone
 
 
 @pytest.fixture
 def app_with_error_routes():
     """Create a minimal FastAPI app with routes that trigger each exception type."""
     from fastapi import FastAPI
-    from backend.main import app
+    from main import app
     
     yield app
 

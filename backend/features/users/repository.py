@@ -10,8 +10,8 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from backend.features.users.models import Usuario
-from backend.shared.repository import BaseRepository
+from features.users.models import Usuario
+from shared.repository import BaseRepository
 
 
 class UserProfileRepository(BaseRepository[Usuario]):

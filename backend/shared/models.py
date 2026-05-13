@@ -15,7 +15,7 @@ from typing import Optional
 from sqlalchemy import DateTime, Integer, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from backend.shared.database import Base
+from shared.database import Base
 
 
 class BaseModel(Base):

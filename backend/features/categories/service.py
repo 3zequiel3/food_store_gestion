@@ -13,17 +13,17 @@ by ``__exit__`` on clean exit. The router never calls uow.commit().
 
 from __future__ import annotations
 
-from backend.features.catalog.models import Categoria
-from backend.features.categories.repository import CategoryRepository
-from backend.features.categories.schemas import (
+from features.catalog.models import Categoria
+from features.categories.repository import CategoryRepository
+from features.categories.schemas import (
     CategoriaCreate,
     CategoriaRead,
     CategoriaTreeNode,
     CategoriaUpdate,
     CategoryFlatRow,
 )
-from backend.shared.exceptions import BusinessRuleError, ConflictError, NotFoundError
-from backend.shared.unit_of_work import UnitOfWork
+from shared.exceptions import BusinessRuleError, ConflictError, NotFoundError
+from shared.unit_of_work import UnitOfWork
 
 
 class CategoryService:

@@ -25,7 +25,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.shared.security import hash_password, hash_token
+from shared.security import hash_password, hash_token
 
 
 # ---------------------------------------------------------------------------
@@ -35,7 +35,7 @@ from backend.shared.security import hash_password, hash_token
 
 def _seed_refresh_tokens(session: Session, user_id: int, count: int = 2) -> list:
     """Insert N active refresh tokens for a user directly in the DB."""
-    from backend.features.auth.models import RefreshToken
+    from features.auth.models import RefreshToken
 
     tokens = []
     for i in range(count):
@@ -53,7 +53,7 @@ def _seed_refresh_tokens(session: Session, user_id: int, count: int = 2) -> list
 
 def _make_user(session: Session, email: str, nombre: str, apellido: str, role_ids: list[int], is_active: bool = True):
     """Factory: create a Usuario with given roles and commit."""
-    from backend.features.users.models import Usuario, UsuarioRol
+    from features.users.models import Usuario, UsuarioRol
 
     user = Usuario(
         email=email,
@@ -391,7 +391,7 @@ def test_patch_rol_exitoso_cambia_roles_y_revoca_tokens(
     admin_headers,
 ):
     """PATCH /rol returns 200 with new roles, and refresh tokens are revoked."""
-    from backend.features.auth.models import RefreshToken
+    from features.auth.models import RefreshToken
 
     target = _make_user(test_db_session, "rolechange@test.com", "Role", "Change", [4])  # CLIENT
     _seed_refresh_tokens(test_db_session, target.id, count=2)
@@ -529,7 +529,7 @@ def test_patch_estado_desactivar_retorna_200_y_revoca_tokens(
     admin_headers,
 ):
     """PATCH /estado with is_active=false deactivates user and revokes refresh tokens."""
-    from backend.features.auth.models import RefreshToken
+    from features.auth.models import RefreshToken
 
     target = _make_user(test_db_session, "deactivate@test.com", "De", "Activate", [4])
     _seed_refresh_tokens(test_db_session, target.id, count=3)
@@ -592,7 +592,7 @@ def test_patch_estado_activar_no_revoca_tokens(
     admin_headers,
 ):
     """PATCH /estado with is_active=true does NOT revoke existing tokens."""
-    from backend.features.auth.models import RefreshToken
+    from features.auth.models import RefreshToken
 
     target = _make_user(test_db_session, "reactivate2@test.com", "Re2", "Activate", [4], is_active=False)
     _seed_refresh_tokens(test_db_session, target.id, count=1)

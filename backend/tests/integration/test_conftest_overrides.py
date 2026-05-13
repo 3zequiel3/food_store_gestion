@@ -10,7 +10,7 @@ these tests are about the test infrastructure contract, not about any particular
 feature's business logic.
 """
 
-import backend.shared.unit_of_work as _uow_mod
+import shared.unit_of_work as _uow_mod
 
 
 def test_uow_session_factory_monkeypatched_to_test_db(test_db_session):

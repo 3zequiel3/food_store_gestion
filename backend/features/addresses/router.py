@@ -18,14 +18,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Response, status
 
-from backend.features.addresses.schemas import (
+from features.addresses.schemas import (
     DireccionCreate,
     DireccionRead,
     DireccionUpdate,
 )
-from backend.features.addresses.service import AddressService
-from backend.features.auth.dependencies import get_current_user
-from backend.features.users.models import Usuario
+from features.addresses.service import AddressService
+from features.auth.dependencies import get_current_user
+from features.users.models import Usuario
 
 router = APIRouter()
 

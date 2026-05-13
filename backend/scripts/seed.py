@@ -4,7 +4,7 @@ Seed script: loads minimal canonical data idempotently.
 Usage:
     cd /path/to/project   # project root (parent of backend/)
     export DATABASE_URL=postgresql+psycopg2://user:pass@localhost:5432/foodstore_dev
-    python -m backend.scripts.seed
+    python -m  scripts.seed
 
 What this script loads:
     - 4 roles         (IDs stable: 1=ADMIN, 2=STOCK, 3=PEDIDOS, 4=CLIENT)
@@ -29,13 +29,13 @@ from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 # Ensure the project root is on sys.path when running as a module
-from backend.shared.database import Base, get_engine, get_session_factory  # noqa: E402
-from backend.features.catalog.models import (  # noqa: E402
+from shared.database import Base, get_engine, get_session_factory  # noqa: E402
+from features.catalog.models import (  # noqa: E402
     Rol,
     EstadoPedido,
     FormaPago,
 )
-from backend.features.users.models import Usuario, UsuarioRol  # noqa: E402
+from features.users.models import Usuario, UsuarioRol  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Logging: WARNING level to stderr (as required by task 9.2)

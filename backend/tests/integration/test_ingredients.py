@@ -62,8 +62,8 @@ def _client_headers(client: TestClient) -> dict[str, str]:
 @pytest.fixture(scope="function")
 def admin_user(test_db_session: Session, sample_roles):
     """Create an ADMIN user for testing."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="admin@test.com",
@@ -84,8 +84,8 @@ def admin_user(test_db_session: Session, sample_roles):
 @pytest.fixture(scope="function")
 def stock_user(test_db_session: Session, sample_roles):
     """Create a STOCK user for testing."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="stock@test.com",

@@ -15,9 +15,9 @@ from typing import List, Optional, Tuple
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from backend.features.catalog.models import Rol
-from backend.features.users.models import Usuario, UsuarioRol
-from backend.shared.repository import BaseRepository
+from features.catalog.models import Rol
+from features.users.models import Usuario, UsuarioRol
+from shared.repository import BaseRepository
 
 
 class AdminUserRepository(BaseRepository[Usuario]):

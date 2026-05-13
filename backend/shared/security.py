@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 import bcrypt
 from jose import JWTError, jwt
 
-from backend.config import settings
+from config import settings
 
 
 def hash_password(password: str) -> str:

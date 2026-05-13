@@ -10,8 +10,8 @@ from datetime import timedelta
 import pytest
 from jose import jwt
 
-from backend.config import settings
-from backend.shared.security import (
+from config import settings
+from shared.security import (
     create_access_token,
     create_refresh_token,
     decode_access_token,

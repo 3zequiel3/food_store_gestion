@@ -13,8 +13,8 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.features.payments.models import Pago
-from backend.shared.repository import BaseRepository
+from features.payments.models import Pago
+from shared.repository import BaseRepository
 
 # Statuses that block a new payment attempt (RN-PA08, D10)
 _ACTIVE_STATUSES = ("approved", "pending", "in_process")

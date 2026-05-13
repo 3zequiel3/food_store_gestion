@@ -6,8 +6,8 @@ router transports them to/from the browser.
 
 from fastapi import Response
 
-from backend.config import settings
-from backend.features.auth.schemas import TokenPairResponse
+from config import settings
+from features.auth.schemas import TokenPairResponse
 
 
 def set_auth_cookies(response: Response, tokens: TokenPairResponse) -> None:

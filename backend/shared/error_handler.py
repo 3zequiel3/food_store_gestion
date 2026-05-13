@@ -23,7 +23,7 @@ from fastapi.exception_handlers import (
     request_validation_exception_handler as _pydantic_handler,
 )
 
-from backend.shared.exceptions import (
+from shared.exceptions import (
     FoodStoreError,
     NotFoundError,
     ForbiddenError,

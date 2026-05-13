@@ -11,19 +11,19 @@ its own UnitOfWork context.
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from backend.config import settings
-from backend.features.auth.cookies import clear_auth_cookies, set_auth_cookies
-from backend.features.auth.dependencies import get_current_user
-from backend.features.auth.schemas import (
+from config import settings
+from features.auth.cookies import clear_auth_cookies, set_auth_cookies
+from features.auth.dependencies import get_current_user
+from features.auth.schemas import (
     AuthSessionResponse,
     LoginRequest,
     RegisterRequest,
     UserResponse,
 )
-from backend.features.auth.service import AuthService
-from backend.features.users.models import Usuario
-from backend.shared.exceptions import UnauthorizedError
-from backend.shared.rate_limiter import RATE_LIMITS, limiter
+from features.auth.service import AuthService
+from features.users.models import Usuario
+from shared.exceptions import UnauthorizedError
+from shared.rate_limiter import RATE_LIMITS, limiter
 
 router = APIRouter()
 

@@ -11,14 +11,14 @@ Mounted at /api/v1/usuarios by backend/main.py (no prefix here).
 
 from fastapi import APIRouter, Depends, Response, status
 
-from backend.features.auth.dependencies import get_current_user
-from backend.features.users.models import Usuario
-from backend.features.users.schemas import (
+from features.auth.dependencies import get_current_user
+from features.users.models import Usuario
+from features.users.schemas import (
     ChangePasswordRequest,
     ProfileResponse,
     UpdateProfileRequest,
 )
-from backend.features.users.service import UserProfileService
+from features.users.service import UserProfileService
 
 router = APIRouter()
 

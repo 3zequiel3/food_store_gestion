@@ -16,8 +16,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from backend.features.catalog.models import Categoria
-from backend.features.products.models import Producto, ProductoCategoria
+from features.catalog.models import Categoria
+from features.products.models import Producto, ProductoCategoria
 
 
 # =========================================================================
@@ -27,7 +27,7 @@ from backend.features.products.models import Producto, ProductoCategoria
 
 def _admin_headers(client: TestClient) -> dict[str, str]:
     """Get auth headers for an ADMIN user."""
-    from backend.shared.security import hash_password
+    from shared.security import hash_password
 
     # Obtain test_db_session and sample_roles from the app state / fixtures.
     # We create an admin user by calling the register endpoint with a role
@@ -71,8 +71,8 @@ def _stock_headers(client: TestClient) -> dict[str, str]:
 @pytest.fixture(scope="function")
 def admin_user(test_db_session: Session, sample_roles):
     """Create an ADMIN user for testing."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="admin@test.com",
@@ -93,8 +93,8 @@ def admin_user(test_db_session: Session, sample_roles):
 @pytest.fixture(scope="function")
 def stock_user(test_db_session: Session, sample_roles):
     """Create a STOCK user for testing."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="stock@test.com",

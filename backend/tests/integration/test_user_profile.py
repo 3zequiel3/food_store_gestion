@@ -20,7 +20,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from backend.shared.security import hash_password, hash_token
+from shared.security import hash_password, hash_token
 
 
 # ---------------------------------------------------------------------------
@@ -31,7 +31,7 @@ from backend.shared.security import hash_password, hash_token
 @pytest.fixture
 def sample_user_with_telefono(test_db_session: Session, sample_roles):
     """Usuario con telefono poblado, rol CLIENT."""
-    from backend.features.users.models import Usuario, UsuarioRol
+    from features.users.models import Usuario, UsuarioRol
 
     user = Usuario(
         email="contelefono@example.com",
@@ -65,7 +65,7 @@ def auth_headers_telefono(client: TestClient, sample_user_with_telefono):
 @pytest.fixture
 def admin_user(test_db_session: Session, sample_roles):
     """Usuario con rol ADMIN."""
-    from backend.features.users.models import Usuario, UsuarioRol
+    from features.users.models import Usuario, UsuarioRol
 
     user = Usuario(
         email="admin@example.com",
@@ -98,7 +98,7 @@ def admin_headers(client: TestClient, admin_user):
 @pytest.fixture
 def second_user(test_db_session: Session, sample_roles):
     """Segundo usuario independiente para tests de aislamiento."""
-    from backend.features.users.models import Usuario, UsuarioRol
+    from features.users.models import Usuario, UsuarioRol
 
     user = Usuario(
         email="second@example.com",
@@ -119,7 +119,7 @@ def second_user(test_db_session: Session, sample_roles):
 
 def _seed_refresh_tokens(session: Session, user_id: int, count: int = 2) -> list:
     """Insert N active refresh tokens directly in the DB for a user."""
-    from backend.features.auth.models import RefreshToken
+    from features.auth.models import RefreshToken
 
     tokens = []
     for i in range(count):
@@ -623,7 +623,7 @@ def test_change_password_revokes_all_active_refresh_tokens(
     Verification is direct DB query — not via the API (avoids coupling to /refresh).
     """
     from sqlalchemy import select
-    from backend.features.auth.models import RefreshToken
+    from features.auth.models import RefreshToken
 
     # Seed 2 active refresh tokens directly in the DB
     _seed_refresh_tokens(test_db_session, sample_user.id, count=2)

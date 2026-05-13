@@ -23,7 +23,7 @@ ESTADO_URL = "/api/v1/pedidos/{pedido_id}/estado"
 @pytest.fixture
 def pedido_pendiente(test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido):
     """A Pedido in PENDIENTE state belonging to sample_user."""
-    from backend.features.orders.models import Pedido
+    from features.orders.models import Pedido
 
     pedido = Pedido(
         user_id=sample_user.id,
@@ -41,7 +41,7 @@ def pedido_pendiente(test_db_session: Session, sample_user, sample_formas_pago, 
 @pytest.fixture
 def pedido_confirmado(test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido):
     """A Pedido in CONFIRMADO state belonging to sample_user."""
-    from backend.features.orders.models import Pedido
+    from features.orders.models import Pedido
 
     pedido = Pedido(
         user_id=sample_user.id,
@@ -59,8 +59,8 @@ def pedido_confirmado(test_db_session: Session, sample_user, sample_formas_pago,
 @pytest.fixture
 def auth_headers_pedidos(client, test_db_session: Session, sample_roles):
     """Auth headers for a PEDIDOS user."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="pedidos_router@example.com",
@@ -84,8 +84,8 @@ def auth_headers_pedidos(client, test_db_session: Session, sample_roles):
 @pytest.fixture
 def auth_headers_admin(client, test_db_session: Session, sample_roles):
     """Auth headers for an ADMIN user (US-065)."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="admin_router@example.com",

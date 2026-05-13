@@ -13,7 +13,7 @@ from typing import Optional
 from sqlalchemy import ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.shared.models import BaseModel
+from shared.models import BaseModel
 
 
 class Pago(BaseModel):
@@ -52,7 +52,7 @@ class Pago(BaseModel):
     )
 
     # Relationship back to order
-    pedido: Mapped["backend.features.orders.models.Pedido"] = relationship(
+    pedido: Mapped["features.orders.models.Pedido"] = relationship(
         "Pedido",
         back_populates="pagos",
         lazy="select",

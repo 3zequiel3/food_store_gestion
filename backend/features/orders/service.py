@@ -24,10 +24,10 @@ from typing import Optional
 
 from sqlalchemy.exc import OperationalError
 
-from backend.features.addresses.repository import AddressRepository
-from backend.features.orders.models import Pedido
-from backend.features.orders.repository import OrderRepository
-from backend.features.orders.schemas import (
+from features.addresses.repository import AddressRepository
+from features.orders.models import Pedido
+from features.orders.repository import OrderRepository
+from features.orders.schemas import (
     CrearPedidoRequest,
     HistorialItem,
     ItemDetalle,
@@ -37,16 +37,16 @@ from backend.features.orders.schemas import (
     PedidoListFilters,
     PedidoListItem,
 )
-from backend.features.orders.state_machine import validate_transition
-from backend.features.users.models import Usuario
-from backend.features.users.repository import UserProfileRepository
-from backend.shared.exceptions import (
+from features.orders.state_machine import validate_transition
+from features.users.models import Usuario
+from features.users.repository import UserProfileRepository
+from shared.exceptions import (
     BusinessRuleError,
     ForbiddenError,
     InvalidStateTransitionError,
     NotFoundError,
 )
-from backend.shared.unit_of_work import UnitOfWork
+from shared.unit_of_work import UnitOfWork
 
 # D5 — v1 fixed shipping cost. Replace with dynamic calculation in a future change.
 SHIPPING_COST_DEFAULT = Decimal("50.00")
@@ -423,7 +423,7 @@ class OrderService:
             InvalidStateTransitionError: race condition — state changed between
                 the validation read and the UoW lock (409).
         """
-        import backend.shared.unit_of_work as _uow_mod
+        import shared.unit_of_work as _uow_mod
 
         # D5: first defense against manual CONFIRMADO
         if nuevo_estado == "CONFIRMADO":

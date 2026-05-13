@@ -56,7 +56,7 @@ def _seed_address(
     referencia: str | None = None,
 ):
     """Helper to insert a DireccionEntrega directly in DB (bypasses service)."""
-    from backend.features.addresses.models import DireccionEntrega
+    from features.addresses.models import DireccionEntrega
 
     addr = DireccionEntrega(
         user_id=user_id,
@@ -82,8 +82,8 @@ def _seed_address(
 @pytest.fixture
 def second_user(test_db_session: Session, sample_roles):
     """Segundo usuario CLIENT para tests de ownership cross-user."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="second@example.com",
@@ -114,8 +114,8 @@ def second_user_auth_headers(client: TestClient, second_user):
 @pytest.fixture
 def admin_user(test_db_session: Session, sample_roles):
     """Usuario con rol ADMIN para tests de RBAC."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="admin@addresses.com",
@@ -802,7 +802,7 @@ def test_delete_address_soft_returns_204(
 
     # Verificar que la fila existe pero con eliminado_en poblado
     from sqlalchemy import select, text as sa_text
-    from backend.features.addresses.models import DireccionEntrega
+    from features.addresses.models import DireccionEntrega
     stmt = select(DireccionEntrega).where(DireccionEntrega.id == addr.id)
     result = test_db_session.execute(stmt).scalar_one_or_none()
     assert result is not None, "La fila no debe borrarse físicamente"
