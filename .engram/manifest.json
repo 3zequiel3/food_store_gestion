@@ -168,6 +168,14 @@
       "sessions": 0,
       "memories": 1,
       "prompts": 0
+    },
+    {
+      "id": "ae4a4c27",
+      "created_by": "ezequiel",
+      "created_at": "2026-05-13T13:44:49Z",
+      "sessions": 9,
+      "memories": 4,
+      "prompts": 9
     }
   ]
 }
