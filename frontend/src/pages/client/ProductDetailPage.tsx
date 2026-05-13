@@ -82,6 +82,7 @@ export function ProductDetailPage() {
         precio: Number(producto.precio),
         imagen_url: producto.imagen_url ?? undefined,
         personalizacion,
+        personalizacionIds: excluidos.size > 0 ? Array.from(excluidos) : undefined,
       },
       cantidad,
     );
