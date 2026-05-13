@@ -36,7 +36,7 @@ WEBHOOK_URL = "/api/v1/pagos/webhook/mercadopago"
 @pytest.fixture
 def sample_pedido(test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido):
     """A Pedido in PENDIENTE state belonging to sample_user."""
-    from backend.features.orders.models import Pedido
+    from features.orders.models import Pedido
 
     pedido = Pedido(
         user_id=sample_user.id,
@@ -54,8 +54,8 @@ def sample_pedido(test_db_session: Session, sample_user, sample_formas_pago, sam
 @pytest.fixture
 def otro_usuario(test_db_session: Session, sample_roles):
     """A second client user — used to test ownership enforcement."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="otro@example.com",
@@ -85,7 +85,7 @@ def otro_auth_headers(client, otro_usuario):
 @pytest.fixture
 def sample_pago(test_db_session: Session, sample_pedido):
     """A Pago in 'pending' state linked to sample_pedido."""
-    from backend.features.payments.models import Pago
+    from features.payments.models import Pago
     import uuid
 
     pago = Pago(
@@ -128,7 +128,7 @@ class TestCrearPago:
         """Happy path: valid PENDIENTE order → 201 + PagoRead with init_point."""
         mock_sdk = _mock_sdk(init_point="https://mp.com/checkout/xyz")
         with patch(
-            "backend.features.payments.service.PaymentService._get_sdk",
+            "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
             response = client.post(BASE_URL + "/", json={"pedido_id": sample_pedido.id}, headers=auth_headers)
@@ -146,7 +146,7 @@ class TestCrearPago:
         """Order owned by a different user → 403."""
         mock_sdk = _mock_sdk()
         with patch(
-            "backend.features.payments.service.PaymentService._get_sdk",
+            "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
             response = client.post(BASE_URL + "/", json={"pedido_id": sample_pedido.id}, headers=otro_auth_headers)
@@ -158,7 +158,7 @@ class TestCrearPago:
         sample_user, sample_formas_pago, sample_estados_pedido
     ):
         """Order not in PENDIENTE state → 409."""
-        from backend.features.orders.models import Pedido
+        from features.orders.models import Pedido
 
         pedido = Pedido(
             user_id=sample_user.id,
@@ -173,7 +173,7 @@ class TestCrearPago:
 
         mock_sdk = _mock_sdk()
         with patch(
-            "backend.features.payments.service.PaymentService._get_sdk",
+            "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
             response = client.post(BASE_URL + "/", json={"pedido_id": pedido.id}, headers=auth_headers)
@@ -186,7 +186,7 @@ class TestCrearPago:
         """Existing active payment (mp_status=pending) blocks new attempt → 409."""
         mock_sdk = _mock_sdk()
         with patch(
-            "backend.features.payments.service.PaymentService._get_sdk",
+            "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
             response = client.post(BASE_URL + "/", json={"pedido_id": sample_pedido.id}, headers=auth_headers)
@@ -198,7 +198,7 @@ class TestCrearPago:
         test_db_session: Session
     ):
         """Rejected previous payment → new attempt creates a new Pago with different key."""
-        from backend.features.payments.models import Pago
+        from features.payments.models import Pago
         import uuid
 
         pago_rechazado = Pago(
@@ -213,7 +213,7 @@ class TestCrearPago:
 
         mock_sdk = _mock_sdk(init_point="https://mp.com/retry")
         with patch(
-            "backend.features.payments.service.PaymentService._get_sdk",
+            "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
             response = client.post(BASE_URL + "/", json={"pedido_id": sample_pedido.id}, headers=auth_headers)
@@ -235,7 +235,7 @@ class TestWebhook:
         sample_pedido, sample_pago
     ):
         """Format 1 webhook approved → 200 + order moves to CONFIRMADO + history entry added."""
-        from backend.features.orders.models import HistorialEstadoPedido
+        from features.orders.models import HistorialEstadoPedido
         from sqlalchemy import select
 
         mock_sdk = _mock_sdk(
@@ -243,7 +243,7 @@ class TestWebhook:
             external_reference=str(sample_pedido.id),
         )
         with patch(
-            "backend.features.payments.service.PaymentService._get_sdk",
+            "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
             response = client.post(
@@ -255,7 +255,7 @@ class TestWebhook:
 
         test_db_session.expire_all()
 
-        from backend.features.payments.models import Pago
+        from features.payments.models import Pago
         from sqlalchemy import select as sa_select
         pago = test_db_session.execute(
             sa_select(Pago).where(Pago.id == sample_pago.id)
@@ -263,7 +263,7 @@ class TestWebhook:
         assert pago.mp_status == "approved"
         assert pago.mp_payment_id == "mp_pay_001"
 
-        from backend.features.orders.models import Pedido
+        from features.orders.models import Pedido
         pedido = test_db_session.execute(
             sa_select(Pedido).where(Pedido.id == sample_pedido.id)
         ).scalar_one()
@@ -284,7 +284,7 @@ class TestWebhook:
         sample_pedido, sample_pago
     ):
         """Format 1 webhook rejected → 200 + order remains PENDIENTE + pago.mp_status=rejected."""
-        from backend.features.payments.models import Pago
+        from features.payments.models import Pago
         from sqlalchemy import select as sa_select
 
         mock_sdk = _mock_sdk(
@@ -292,7 +292,7 @@ class TestWebhook:
             external_reference=str(sample_pedido.id),
         )
         with patch(
-            "backend.features.payments.service.PaymentService._get_sdk",
+            "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
             response = client.post(
@@ -309,7 +309,7 @@ class TestWebhook:
         ).scalar_one()
         assert pago.mp_status == "rejected"
 
-        from backend.features.orders.models import Pedido
+        from features.orders.models import Pedido
         pedido = test_db_session.execute(
             sa_select(Pedido).where(Pedido.id == sample_pedido.id)
         ).scalar_one()
@@ -320,8 +320,8 @@ class TestWebhook:
         sample_pedido, sample_pago
     ):
         """Duplicate webhook for already-approved payment → 200, no extra history row."""
-        from backend.features.payments.models import Pago
-        from backend.features.orders.models import HistorialEstadoPedido
+        from features.payments.models import Pago
+        from features.orders.models import HistorialEstadoPedido
         from sqlalchemy import select as sa_select
 
         # Simulate the first webhook having already been processed
@@ -338,7 +338,7 @@ class TestWebhook:
             external_reference=str(sample_pedido.id),
         )
         with patch(
-            "backend.features.payments.service.PaymentService._get_sdk",
+            "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
             response = client.post(
@@ -363,8 +363,8 @@ class TestWebhook:
         sample_pedido, sample_pago
     ):
         """Format 2 (old IPN body with resource URL) → 200 + order moves to CONFIRMADO."""
-        from backend.features.orders.models import Pedido
-        from backend.features.payments.models import Pago
+        from features.orders.models import Pedido
+        from features.payments.models import Pago
         from sqlalchemy import select as sa_select
 
         mock_sdk = _mock_sdk(
@@ -372,7 +372,7 @@ class TestWebhook:
             external_reference=str(sample_pedido.id),
         )
         with patch(
-            "backend.features.payments.service.PaymentService._get_sdk",
+            "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
             response = client.post(
@@ -402,8 +402,8 @@ class TestWebhook:
         sample_pedido, sample_pago
     ):
         """Format 3 (classic IPN via query params, empty body) → 200 + order moves to CONFIRMADO."""
-        from backend.features.orders.models import Pedido
-        from backend.features.payments.models import Pago
+        from features.orders.models import Pedido
+        from features.payments.models import Pago
         from sqlalchemy import select as sa_select
 
         mock_sdk = _mock_sdk(
@@ -411,7 +411,7 @@ class TestWebhook:
             external_reference=str(sample_pedido.id),
         )
         with patch(
-            "backend.features.payments.service.PaymentService._get_sdk",
+            "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
             response = client.post(
@@ -437,7 +437,7 @@ class TestWebhook:
         sample_pedido, sample_pago
     ):
         """Unrecognised webhook payload → 200 with no side effects (silent discard)."""
-        from backend.features.payments.models import Pago
+        from features.payments.models import Pago
         from sqlalchemy import select as sa_select
 
         response = client.post(

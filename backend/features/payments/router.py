@@ -19,10 +19,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from backend.features.auth.dependencies import require_role
-from backend.features.payments.schemas import PagoCreate, PagoRead
-from backend.features.payments.service import PaymentService
-from backend.features.users.models import Usuario
+from features.auth.dependencies import require_role
+from features.payments.schemas import PagoCreate, PagoRead
+from features.payments.service import PaymentService
+from features.users.models import Usuario
 
 router = APIRouter()
 

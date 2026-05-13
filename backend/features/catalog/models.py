@@ -16,7 +16,7 @@ from typing import List, Optional
 from sqlalchemy import Boolean, Integer, String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.shared.models import BaseModel
+from shared.models import BaseModel
 
 
 # ---------------------------------------------------------------------------

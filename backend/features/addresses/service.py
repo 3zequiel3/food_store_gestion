@@ -13,11 +13,11 @@ No imports from FastAPI, router, or schemas as type hints (service returns ORM o
 """
 from __future__ import annotations
 
-from backend.features.addresses.models import DireccionEntrega
-from backend.features.addresses.repository import AddressRepository
-from backend.features.addresses.schemas import DireccionCreate, DireccionUpdate
-from backend.shared.exceptions import BusinessRuleError, NotFoundError
-from backend.shared.unit_of_work import UnitOfWork
+from features.addresses.models import DireccionEntrega
+from features.addresses.repository import AddressRepository
+from features.addresses.schemas import DireccionCreate, DireccionUpdate
+from shared.exceptions import BusinessRuleError, NotFoundError
+from shared.unit_of_work import UnitOfWork
 
 
 class AddressService:

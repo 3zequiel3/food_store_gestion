@@ -19,7 +19,12 @@ import { AddressesPage } from '../pages/client/AddressesPage';
 import { CheckoutPage } from '../features/checkout/components/CheckoutPage';
 import { OrderConfirmationPage } from '../features/orders/components/OrderConfirmationPage';
 import { PedidosAdminPage } from '../pages/admin/PedidosAdminPage';
+import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
+import { AdminMetricasPage } from '../pages/admin/AdminMetricasPage';
+import { AdminProductosPage } from '../pages/admin/AdminProductosPage';
 import { MisPedidosPage } from '../pages/client/MisPedidosPage';
+import { PaymentPage } from '../pages/client/PaymentPage';
+import { PaymentResultPage } from '../pages/client/PaymentResultPage';
 
 /**
  * Redirige la raíz `/` según el rol del usuario:
@@ -72,27 +77,15 @@ export default function AppRoute() {
               el sprint correspondiente; el PlaceholderPage no se modifica. */}
           <Route element={<RoleGuard roles={['ADMIN', 'STOCK', 'PEDIDOS']} />}>
             <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<Navigate to="productos" replace />} />
-              <Route
-                path="productos"
-                element={<PlaceholderPage title="Productos — Listado" description="ABM de productos, filtros por categoría y stock." />}
-              />
-              <Route
-                path="productos/nuevo"
-                element={<PlaceholderPage title="Nuevo producto" description="Formulario de alta con ingredientes y precio." />}
-              />
+              <Route index element={<Navigate to="pedidos" replace />} />
+              <Route path="productos" element={<AdminProductosPage />} />
+              <Route path="productos/nuevo" element={<AdminProductosPage />} />
               <Route
                 path="pedidos"
                 element={<PedidosAdminPage />}
               />
-              <Route
-                path="usuarios"
-                element={<PlaceholderPage title="Usuarios" description="Gestión de cuentas, roles y bloqueos." />}
-              />
-              <Route
-                path="metricas"
-                element={<PlaceholderPage title="Métricas" description="Dashboard con KPIs operativos." />}
-              />
+              <Route path="usuarios" element={<AdminUsersPage />} />
+              <Route path="metricas" element={<AdminMetricasPage />} />
               <Route
                 path="categorias"
                 element={<PlaceholderPage title="Categorías" description="ABM de categorías de productos." />}
@@ -115,6 +108,8 @@ export default function AppRoute() {
                 element={<MisPedidosPage />}
               />
               <Route path="pedidos/:id/confirmacion" element={<OrderConfirmationPage />} />
+              <Route path="pedidos/:id/pago" element={<PaymentPage />} />
+              <Route path="pago/resultado" element={<PaymentResultPage />} />
               <Route path="direcciones" element={<AddressesPage />} />
               <Route path="perfil" element={<ProfilePage />} />
               <Route path="checkout" element={<CheckoutPage />} />

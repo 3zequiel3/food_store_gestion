@@ -1,5 +1,5 @@
 """
-FastAPI application entry point for Food Store backend.
+FastAPI application entry point for Food Store  
 
 This module initializes the FastAPI application with all middleware,
 CORS configuration, and feature routers.
@@ -17,10 +17,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from backend.config import settings
-from backend.logging_config import setup_logging
-from backend.shared.rate_limiter import limiter
-from backend.shared.exceptions import (
+from config import settings
+from logging_config import setup_logging
+from shared.rate_limiter import limiter
+from shared.exceptions import (
     NotFoundError,
     ForbiddenError,
     UnauthorizedError,
@@ -28,7 +28,7 @@ from backend.shared.exceptions import (
     ValidationError,
     BusinessRuleError,
 )
-from backend.shared.error_handler import (
+from shared.error_handler import (
     not_found_handler,
     forbidden_handler,
     unauthorized_handler,
@@ -53,27 +53,27 @@ logger = logging.getLogger(__name__)
 # Without these imports, queries against any model that has cross-feature
 # relationships (Usuario -> Pedido, Usuario -> DireccionEntrega, etc.)
 # fail at runtime with InvalidRequestError.
-from backend.features.users import models as _user_models  # noqa: F401
-from backend.features.catalog import models as _catalog_models  # noqa: F401
-from backend.features.products import models as _product_models  # noqa: F401
-from backend.features.orders import models as _order_models  # noqa: F401
-from backend.features.payments import models as _payment_models  # noqa: F401
-from backend.features.addresses import models as _address_models  # noqa: F401
-from backend.features.auth import models as _auth_models  # noqa: F401
+from features.users import models as _user_models  # noqa: F401
+from features.catalog import models as _catalog_models  # noqa: F401
+from features.products import models as _product_models  # noqa: F401
+from features.orders import models as _order_models  # noqa: F401
+from features.payments import models as _payment_models  # noqa: F401
+from features.addresses import models as _address_models  # noqa: F401
+from features.auth import models as _auth_models  # noqa: F401
 
 
 # Feature routers
-from backend.features.auth.router import router as auth_router
-from backend.features.users.router import router as users_router
-from backend.features.products.router import router as products_router
-from backend.features.orders.router import router as orders_router
-from backend.features.payments.router import router as payments_router
-from backend.features.addresses.router import router as addresses_router
-from backend.features.categories.router import router as categories_router
-from backend.features.ingredients.router import router as ingredients_router
-from backend.features.catalog.router import router as catalog_router
-from backend.features.admin_users.router import router as admin_users_router
-from backend.features.admin_metrics.router import router as admin_metrics_router
+from features.auth.router import router as auth_router
+from features.users.router import router as users_router
+from features.products.router import router as products_router
+from features.orders.router import router as orders_router
+from features.payments.router import router as payments_router
+from features.addresses.router import router as addresses_router
+from features.categories.router import router as categories_router
+from features.ingredients.router import router as ingredients_router
+from features.catalog.router import router as catalog_router
+from features.admin_users.router import router as admin_users_router
+from features.admin_metrics.router import router as admin_metrics_router
 
 
 @asynccontextmanager
@@ -84,8 +84,8 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Log level: {settings.LOG_LEVEL}")
 
-    from backend.shared.database import Base, get_engine
-    from backend.scripts.seed import run_seed
+    from shared.database import Base, get_engine
+    from scripts.seed import run_seed
 
     engine = get_engine()
     Base.metadata.create_all(bind=engine)
@@ -213,7 +213,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "backend.main:app",
+        "main:app",
         host="0.0.0.0",
         port=settings.API_PORT,
         reload=settings.ENVIRONMENT == "development",

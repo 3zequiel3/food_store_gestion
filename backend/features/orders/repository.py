@@ -22,12 +22,12 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, selectinload
 
-from backend.features.catalog.models import FormaPago
-from backend.features.orders.models import DetallePedido, HistorialEstadoPedido, Pedido
-from backend.features.products.models import Producto
-from backend.features.users.models import Usuario
-from backend.shared.exceptions import BusinessRuleError
-from backend.shared.repository import BaseRepository
+from features.catalog.models import FormaPago
+from features.orders.models import DetallePedido, HistorialEstadoPedido, Pedido
+from features.products.models import Producto
+from features.users.models import Usuario
+from shared.exceptions import BusinessRuleError
+from shared.repository import BaseRepository
 
 
 class OrderRepository(BaseRepository[Pedido]):

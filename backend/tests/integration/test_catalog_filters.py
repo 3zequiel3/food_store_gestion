@@ -1,5 +1,5 @@
 """
-Integration tests for catalog filter extensions — change catalog-filters-and-leaf-categories-backend.
+Integration tests for catalog filter extensions — change catalog-filters-and-leaf-categories- 
 
 Covers (TDD, tasks 1–9):
 1. Filtro recursivo de categoria_id en GET /productos (CTE)
@@ -51,8 +51,8 @@ def _stock_headers(client: TestClient) -> dict[str, str]:
 
 @pytest.fixture(scope="function")
 def admin_user(test_db_session: Session, sample_roles):
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="admin@test.com",
@@ -72,8 +72,8 @@ def admin_user(test_db_session: Session, sample_roles):
 
 @pytest.fixture(scope="function")
 def stock_user(test_db_session: Session, sample_roles):
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="stock@test.com",
@@ -112,7 +112,7 @@ def _create_product(client: TestClient, headers: dict, **overrides) -> dict:
 
 def _make_cat(session: Session, nombre: str, padre_id: int | None = None) -> int:
     """Insert a Categoria directly via session. Returns the category id."""
-    from backend.features.catalog.models import Categoria
+    from features.catalog.models import Categoria
 
     cat = Categoria(nombre=nombre, padre_id=padre_id)
     session.add(cat)
@@ -125,7 +125,7 @@ def _make_ingrediente(
     session: Session, nombre: str, es_alergeno: bool = False
 ) -> int:
     """Insert an Ingrediente directly via session. Returns the ingredient id."""
-    from backend.features.catalog.models import Ingrediente
+    from features.catalog.models import Ingrediente
 
     ing = Ingrediente(nombre=nombre, es_alergeno=es_alergeno)
     session.add(ing)
@@ -763,7 +763,7 @@ class TestSinCategoriaFilter:
         Insertamos pivot row soft-deleted directamente en la DB.
         GET ?sin_categoria=true&disponible=false → debe aparecer.
         """
-        from backend.features.products.models import ProductoCategoria
+        from features.products.models import ProductoCategoria
 
         headers = _admin_headers(client)
 

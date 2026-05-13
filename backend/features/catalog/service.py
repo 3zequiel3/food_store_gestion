@@ -12,8 +12,8 @@ from typing import List
 
 from sqlalchemy import select
 
-from backend.features.catalog.models import FormaPago
-from backend.shared.unit_of_work import UnitOfWork
+from features.catalog.models import FormaPago
+from shared.unit_of_work import UnitOfWork
 
 
 def listar_formas_pago() -> List[FormaPago]:

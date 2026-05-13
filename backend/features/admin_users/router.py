@@ -17,15 +17,15 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends
 
-from backend.features.admin_users.schemas import (
+from features.admin_users.schemas import (
     AdminChangeEstadoRequest,
     AdminChangeRolRequest,
     AdminUpdateUserRequest,
     AdminUserListResponse,
     AdminUserResponse,
 )
-from backend.features.admin_users.service import AdminUserService
-from backend.features.auth.dependencies import require_role
+from features.admin_users.service import AdminUserService
+from features.auth.dependencies import require_role
 
 router = APIRouter()
 

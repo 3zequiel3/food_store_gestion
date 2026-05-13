@@ -7,7 +7,7 @@ This module is the single source of truth for:
 - engine / SessionLocal (used by the seed script and Alembic env.py)
 
 Session access patterns (post refactor-auth-to-uow):
-- Business operations: use UnitOfWork() from backend.shared.unit_of_work
+- Business operations: use UnitOfWork() from shared.unit_of_work
 - Read-only middleware (e.g. get_current_user): use get_session_factory()()
   with a try/finally close block.
 - get_db() was removed — it was the last legacy consumer after auth was
@@ -52,7 +52,7 @@ def _get_database_url() -> str:
     if not url:
         # Fallback to config for backward compatibility when running the app
         try:
-            from backend.config import settings  # noqa: PLC0415
+            from config import settings  # noqa: PLC0415
             return settings.DATABASE_URL
         except Exception:
             raise RuntimeError(

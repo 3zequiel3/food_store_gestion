@@ -9,10 +9,10 @@ from typing import List
 
 from fastapi import APIRouter, Depends, status
 
-from backend.features.auth.dependencies import get_current_user
-from backend.features.catalog.schemas import FormaPagoRead
-from backend.features.catalog.service import listar_formas_pago
-from backend.features.users.models import Usuario
+from features.auth.dependencies import get_current_user
+from features.catalog.schemas import FormaPagoRead
+from features.catalog.service import listar_formas_pago
+from features.users.models import Usuario
 
 router = APIRouter()
 

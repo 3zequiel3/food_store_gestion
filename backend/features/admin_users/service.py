@@ -15,17 +15,17 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
-from backend.features.admin_users.repository import AdminUserRepository
-from backend.features.admin_users.schemas import (
+from features.admin_users.repository import AdminUserRepository
+from features.admin_users.schemas import (
     AdminChangeEstadoRequest,
     AdminChangeRolRequest,
     AdminUpdateUserRequest,
     AdminUserResponse,
 )
-from backend.features.auth.repository import RefreshTokenRepository
-from backend.features.users.models import Usuario
-from backend.shared.exceptions import ConflictError, NotFoundError, ValidationError
-from backend.shared.unit_of_work import UnitOfWork
+from features.auth.repository import RefreshTokenRepository
+from features.users.models import Usuario
+from shared.exceptions import ConflictError, NotFoundError, ValidationError
+from shared.unit_of_work import UnitOfWork
 
 
 class AdminUserService:

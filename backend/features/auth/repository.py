@@ -11,8 +11,8 @@ from typing import Optional
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from backend.features.auth.models import RefreshToken
-from backend.shared.repository import BaseRepository
+from features.auth.models import RefreshToken
+from shared.repository import BaseRepository
 
 
 class RefreshTokenRepository(BaseRepository[RefreshToken]):

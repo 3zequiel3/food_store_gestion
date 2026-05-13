@@ -18,25 +18,25 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.config import settings
-from backend.features.auth.models import RefreshToken
-from backend.features.auth.repository import RefreshTokenRepository
-from backend.features.auth.schemas import (
+from config import settings
+from features.auth.models import RefreshToken
+from features.auth.repository import RefreshTokenRepository
+from features.auth.schemas import (
     LoginRequest,
     RegisterRequest,
     TokenPairResponse,
     UserResponse,
 )
-from backend.features.users.models import Usuario, UsuarioRol
-from backend.shared.exceptions import ConflictError, UnauthorizedError
-from backend.shared.security import (
+from features.users.models import Usuario, UsuarioRol
+from shared.exceptions import ConflictError, UnauthorizedError
+from shared.security import (
     create_access_token,
     create_refresh_token,
     hash_password,
     hash_token,
     verify_password,
 )
-from backend.shared.unit_of_work import UnitOfWork
+from shared.unit_of_work import UnitOfWork
 
 
 class AuthService:

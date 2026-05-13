@@ -33,9 +33,9 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
-from backend.features.auth.dependencies import get_optional_user, require_role
-from backend.features.users.models import Usuario
-from backend.features.products.schemas import (
+from features.auth.dependencies import get_optional_user, require_role
+from features.users.models import Usuario
+from features.products.schemas import (
     AsociarIngrediente,
     CategoriaRead,
     IngredienteAsociadoRead,
@@ -48,7 +48,7 @@ from backend.features.products.schemas import (
     ProductoUpdate,
     SetCategorias,
 )
-from backend.features.products.service import ProductService
+from features.products.service import ProductService
 
 router = APIRouter()
 

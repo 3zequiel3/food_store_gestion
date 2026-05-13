@@ -16,12 +16,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-from backend.features.catalog.models import Ingrediente
-from backend.features.ingredients.repository import IngredientRepository
-from backend.features.ingredients.schemas import IngredienteCreate, IngredienteUpdate
-from backend.features.users.models import Usuario
-from backend.shared.exceptions import BusinessRuleError, ConflictError, NotFoundError
-from backend.shared.unit_of_work import UnitOfWork
+from features.catalog.models import Ingrediente
+from features.ingredients.repository import IngredientRepository
+from features.ingredients.schemas import IngredienteCreate, IngredienteUpdate
+from features.users.models import Usuario
+from shared.exceptions import BusinessRuleError, ConflictError, NotFoundError
+from shared.unit_of_work import UnitOfWork
 
 
 class IngredientService:

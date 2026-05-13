@@ -23,7 +23,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from backend.shared.security import hash_password
+from shared.security import hash_password
 
 
 # ---------------------------------------------------------------------------
@@ -33,7 +33,7 @@ from backend.shared.security import hash_password
 
 def _make_user(session: Session, email: str, role_ids: list[int]):
     """Create a user with given roles."""
-    from backend.features.users.models import Usuario, UsuarioRol
+    from features.users.models import Usuario, UsuarioRol
 
     user = Usuario(
         email=email,
@@ -64,7 +64,7 @@ def _make_pedido(
     Does NOT insert DetallePedido (order_items) — that table requires ARRAY(Integer),
     which is PostgreSQL-only and unavailable in SQLite tests.
     """
-    from backend.features.orders.models import Pedido
+    from features.orders.models import Pedido
 
     pedido = Pedido(
         user_id=user_id,
@@ -80,7 +80,7 @@ def _make_pedido(
         # Override the server default with the explicit timestamp for date-filter tests.
         # Use UPDATE after flush so the instance is persistent.
         from sqlalchemy import update
-        from backend.features.orders.models import Pedido as PedidoModel
+        from features.orders.models import Pedido as PedidoModel
         session.execute(
             update(PedidoModel)
             .where(PedidoModel.id == pedido.id)

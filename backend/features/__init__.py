@@ -1,5 +1,5 @@
 """
-Feature modules for Food Store backend.
+Feature modules for Food Store  
 
 Each feature contains:
 - router.py: FastAPI router with endpoints

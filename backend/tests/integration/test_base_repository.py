@@ -21,10 +21,10 @@ import pytest
 from sqlalchemy import Integer, String, select
 from sqlalchemy.orm import Mapped, mapped_column
 
-from backend.shared.database import Base
-from backend.shared.models import AppendOnlyBaseModel
-from backend.shared.repository import BaseRepository
-from backend.features.users.models import Usuario
+from shared.database import Base
+from shared.models import AppendOnlyBaseModel
+from shared.repository import BaseRepository
+from features.users.models import Usuario
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ def test_list_excludes_soft_deleted_records(test_db_session, sample_roles):
     Create 3 users, soft-delete the first one.
     repo.list() MUST return exactly 2 users (the deleted one is excluded).
     """
-    from backend.shared.security import hash_password
+    from shared.security import hash_password
 
     users = [
         Usuario(
@@ -144,7 +144,7 @@ def test_count_excludes_soft_deleted_records(test_db_session, sample_roles):
     Create 3 users, soft-delete one.
     repo.count() MUST return 2.
     """
-    from backend.shared.security import hash_password
+    from shared.security import hash_password
 
     users = [
         Usuario(

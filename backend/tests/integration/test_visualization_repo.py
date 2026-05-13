@@ -13,7 +13,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.orm import Session
 
-from backend.features.orders.repository import OrderRepository
+from features.orders.repository import OrderRepository
 
 
 # ---------------------------------------------------------------------------
@@ -27,8 +27,8 @@ def repo(test_db_session: Session):
 
 @pytest.fixture
 def user_a(test_db_session: Session, sample_roles):
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="usera@example.com",
@@ -47,8 +47,8 @@ def user_a(test_db_session: Session, sample_roles):
 
 @pytest.fixture
 def user_b(test_db_session: Session, sample_roles):
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="userb@example.com",
@@ -68,7 +68,7 @@ def user_b(test_db_session: Session, sample_roles):
 @pytest.fixture
 def pedidos_a(test_db_session: Session, user_a, sample_estados_pedido, sample_formas_pago):
     """3 Pedidos for user_a."""
-    from backend.features.orders.models import Pedido
+    from features.orders.models import Pedido
 
     pedidos = [
         Pedido(
@@ -91,7 +91,7 @@ def pedidos_a(test_db_session: Session, user_a, sample_estados_pedido, sample_fo
 @pytest.fixture
 def pedidos_b(test_db_session: Session, user_b, sample_estados_pedido, sample_formas_pago):
     """2 Pedidos for user_b."""
-    from backend.features.orders.models import Pedido
+    from features.orders.models import Pedido
 
     pedidos = [
         Pedido(

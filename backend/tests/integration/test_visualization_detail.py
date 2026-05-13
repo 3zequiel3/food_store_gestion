@@ -33,7 +33,7 @@ def pedido_de_sample_user(
     sample_formas_pago,
 ):
     """A Pedido owned by sample_user (CLIENT)."""
-    from backend.features.orders.models import Pedido
+    from features.orders.models import Pedido
 
     pedido = Pedido(
         user_id=sample_user.id,
@@ -53,7 +53,7 @@ def pedido_de_sample_user(
 @pytest.fixture
 def historial_para_pedido(test_db_session: Session, pedido_de_sample_user):
     """Add two historial entries to pedido_de_sample_user."""
-    from backend.features.orders.models import HistorialEstadoPedido
+    from features.orders.models import HistorialEstadoPedido
 
     h1 = HistorialEstadoPedido(
         pedido_id=pedido_de_sample_user.id,
@@ -78,8 +78,8 @@ def historial_para_pedido(test_db_session: Session, pedido_de_sample_user):
 @pytest.fixture
 def user_b(test_db_session: Session, sample_roles):
     """A second CLIENT user."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="userb@example.com",
@@ -104,7 +104,7 @@ def pedido_de_user_b(
     sample_formas_pago,
 ):
     """A Pedido owned by user_b (foreign to sample_user)."""
-    from backend.features.orders.models import Pedido
+    from features.orders.models import Pedido
 
     pedido = Pedido(
         user_id=user_b.id,
@@ -121,8 +121,8 @@ def pedido_de_user_b(
 
 @pytest.fixture
 def pedidos_role_user(test_db_session: Session, sample_roles):
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="pedidos@example.com",
@@ -141,8 +141,8 @@ def pedidos_role_user(test_db_session: Session, sample_roles):
 
 @pytest.fixture
 def admin_user(test_db_session: Session, sample_roles):
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="admin@example.com",
@@ -161,8 +161,8 @@ def admin_user(test_db_session: Session, sample_roles):
 
 @pytest.fixture
 def stock_user(test_db_session: Session, sample_roles):
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="stock@example.com",
@@ -326,7 +326,7 @@ class TestResponseShape:
         auth_headers: dict,
     ):
         """Pedido without direccion_snapshot (retiro en local) → direccion_snapshot is null, costo_envio='0.00'."""
-        from backend.features.orders.models import Pedido
+        from features.orders.models import Pedido
 
         pedido = Pedido(
             user_id=sample_user.id,
@@ -383,7 +383,7 @@ class TestResponseShape:
         auth_headers: dict,
     ):
         """Pedido cancelado con motivo → historial entry with that motivo."""
-        from backend.features.orders.models import HistorialEstadoPedido, Pedido
+        from features.orders.models import HistorialEstadoPedido, Pedido
 
         pedido = Pedido(
             user_id=sample_user.id,

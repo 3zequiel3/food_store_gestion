@@ -15,8 +15,8 @@ from typing import Optional
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from backend.features.addresses.models import DireccionEntrega
-from backend.shared.repository import BaseRepository
+from features.addresses.models import DireccionEntrega
+from shared.repository import BaseRepository
 
 
 class AddressRepository(BaseRepository[DireccionEntrega]):

@@ -3,6 +3,9 @@
 venv/
 ./venv
 .venv
+
+# pnpm local store cache
+frontend/.pnpm-store/
 # Local Pi runtime state
 .atl/
 .pi/

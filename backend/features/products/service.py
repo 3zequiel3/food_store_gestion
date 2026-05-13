@@ -27,15 +27,15 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.features.catalog.models import Categoria, Ingrediente
-from backend.features.categories.repository import CategoryRepository
-from backend.features.ingredients.repository import IngredientRepository
-from backend.features.products.models import Producto, ProductoIngrediente
-from backend.features.products.repository import ProductRepository
-from backend.features.products.schemas import ProductoCreate, ProductoUpdate
-from backend.features.users.models import Usuario
-from backend.shared.exceptions import BusinessRuleError, NotFoundError
-from backend.shared.unit_of_work import UnitOfWork
+from features.catalog.models import Categoria, Ingrediente
+from features.categories.repository import CategoryRepository
+from features.ingredients.repository import IngredientRepository
+from features.products.models import Producto, ProductoIngrediente
+from features.products.repository import ProductRepository
+from features.products.schemas import ProductoCreate, ProductoUpdate
+from features.users.models import Usuario
+from shared.exceptions import BusinessRuleError, NotFoundError
+from shared.unit_of_work import UnitOfWork
 
 logger = logging.getLogger(__name__)
 

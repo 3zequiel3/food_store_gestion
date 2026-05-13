@@ -181,8 +181,8 @@ class TestAuth:
         sample_roles,
     ):
         """User without CLIENT role → 403."""
-        from backend.features.users.models import Usuario, UsuarioRol
-        from backend.shared.security import hash_password
+        from features.users.models import Usuario, UsuarioRol
+        from shared.security import hash_password
 
         # Create ADMIN-only user (no CLIENT role)
         admin_user = Usuario(
@@ -367,9 +367,9 @@ class TestDireccionOwnership:
         sample_producto_disponible,
     ):
         """Using another user's address → 404 (not 403)."""
-        from backend.features.users.models import Usuario, UsuarioRol
-        from backend.features.addresses.models import DireccionEntrega
-        from backend.shared.security import hash_password
+        from features.users.models import Usuario, UsuarioRol
+        from features.addresses.models import DireccionEntrega
+        from shared.security import hash_password
 
         # Create a second user
         other_user = Usuario(
@@ -459,7 +459,7 @@ class TestHappyPath:
         1 row in orders, N in order_items, 1 in order_state_history,
         direccion_snapshot captured.
         """
-        from backend.features.catalog.models import Producto
+        from features.catalog.models import Producto
 
         # Create a second product for the 2-item test
         producto2 = Producto(
@@ -490,7 +490,7 @@ class TestHappyPath:
         assert Decimal(str(data["total"])) == Decimal("392.00")
 
         # Verify DB
-        from backend.features.orders.models import Pedido, DetallePedido, HistorialEstadoPedido
+        from features.orders.models import Pedido, DetallePedido, HistorialEstadoPedido
         pedido = test_db_session.query(Pedido).filter_by(id=data["id"]).first()
         assert pedido is not None
         assert pedido.direccion_snapshot is not None
@@ -527,7 +527,7 @@ class TestHappyPath:
         # total: 100.00 * 2 + 0.00 (retiro) = 200.00
         assert Decimal(str(data["total"])) == Decimal("200.00")
 
-        from backend.features.orders.models import Pedido
+        from features.orders.models import Pedido
         pedido = test_db_session.query(Pedido).filter_by(id=data["id"]).first()
         assert pedido is not None
         assert pedido.direccion_entrega_id is None
@@ -558,7 +558,7 @@ class TestHappyPath:
         sample_producto_disponible.precio = Decimal("999.99")
         test_db_session.commit()
 
-        from backend.features.orders.models import DetallePedido
+        from features.orders.models import DetallePedido
         detalle = test_db_session.query(DetallePedido).filter_by(pedido_id=pedido_id).first()
         assert detalle is not None
         assert Decimal(str(detalle.precio_snapshot)) == precio_original
@@ -593,7 +593,7 @@ class TestAtomicidad:
         order_items — PG-only table) before create_historial_inicial.
         The full 9-step flow only works with PostgreSQL.
         """
-        import backend.features.orders.repository as repo_mod
+        import features.orders.repository as repo_mod
 
         def _raise(*args, **kwargs):
             raise RuntimeError("Simulated historial failure")
@@ -605,7 +605,7 @@ class TestAtomicidad:
         # Should be 500 (unhandled RuntimeError)
         assert response.status_code in (500, 422, 400)
 
-        from backend.features.orders.models import Pedido
+        from features.orders.models import Pedido
         pedidos = test_db_session.query(Pedido).all()
         assert len(pedidos) == 0
 
@@ -637,7 +637,7 @@ class TestPrecisionDecimal:
         costo_envio = 50.00
         total = 130.97
         """
-        from backend.features.catalog.models import Producto
+        from features.catalog.models import Producto
 
         prod1 = Producto(
             nombre="Producto Fraccionario 1",

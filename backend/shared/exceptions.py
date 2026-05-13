@@ -1,5 +1,5 @@
 """
-Custom domain exceptions for Food Store backend.
+Custom domain exceptions for Food Store  
 
 All exceptions map to HTTP status codes and are handled by the
 global error handler to produce RFC 7807 Problem Details responses.

@@ -7,13 +7,13 @@ Each public method opens its own UnitOfWork context. Commit is performed
 by ``__exit__`` on clean exit. The router never calls uow.commit().
 """
 
-from backend.features.auth.repository import RefreshTokenRepository
-from backend.features.users.models import Usuario
-from backend.features.users.repository import UserProfileRepository
-from backend.features.users.schemas import ChangePasswordRequest, UpdateProfileRequest
-from backend.shared.exceptions import BusinessRuleError, NotFoundError, UnauthorizedError
-from backend.shared.security import hash_password, verify_password
-from backend.shared.unit_of_work import UnitOfWork
+from features.auth.repository import RefreshTokenRepository
+from features.users.models import Usuario
+from features.users.repository import UserProfileRepository
+from features.users.schemas import ChangePasswordRequest, UpdateProfileRequest
+from shared.exceptions import BusinessRuleError, NotFoundError, UnauthorizedError
+from shared.security import hash_password, verify_password
+from shared.unit_of_work import UnitOfWork
 
 
 class UserProfileService:

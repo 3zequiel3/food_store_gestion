@@ -62,3 +62,29 @@ export interface ProductFilters {
   excluir_alergenos?: boolean;
   excluir_alergeno_ids?: number[];
 }
+
+/** Payload para crear un producto (admin) */
+export interface ProductoCreate {
+  nombre: string;
+  descripcion?: string | null;
+  precio: number;
+  stock_cantidad?: number;
+  disponible?: boolean;
+  imagen_url?: string | null;
+  categoria_ids?: number[];
+}
+
+/** Payload para editar un producto — todos los campos opcionales (admin) */
+export interface ProductoUpdate {
+  nombre?: string;
+  descripcion?: string | null;
+  precio?: number;
+  stock_cantidad?: number;
+  disponible?: boolean;
+  imagen_url?: string | null;
+}
+
+/** Payload para actualizar stock absoluto (admin) */
+export interface StockUpdate {
+  stock_cantidad: number;
+}

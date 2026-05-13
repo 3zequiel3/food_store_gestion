@@ -17,8 +17,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
-from backend.features.auth.dependencies import get_current_user, require_role
-from backend.features.orders.schemas import (
+from features.auth.dependencies import get_current_user, require_role
+from features.orders.schemas import (
     AvanzarEstadoRequest,
     CrearPedidoRequest,
     PaginatedPedidos,
@@ -26,8 +26,8 @@ from backend.features.orders.schemas import (
     PedidoListFilters,
     PedidoRead,
 )
-from backend.features.orders.service import OrderService
-from backend.features.users.models import Usuario
+from features.orders.service import OrderService
+from features.users.models import Usuario
 
 router = APIRouter()
 

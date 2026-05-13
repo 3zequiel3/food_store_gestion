@@ -31,7 +31,7 @@ def sample_formas_pago_mixed(test_db_session: Session):
     - EFECTIVO: habilitada=False
     - TRANSFERENCIA: habilitada=True
     """
-    from backend.features.catalog.models import FormaPago
+    from features.catalog.models import FormaPago
 
     formas = [
         FormaPago(codigo="MERCADOPAGO", descripcion="MercadoPago", habilitada=True),
@@ -115,7 +115,7 @@ def test_get_formas_pago_empty_when_all_disabled(
     test_db_session: Session,
 ):
     """GET /formas-pago returns empty list when all methods are disabled."""
-    from backend.features.catalog.models import FormaPago
+    from features.catalog.models import FormaPago
 
     # Add only disabled payment methods
     formas = [

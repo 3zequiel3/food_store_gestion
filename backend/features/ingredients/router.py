@@ -18,15 +18,15 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
-from backend.features.auth.dependencies import get_optional_user, require_role
-from backend.features.users.models import Usuario
-from backend.features.ingredients.schemas import (
+from features.auth.dependencies import get_optional_user, require_role
+from features.users.models import Usuario
+from features.ingredients.schemas import (
     IngredienteCreate,
     IngredienteRead,
     IngredienteUpdate,
     PaginatedIngredientes,
 )
-from backend.features.ingredients.service import IngredientService
+from features.ingredients.service import IngredientService
 
 router = APIRouter()
 

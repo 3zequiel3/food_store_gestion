@@ -26,14 +26,14 @@ from datetime import datetime, timezone
 from sqlalchemy import and_, exists, func, literal, select
 from sqlalchemy.orm import Session, selectinload
 
-from backend.features.catalog.models import Categoria, Ingrediente
-from backend.features.products.models import (
+from features.catalog.models import Categoria, Ingrediente
+from features.products.models import (
     Producto,
     ProductoCategoria,
     ProductoIngrediente,
 )
-from backend.shared.exceptions import ConflictError
-from backend.shared.repository import BaseRepository
+from shared.exceptions import ConflictError
+from shared.repository import BaseRepository
 
 
 class ProductRepository(BaseRepository[Producto]):

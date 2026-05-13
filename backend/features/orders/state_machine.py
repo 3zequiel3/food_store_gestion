@@ -13,7 +13,7 @@ No imports from service, router, or FastAPI — pure domain logic.
 
 from __future__ import annotations
 
-from backend.shared.exceptions import BusinessRuleError, ForbiddenError
+from shared.exceptions import BusinessRuleError, ForbiddenError
 
 # ---------------------------------------------------------------------------
 # FSM: valid outgoing states per origin

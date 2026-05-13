@@ -53,7 +53,8 @@ services:
       MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-TEST-your-mp-access-token-here}
     volumes:
       # Bind del código fuente para que --reload detecte cambios.
-      - ./backend:/app/backend
+      # Estructura: contenido de backend/ va directo a /app/ (root del package).
+      - ./backend:/app
     ports:
       - "${API_PORT:-8000}:8000"
     healthcheck:

@@ -1,5 +1,5 @@
 """
-Pytest configuration and fixtures for Food Store backend.
+Pytest configuration and fixtures for Food Store  
 
 Provides fixtures for:
 - Test database session
@@ -24,10 +24,10 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
-import backend.shared.unit_of_work as _uow_mod
+import shared.unit_of_work as _uow_mod
 
-from backend.main import app
-from backend.shared.database import Base
+from main import app
+from shared.database import Base
 
 # Import ALL models so SQLAlchemy's declarative registry can resolve
 # string-based relationship targets (e.g. relationship("Pedido", ...)).
@@ -35,14 +35,14 @@ from backend.shared.database import Base
 # loading fixtures that instantiate related models.
 # NOTE: orders/models.py has ARRAY(Integer) — PostgreSQL-specific.
 # We import it for mapper registration but skip create_all for that table.
-import backend.features.auth.models  # noqa: F401
-import backend.features.users.models  # noqa: F401
-import backend.features.catalog.models  # noqa: F401
-import backend.features.addresses.models  # noqa: F401
-import backend.features.products.models  # noqa: F401
-import backend.features.payments.models  # noqa: F401
+import features.auth.models  # noqa: F401
+import features.users.models  # noqa: F401
+import features.catalog.models  # noqa: F401
+import features.addresses.models  # noqa: F401
+import features.products.models  # noqa: F401
+import features.payments.models  # noqa: F401
 try:
-    import backend.features.orders.models  # noqa: F401
+    import features.orders.models  # noqa: F401
 except Exception:
     pass  # Imported for mapper registration; table creation skipped below.
 
@@ -170,7 +170,7 @@ def _patch_uow_session_factory(monkeypatch, test_db_session: Session):
 @pytest.fixture(scope="function")
 def client(test_db_session: Session) -> TestClient:
     """Create a test client with dependency override and rate limiter disabled."""
-    from backend.shared.rate_limiter import limiter
+    from shared.rate_limiter import limiter
 
     # Disable rate limiting for tests — each test runs independently and
     # all requests come from the same "testclient" IP, causing false 429s.
@@ -194,7 +194,7 @@ def client(test_db_session: Session) -> TestClient:
 @pytest.fixture(scope="function")
 def sample_roles(test_db_session: Session):
     """Create standard roles for testing."""
-    from backend.features.catalog.models import Rol
+    from features.catalog.models import Rol
 
     roles = [
         Rol(id=1, codigo="ADMIN", descripcion="Administrator"),
@@ -212,8 +212,8 @@ def sample_roles(test_db_session: Session):
 @pytest.fixture(scope="function")
 def sample_user(test_db_session: Session, sample_roles):
     """Create a sample user for testing."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="test@example.com",
@@ -261,7 +261,7 @@ def sample_estados_pedido(test_db_session: Session):
     PENDIENTE(1), CONFIRMADO(2), EN_PREPARACION(3),
     EN_CAMINO(4), ENTREGADO(5, terminal), CANCELADO(6, terminal).
     """
-    from backend.features.catalog.models import EstadoPedido
+    from features.catalog.models import EstadoPedido
 
     estados = [
         EstadoPedido(codigo="PENDIENTE", descripcion="Pendiente de confirmación", orden=1, es_terminal=False),
@@ -285,7 +285,7 @@ def sample_formas_pago(test_db_session: Session):
     All enabled (habilitada=True) by default.
     Tests that need a disabled method modify the instance directly.
     """
-    from backend.features.catalog.models import FormaPago
+    from features.catalog.models import FormaPago
 
     formas = [
         FormaPago(codigo="MERCADOPAGO", descripcion="MercadoPago", habilitada=True),
@@ -307,7 +307,7 @@ def sample_producto_disponible(test_db_session: Session):
     Tests that need different prices create their own Producto instances.
     """
     from decimal import Decimal
-    from backend.features.products.models import Producto
+    from features.products.models import Producto
 
     producto = Producto(
         nombre="Producto Test",
@@ -328,7 +328,7 @@ def sample_address(test_db_session: Session, sample_user):
 
     Uses the same pattern as _seed_address in test_delivery_addresses.py.
     """
-    from backend.features.addresses.models import DireccionEntrega
+    from features.addresses.models import DireccionEntrega
 
     addr = DireccionEntrega(
         user_id=sample_user.id,

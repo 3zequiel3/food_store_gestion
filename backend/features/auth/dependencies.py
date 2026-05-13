@@ -12,12 +12,12 @@ from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-import backend.shared.unit_of_work as _uow_mod
+import shared.unit_of_work as _uow_mod
 
-from backend.config import settings
-from backend.features.users.models import Usuario
-from backend.shared.exceptions import ForbiddenError, UnauthorizedError
-from backend.shared.security import decode_access_token
+from config import settings
+from features.users.models import Usuario
+from shared.exceptions import ForbiddenError, UnauthorizedError
+from shared.security import decode_access_token
 
 
 def _extract_access_token(request: Request) -> Optional[str]:

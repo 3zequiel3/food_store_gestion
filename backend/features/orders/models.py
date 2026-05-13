@@ -17,7 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.shared.models import AppendOnlyBaseModel, BaseModel
+from shared.models import AppendOnlyBaseModel, BaseModel
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ class Pedido(BaseModel):
     notas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relationships
-    usuario: Mapped["backend.features.users.models.Usuario"] = relationship(
+    usuario: Mapped["features.users.models.Usuario"] = relationship(
         "Usuario",
         back_populates="pedidos",
         lazy="select",
@@ -84,7 +84,7 @@ class Pedido(BaseModel):
         cascade="all, delete-orphan",
         lazy="select",
     )
-    pagos: Mapped[List["backend.features.payments.models.Pago"]] = relationship(
+    pagos: Mapped[List["features.payments.models.Pago"]] = relationship(
         "Pago",
         back_populates="pedido",
         cascade="all, delete-orphan",

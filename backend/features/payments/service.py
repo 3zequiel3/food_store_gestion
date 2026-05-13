@@ -19,13 +19,13 @@ from typing import Optional
 
 import mercadopago
 
-from backend.config import settings
-from backend.features.orders.repository import OrderRepository
-from backend.features.orders.service import OrderService
-from backend.features.payments.models import Pago
-from backend.features.payments.repository import PaymentRepository
-from backend.shared.exceptions import BusinessRuleError, ForbiddenError, NotFoundError
-from backend.shared.unit_of_work import UnitOfWork
+from config import settings
+from features.orders.repository import OrderRepository
+from features.orders.service import OrderService
+from features.payments.models import Pago
+from features.payments.repository import PaymentRepository
+from shared.exceptions import BusinessRuleError, ForbiddenError, NotFoundError
+from shared.unit_of_work import UnitOfWork
 
 
 class PaymentService:

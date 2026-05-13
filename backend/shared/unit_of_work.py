@@ -7,8 +7,8 @@ Coordinates multiple repositories within a single transaction boundary.
 import logging
 from typing import Any, Dict
 
-from backend.shared.database import get_session_factory
-from backend.shared.repository import BaseRepository
+from shared.database import get_session_factory
+from shared.repository import BaseRepository
 
 logger = logging.getLogger(__name__)
 

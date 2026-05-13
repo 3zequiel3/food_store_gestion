@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from backend.shared.exceptions import BusinessRuleError, ForbiddenError
+from shared.exceptions import BusinessRuleError, ForbiddenError
 
 
 # ---------------------------------------------------------------------------
@@ -21,7 +21,7 @@ class TestAllowedTransitions:
     def test_allowed_transitions_completas(self):
         """ALLOWED_TRANSITIONS must define exactly 7 valid outgoing transitions
         plus empty sets for the two terminal states."""
-        from backend.features.orders.state_machine import ALLOWED_TRANSITIONS
+        from features.orders.state_machine import ALLOWED_TRANSITIONS
 
         # Non-terminal states with allowed targets
         assert "CANCELADO" in ALLOWED_TRANSITIONS["PENDIENTE"]
@@ -49,7 +49,7 @@ class TestTransitionRoles:
 
     def test_transition_roles_matriz_completa(self):
         """TRANSITION_ROLES must define all 6 manual transitions with correct role sets."""
-        from backend.features.orders.state_machine import TRANSITION_ROLES
+        from features.orders.state_machine import TRANSITION_ROLES
 
         assert TRANSITION_ROLES[("PENDIENTE", "CANCELADO")] == {"CLIENT", "PEDIDOS", "ADMIN"}
         assert TRANSITION_ROLES[("CONFIRMADO", "EN_PREPARACION")] == {"PEDIDOS", "ADMIN"}
@@ -73,14 +73,14 @@ class TestValidateTransition:
 
     def test_validate_transition_valida_ok(self):
         """Valid FSM transition with authorized role returns None (no exception)."""
-        from backend.features.orders.state_machine import validate_transition
+        from features.orders.state_machine import validate_transition
 
         result = validate_transition("CONFIRMADO", "EN_PREPARACION", {"PEDIDOS"})
         assert result is None
 
     def test_validate_transition_admin_puede_todo(self):
         """ADMIN can execute any authorized transition."""
-        from backend.features.orders.state_machine import validate_transition
+        from features.orders.state_machine import validate_transition
 
         validate_transition("PENDIENTE", "CANCELADO", {"ADMIN"})
         validate_transition("CONFIRMADO", "EN_PREPARACION", {"ADMIN"})
@@ -88,13 +88,13 @@ class TestValidateTransition:
 
     def test_validate_transition_client_puede_cancelar_pendiente(self):
         """CLIENT can cancel PENDIENTE orders."""
-        from backend.features.orders.state_machine import validate_transition
+        from features.orders.state_machine import validate_transition
 
         validate_transition("PENDIENTE", "CANCELADO", {"CLIENT"})
 
     def test_validate_transition_fsm_invalida_levanta_business_rule_error(self):
         """Transition not in ALLOWED_TRANSITIONS raises BusinessRuleError."""
-        from backend.features.orders.state_machine import validate_transition
+        from features.orders.state_machine import validate_transition
 
         with pytest.raises(BusinessRuleError) as exc_info:
             validate_transition("PENDIENTE", "ENTREGADO", {"ADMIN"})
@@ -104,7 +104,7 @@ class TestValidateTransition:
 
     def test_validate_transition_sin_rol_levanta_forbidden_error(self):
         """Transition exists in FSM but user lacks required role raises ForbiddenError."""
-        from backend.features.orders.state_machine import validate_transition
+        from features.orders.state_machine import validate_transition
 
         # PEDIDOS is NOT in TRANSITION_ROLES[("EN_PREPARACION", "CANCELADO")] — only ADMIN
         with pytest.raises(ForbiddenError):
@@ -112,28 +112,28 @@ class TestValidateTransition:
 
     def test_validate_transition_client_no_puede_en_preparacion(self):
         """CLIENT cannot move CONFIRMADO → EN_PREPARACION (not in role set)."""
-        from backend.features.orders.state_machine import validate_transition
+        from features.orders.state_machine import validate_transition
 
         with pytest.raises(ForbiddenError):
             validate_transition("CONFIRMADO", "EN_PREPARACION", {"CLIENT"})
 
     def test_validate_transition_estado_terminal_entregado(self):
         """ENTREGADO is terminal — no outgoing transitions allowed."""
-        from backend.features.orders.state_machine import validate_transition
+        from features.orders.state_machine import validate_transition
 
         with pytest.raises(BusinessRuleError):
             validate_transition("ENTREGADO", "EN_CAMINO", {"ADMIN"})
 
     def test_validate_transition_estado_terminal_cancelado(self):
         """CANCELADO is terminal — no outgoing transitions allowed."""
-        from backend.features.orders.state_machine import validate_transition
+        from features.orders.state_machine import validate_transition
 
         with pytest.raises(BusinessRuleError):
             validate_transition("CANCELADO", "PENDIENTE", {"ADMIN"})
 
     def test_validate_transition_estado_origen_desconocido(self):
         """Unknown origin state raises BusinessRuleError."""
-        from backend.features.orders.state_machine import validate_transition
+        from features.orders.state_machine import validate_transition
 
         with pytest.raises(BusinessRuleError):
             validate_transition("INEXISTENTE", "CANCELADO", {"ADMIN"})

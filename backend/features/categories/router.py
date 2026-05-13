@@ -16,14 +16,14 @@ from typing import Union
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
-from backend.features.auth.dependencies import require_role
-from backend.features.categories.schemas import (
+from features.auth.dependencies import require_role
+from features.categories.schemas import (
     CategoriaCreate,
     CategoriaRead,
     CategoriaTreeNode,
     CategoriaUpdate,
 )
-from backend.features.categories.service import CategoryService
+from features.categories.service import CategoryService
 
 router = APIRouter()
 

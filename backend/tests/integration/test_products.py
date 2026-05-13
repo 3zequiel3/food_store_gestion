@@ -69,8 +69,8 @@ def _client_headers(client: TestClient) -> dict[str, str]:
 @pytest.fixture(scope="function")
 def admin_user(test_db_session: Session, sample_roles):
     """Create an ADMIN user for testing."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="admin@test.com",
@@ -91,8 +91,8 @@ def admin_user(test_db_session: Session, sample_roles):
 @pytest.fixture(scope="function")
 def stock_user(test_db_session: Session, sample_roles):
     """Create a STOCK user for testing."""
-    from backend.features.users.models import Usuario, UsuarioRol
-    from backend.shared.security import hash_password
+    from features.users.models import Usuario, UsuarioRol
+    from shared.security import hash_password
 
     user = Usuario(
         email="stock@test.com",
@@ -141,7 +141,7 @@ def _create_product(
 
 def _create_categoria_direct(session: Session, nombre: str = "Cat-X") -> dict:
     """Insert a Categoria directly via session (bypasses API)."""
-    from backend.features.catalog.models import Categoria
+    from features.catalog.models import Categoria
 
     cat = Categoria(nombre=nombre)
     session.add(cat)
@@ -156,7 +156,7 @@ def _create_ingrediente_direct(
     es_alergeno: bool = False,
 ) -> dict:
     """Insert an Ingrediente directly via session (bypasses API)."""
-    from backend.features.catalog.models import Ingrediente
+    from features.catalog.models import Ingrediente
 
     ing = Ingrediente(nombre=nombre, es_alergeno=es_alergeno)
     session.add(ing)
@@ -1747,8 +1747,8 @@ class TestPrecisionAndMigration:
     ):
         """INSERT pivot without es_removible → row has es_removible=false."""
         headers = _admin_headers(client)
-        from backend.features.catalog.models import Ingrediente
-        from backend.features.products.models import ProductoIngrediente
+        from features.catalog.models import Ingrediente
+        from features.products.models import ProductoIngrediente
 
         prod = _create_product(client, headers)
         ing = Ingrediente(nombre="DefRemovible", es_alergeno=False)

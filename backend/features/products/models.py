@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.shared.models import BaseModel, PivotBaseModel
-from backend.features.catalog.models import Categoria, Ingrediente
+from shared.models import BaseModel, PivotBaseModel
+from features.catalog.models import Categoria, Ingrediente
 
 
 # ---------------------------------------------------------------------------
