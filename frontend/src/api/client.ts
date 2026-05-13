@@ -4,7 +4,7 @@ import { applyErrorInterceptor } from './interceptors/error';
 
 /** Single axios instance para toda la app. */
 export const apiClient = axios.create({
-  baseURL: '/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api/v1',
   timeout: 30_000,
   withCredentials: true,
   headers: {
