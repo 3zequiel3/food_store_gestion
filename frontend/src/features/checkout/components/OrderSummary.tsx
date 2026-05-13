@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useCartStore } from '../../cart/stores/cartStore';
 
 interface OrderSummaryProps {
