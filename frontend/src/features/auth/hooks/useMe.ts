@@ -12,7 +12,7 @@ import { useAuthStore } from '../stores/authStore';
  * refrescar datos actualizados (ej: cambio de perfil desde otro dispositivo).
  */
 export function useMe() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const isAuthenticated = useAuthStore((s) => s.accessToken !== null);
 
   return useQuery({
     queryKey: ['auth', 'me'],

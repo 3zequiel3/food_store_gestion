@@ -35,7 +35,7 @@ export function ProductCard({ producto }: ProductCardProps) {
       {
         producto_id: producto.id,
         nombre: producto.nombre,
-        precio: producto.precio,
+        precio: Number(producto.precio),
         imagen_url: producto.imagen_url ?? undefined,
       },
       1,

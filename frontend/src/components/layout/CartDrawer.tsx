@@ -100,7 +100,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                       {item.nombre}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {item.cantidad} × ${item.precio.toFixed(2)}
+                      {item.cantidad} × ${Number(item.precio).toFixed(2)}
                     </p>
                     {item.personalizacion && (
                       <p className="truncate text-xs text-muted-foreground italic">
@@ -112,7 +112,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                   {/* Subtotal + remove */}
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-sm font-semibold text-foreground">
-                      ${(item.precio * item.cantidad).toFixed(2)}
+                      ${(Number(item.precio) * item.cantidad).toFixed(2)}
                     </span>
                     <button
                       type="button"

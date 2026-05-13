@@ -7,7 +7,7 @@ import { useAuthStore } from '../../features/auth/stores/authStore';
  * preservando la URL original en `location.state.from` para post-login redirect.
  */
 export function PrivateRoute() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const isAuthenticated = useAuthStore((s) => s.accessToken !== null);
   const location = useLocation();
 
   if (!isAuthenticated) {

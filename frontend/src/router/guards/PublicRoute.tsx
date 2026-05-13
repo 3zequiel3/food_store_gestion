@@ -7,7 +7,7 @@ import { useAuthStore } from '../../features/auth/stores/authStore';
  * Las rutas hijas se renderizan dentro del <Outlet /> cuando no hay auth.
  */
 export function PublicRoute() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const isAuthenticated = useAuthStore((s) => s.accessToken !== null);
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;

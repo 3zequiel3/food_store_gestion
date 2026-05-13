@@ -9,7 +9,7 @@
       "command": "dbhub",
       "args": ["--transport", "stdio"],
       "env": {
-        "POSTGRES_URL": "${POSTGRES_URL:-postgresql://ezequiel:ezequiel@localhost:510/food_store}"
+        "POSTGRES_URL": "${POSTGRES_URL:-postgresql://food_user:food_password@localhost:5433/food_store}"
       }
     }
   }

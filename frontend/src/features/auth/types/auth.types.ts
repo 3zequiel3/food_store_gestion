@@ -11,6 +11,7 @@ export interface Usuario {
   apellido: string;
   /** Códigos de rol (ADMIN, STOCK, PEDIDOS, CLIENT). El backend devuelve strings, no objetos. */
   roles: string[];
+  created_at: string;
 }
 
 export interface LoginCredentials {

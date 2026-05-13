@@ -20,7 +20,9 @@ export function TopNavbar({ onCartOpen }: TopNavbarProps) {
   const hasAdmin = useAuthStore((s) => s.hasRole('ADMIN'));
   const hasPedidos = useAuthStore((s) => s.hasRole('PEDIDOS'));
   const hasStock = useAuthStore((s) => s.hasRole('STOCK'));
-  const totalItems = useCartStore((s) => s.getTotalItems());
+  const totalItems = useCartStore((s) =>
+    s.items.reduce((sum, item) => sum + item.cantidad, 0),
+  );
   const { mutate: logout } = useLogout();
 
   const isAdmin = hasAdmin || hasPedidos || hasStock;

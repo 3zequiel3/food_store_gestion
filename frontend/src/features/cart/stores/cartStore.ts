@@ -88,7 +88,7 @@ export const useCartStore = create<CartStore>()(
 
       getTotalPrice() {
         return get().items.reduce(
-          (sum, item) => sum + item.precio * item.cantidad,
+          (sum, item) => sum + Number(item.precio) * item.cantidad,
           0,
         );
       },
