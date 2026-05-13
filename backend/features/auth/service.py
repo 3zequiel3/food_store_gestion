@@ -25,6 +25,7 @@ from backend.features.auth.schemas import (
     LoginRequest,
     RegisterRequest,
     TokenPairResponse,
+    UserResponse,
 )
 from backend.features.users.models import Usuario, UsuarioRol
 from backend.shared.exceptions import ConflictError, UnauthorizedError
@@ -282,4 +283,12 @@ class AuthService:
             refresh_token=refresh_token_raw,
             token_type="bearer",
             expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            user=UserResponse(
+                id=user.id,
+                email=user.email,
+                nombre=user.nombre,
+                apellido=user.apellido,
+                roles=roles,
+                created_at=user.creado_en,
+            ),
         )

@@ -54,8 +54,21 @@ class LoginRequest(BaseModel):
     )
 
 
+class UserResponse(BaseModel):
+    """Response schema for authenticated user info."""
+
+    id: int = Field(..., description="User ID")
+    nombre: str = Field(..., description="First name")
+    apellido: str = Field(..., description="Last name")
+    email: EmailStr = Field(..., description="Email address")
+    roles: list[str] = Field(..., description="Role codes")
+    created_at: datetime = Field(..., description="Account creation timestamp")
+
+    model_config = {"from_attributes": True}
+
+
 class TokenPairResponse(BaseModel):
-    """Response containing access and refresh tokens."""
+    """Response containing access and refresh tokens, plus the authenticated user."""
 
     access_token: str = Field(
         ...,
@@ -73,6 +86,10 @@ class TokenPairResponse(BaseModel):
         ...,
         description="Access token expiration time in seconds",
         examples=[1800],
+    )
+    user: UserResponse = Field(
+        ...,
+        description="Authenticated user profile (id, name, email, roles)",
     )
 
 
@@ -95,14 +112,3 @@ class TokenPayload(BaseModel):
     type: str = Field(default="access", description="Token type")
 
 
-class UserResponse(BaseModel):
-    """Response schema for authenticated user info (GET /me)."""
-
-    id: int = Field(..., description="User ID")
-    nombre: str = Field(..., description="First name")
-    apellido: str = Field(..., description="Last name")
-    email: EmailStr = Field(..., description="Email address")
-    roles: list[str] = Field(..., description="Role codes")
-    created_at: datetime = Field(..., description="Account creation timestamp")
-
-    model_config = {"from_attributes": True}
