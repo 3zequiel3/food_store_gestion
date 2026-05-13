@@ -20,7 +20,7 @@ The system SHALL persist categories in the existing `categories` table (created 
 - **THEN** it exposes a `padre: Optional[Categoria]` attribute and a `hijos: list[Categoria]` collection populated via the self-referential relationship
 
 ### Requirement: Create category endpoint
-The system SHALL expose `POST /api/v1/categorias` protected by `require_role("ADMIN", "STOCK")` that accepts `CategoriaCreate({nombre: str, padre_id: int | None})`. On success it SHALL return 201 with `CategoriaRead`. The `nombre` field SHALL be trimmed and validated with `min_length=1, max_length=100`. (US-007)
+The system SHALL expose `POST /api/v1/categorias` protected by `require_role("ADMIN", "STOCK")` that accepts `CategoriaCreate({nombre: str, padre_id: int | None})`. On success it SHALL return 201 with `CategoriaRead`. The `nombre` field SHALL be trimmed and validated with `min_length=1, max_length=100`. Additionally, when `padre_id` is not null, the service SHALL verify that the parent category has zero active product associations (`SELECT COUNT(*) FROM product_categories pc JOIN products p ON p.id = pc.product_id WHERE pc.category_id = :padre_id AND pc.eliminado_en IS NULL AND p.eliminado_en IS NULL`). If the count is greater than zero, the service SHALL raise `BusinessRuleError` (422) with detail message in Spanish (Rioplatense) including the count of affected products, e.g. "No se puede subcategorizar 'Bebidas' — tiene 5 productos asignados. Reasigná los productos a una subcategoría antes de crear hijas." (US-007, RN-CA06)
 
 #### Scenario: Successful category creation as ADMIN
 - **WHEN** a user with role `ADMIN` posts `{"nombre": "Bebidas", "padre_id": null}`
@@ -79,7 +79,7 @@ The system SHALL expose `GET /api/v1/categorias` (public, no authentication requ
 
 When `solo_hojas` is `false` (default), the endpoint SHALL return the full tree of non-deleted categories as a nested JSON array of `CategoriaTreeNode({id: int, nombre: str, padre_id: int | None, subcategorias: list[CategoriaTreeNode]})`. The tree SHALL be built using a recursive Common Table Expression (CTE) starting from root nodes (`padre_id IS NULL`). Soft-deleted categories (`eliminado_en IS NOT NULL`) SHALL be excluded.
 
-When `solo_hojas` is `true`, the endpoint SHALL return a flat JSON array of `CategoriaRead({id: int, nombre: str, padre_id: int | None, creado_en, actualizado_en})` containing only **leaf** categories — i.e. active categories (`eliminado_en IS NULL`) that have zero non-deleted children. The result SHALL be sorted alphabetically by `nombre` (ascending, case-insensitive). The flat mode SHALL NOT nest under `subcategorias`. (US-008, RN-CA09)
+When `solo_hojas` is `true`, the endpoint SHALL return a flat JSON array of `CategoriaRead({id: int, nombre: str, padre_id: int | None, creado_en, actualizado_en})` containing only **leaf** categories — i.e. active categories (`eliminado_en IS NULL`) that have zero non-deleted children. The result SHALL be sorted alphabetically by `nombre` (ascending, case-insensitive). The flat mode SHALL NOT nest under `subcategorias`. (US-008, RN-CA09, RN-CA06)
 
 #### Scenario: Tree mode returns nested structure
 - **GIVEN** categories: `Bebidas (id=1, padre=NULL)`, `Gaseosas (id=2, padre=1)`, `Coca (id=3, padre=2)`, `Postres (id=4, padre=NULL)`

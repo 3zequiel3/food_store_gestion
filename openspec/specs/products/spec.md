@@ -122,7 +122,7 @@ The `excluir_alergeno_ids` filter (list of ingredient ids) SHALL exclude product
 
 When both `excluir_alergenos=true` and `excluir_alergeno_ids=[...]` are provided, both filters SHALL be applied with AND semantics (a product is included only if it passes both exclusion criteria).
 
-The `sin_categoria` filter (boolean) SHALL, when `true`, restrict the result to products that have ZERO active `product_categories` rows. When `false` (default), the filter is a no-op. (US-018, US-023, RN-CA08, RN-CA09)
+The `sin_categoria` filter (boolean) SHALL, when `true`, restrict the result to products that have ZERO active `product_categories` rows. When `false` (default), the filter is a no-op. (US-018, US-023, RN-CA08, RN-CA09, RN-CA06)
 
 #### Scenario: Default list excludes unavailable
 - **GIVEN** 3 products with `disponible=true` and 2 with `disponible=false`, all active

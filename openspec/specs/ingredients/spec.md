@@ -68,7 +68,7 @@ The system SHALL reject creating or updating an ingredient whose `nombre` matche
 - **THEN** the response is 409 (RFC 7807) with detail indicating the name is reserved
 
 ### Requirement: List ingredients endpoint with pagination and filter
-The system SHALL expose `GET /api/v1/ingredientes` (public, no authentication required) that returns a paginated list of non-deleted ingredients wrapped in `PaginatedIngredientes({items: list[IngredienteRead], total: int, page: int, limit: int})`. The endpoint SHALL accept query params `page: int >= 1` (default 1), `limit: int in [1, 100]` (default 20), and `es_alergeno: bool | None` (default None = no filter). Soft-deleted ingredients (`eliminado_en IS NOT NULL`) SHALL be excluded. (US-012, RN-CA09)
+The system SHALL expose `GET /api/v1/ingredientes` (public, no authentication required) that returns a paginated list of non-deleted ingredients wrapped in `PaginatedIngredientes({items: list[IngredienteRead], total: int, page: int, limit: int})`. The endpoint SHALL accept query params `page: int >= 1` (default 1), `limit: int in [1, 100]` (default 20), and `es_alergeno: bool | None` (default None = no filter). When `es_alergeno` is `true`, the endpoint SHALL return only ingredients whose `es_alergeno = true`. When `es_alergeno` is `false`, the endpoint SHALL return only ingredients whose `es_alergeno = false`. When `es_alergeno` is omitted or null, the filter SHALL be a no-op (no filter on the column). Soft-deleted ingredients (`eliminado_en IS NOT NULL`) SHALL be excluded. (US-012, RN-CA09, RN-CA07)
 
 #### Scenario: Default pagination returns first 20 items
 - **GIVEN** 25 non-deleted ingredients exist
