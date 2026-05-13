@@ -1,0 +1,3 @@
+# Archivo bisagra para que Railpack detecte Python como stack principal
+# del monorepo. Las dependencias reales viven en backend/requirements.txt.
+-r backend/requirements.txt
