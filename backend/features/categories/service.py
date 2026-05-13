@@ -17,6 +17,7 @@ from backend.features.catalog.models import Categoria
 from backend.features.categories.repository import CategoryRepository
 from backend.features.categories.schemas import (
     CategoriaCreate,
+    CategoriaRead,
     CategoriaTreeNode,
     CategoriaUpdate,
     CategoryFlatRow,
@@ -40,6 +41,9 @@ class CategoryService:
         - Nombre is not blank.
         - Parent exists (if provided).
         - No duplicate name at the same level.
+        - Parent has zero active product associations — block-on-promote guard
+          (D6): creating a child of a category that has products assigned would
+          promote it from leaf to internal, stranding those products.
 
         Args:
             payload: Creation data.
@@ -48,7 +52,7 @@ class CategoryService:
             The newly created Categoria entity.
 
         Raises:
-            BusinessRuleError: If parent does not exist.
+            BusinessRuleError: If parent does not exist, has active products (D6).
             ConflictError: If a sibling with the same name exists.
         """
         with UnitOfWork() as uow:
@@ -66,6 +70,15 @@ class CategoryService:
                 if parent is None:
                     raise BusinessRuleError(
                         f"La categoría padre con ID {padre_id} no existe"
+                    )
+
+                # Block-on-promote guard (D6): parent must have zero active products
+                active_count = repo.count_active_products(padre_id)
+                if active_count > 0:
+                    raise BusinessRuleError(
+                        f"No se puede subcategorizar '{parent.nombre}' — "
+                        f"tiene {active_count} producto{'s' if active_count != 1 else ''} asignado{'s' if active_count != 1 else ''}. "
+                        f"Reasigná los productos a una subcategoría antes de crear hijas."
                     )
 
             # Uniqueness check at the target level
@@ -184,6 +197,24 @@ class CategoryService:
                 )
 
             repo.delete(categoria_id)
+
+    # ── Leaves (flat list, D7) ────────────────────────────────────────────
+
+    def list_leaves(self) -> list[CategoriaRead]:
+        """Return a flat list of active leaf categories, sorted by nombre.
+
+        A leaf category has zero non-deleted children. This is the data source
+        for the admin assignment dropdown (<select>) in Sprint 7 / Sprint 12.
+
+        Returns:
+            List of CategoriaRead (no subcategorias field) ordered A→Z.
+        """
+        with UnitOfWork() as uow:
+            uow.register_repository("categorias", CategoryRepository(uow.session))
+            repo: CategoryRepository = uow.categorias  # type: ignore[assignment]
+
+            leaves: list[Categoria] = repo.list_leaf_categories()
+            return [CategoriaRead.model_validate(c) for c in leaves]
 
     # ── Tree (read-only) ──────────────────────────────────────────────────
 

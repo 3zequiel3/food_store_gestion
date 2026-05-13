@@ -10,7 +10,7 @@ Extends BaseRepository[Categoria] with specialised methods:
 
 from __future__ import annotations
 
-from sqlalchemy import func, literal, select
+from sqlalchemy import exists, func, literal, select
 from sqlalchemy.orm import Session
 
 from backend.features.catalog.models import Categoria
@@ -152,6 +152,69 @@ class CategoryRepository(BaseRepository[Categoria]):
             select(func.count()).select_from(cte).where(cte.c.id == categoria_id)
         ).scalar()
         return (result or 0) > 0
+
+    # ── Count active products for a category (with count, not just bool) ─
+
+    def count_active_products(self, categoria_id: int) -> int:
+        """Count active products associated with this category via active pivot rows.
+
+        Only counts pivot rows with eliminado_en IS NULL pointing to products
+        with eliminado_en IS NULL.
+
+        Args:
+            categoria_id: Category ID to check.
+
+        Returns:
+            Number of active products.
+        """
+        query = (
+            select(func.count())
+            .select_from(ProductoCategoria)
+            .join(
+                Producto,
+                Producto.id == ProductoCategoria.product_id,
+            )
+            .where(
+                ProductoCategoria.category_id == categoria_id,
+                ProductoCategoria.eliminado_en.is_(None),
+                Producto.eliminado_en.is_(None),
+            )
+        )
+        return self.session.execute(query).scalar() or 0
+
+    # ── Flat list of leaf categories (D7) ────────────────────────────────
+
+    def list_leaf_categories(self) -> list[Categoria]:
+        """Return all active leaf categories, ordered alphabetically by nombre.
+
+        A leaf category has zero non-deleted children.
+        Uses a single SQL statement with a NOT EXISTS antijoin against the
+        categories table self-referencing on padre_id. (D7)
+
+        This method DOES NOT commit, flush, or otherwise mutate the session.
+
+        Returns:
+            List of Categoria instances (may be empty).
+        """
+        cat = Categoria.__table__
+        child_alias = cat.alias("child")
+
+        query = (
+            select(Categoria)
+            .where(Categoria.eliminado_en.is_(None))
+            .where(
+                ~exists(
+                    select(literal(1))
+                    .select_from(child_alias)
+                    .where(
+                        child_alias.c.padre_id == cat.c.id,
+                        child_alias.c.eliminado_en.is_(None),
+                    )
+                )
+            )
+            .order_by(Categoria.nombre)
+        )
+        return list(self.session.execute(query).scalars().all())
 
     # ── Recursive tree ────────────────────────────────────────────────────
 

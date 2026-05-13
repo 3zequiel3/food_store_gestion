@@ -77,10 +77,31 @@ async def crear_producto(
 async def listar_productos(
     page: int = Query(1, ge=1, description="1-based page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
-    categoria_id: int | None = Query(None, description="Filter by category ID"),
+    categoria_id: int | None = Query(
+        None,
+        description=(
+            "Filter by category ID — includes products in this category and "
+            "any active descendant categories (resolved via recursive CTE, D1)."
+        ),
+    ),
     search: str | None = Query(None, description="Case-insensitive substring match on nombre"),
     disponible: bool | None = Query(None, description="Filter by availability (default: true)"),
     excluir_alergenos: bool = Query(False, description="Exclude products with non-removable allergens"),
+    excluir_alergeno_ids: list[int] = Query(
+        default=[],
+        description=(
+            "Exclude products that have at least one non-removable ingredient "
+            "whose id is in this list (D2). Repeat the param for multiple ids. "
+            "Empty / omitted = no-op. Compatible with excluir_alergenos=true (AND)."
+        ),
+    ),
+    sin_categoria: bool = Query(
+        False,
+        description=(
+            "If true, return only products with zero active category associations (D5). "
+            "Useful for the admin 'uncategorized products' view."
+        ),
+    ),
     incluir_eliminados: bool = Query(
         False,
         description="Include soft-deleted products (ADMIN only, RN-CA10). Ignored for other roles.",
@@ -94,6 +115,12 @@ async def listar_productos(
     Default behaviour when ``disponible`` is not specified: only available
     products are returned (disponible=true), per RN-CA08 (public catalog).
     Pass ``?disponible=false`` explicitly to retrieve unavailable products.
+
+    ``categoria_id`` now resolves descendants recursively via a CTE (D1).
+    ``excluir_alergeno_ids`` excludes products with specific non-removable
+    ingredients by ID list (D2). Combine with ``excluir_alergenos=true`` for
+    AND semantics.
+    ``sin_categoria=true`` restricts results to uncategorized products (D5).
 
     The ``incluir_eliminados`` flag is only effective for ADMIN users (RN-CA10).
     For other roles or unauthenticated requests it is silently ignored.
@@ -110,6 +137,8 @@ async def listar_productos(
         search=search,
         disponible=disponible,
         excluir_alergenos=excluir_alergenos,
+        excluir_alergeno_ids=excluir_alergeno_ids,
+        sin_categoria=sin_categoria,
         current_user=current_user,
         incluir_eliminados=incluir_eliminados,
     )
