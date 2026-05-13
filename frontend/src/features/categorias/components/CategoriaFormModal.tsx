@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useCreateCategoria } from '../hooks/useCreateCategoria';
 import { useUpdateCategoria } from '../hooks/useUpdateCategoria';

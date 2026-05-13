@@ -10,7 +10,6 @@ import { Forbidden } from '../pages/errors/Forbidden';
 import { Unauthorized } from '../pages/errors/Unauthorized';
 import { AdminLayout } from '../pages/admin/AdminLayout';
 import { ClienteLayout } from '../pages/client/ClienteLayout';
-import { PlaceholderPage } from '../components/common/PlaceholderPage';
 import { useAuthStore } from '../features/auth/stores/authStore';
 import { CatalogPage } from '../pages/client/CatalogPage';
 import { ProductDetailPage } from '../pages/client/ProductDetailPage';
