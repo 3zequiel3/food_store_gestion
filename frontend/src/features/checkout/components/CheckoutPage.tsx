@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, ShoppingBag, ArrowLeft } from 'lucide-react';
+import { ShoppingBag, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddressSelector } from './AddressSelector';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
@@ -14,7 +14,6 @@ import { Button } from '../../../components/ui/Button';
 export function CheckoutPage() {
   const navigate = useNavigate();
   const items = useCartStore((s) => s.items);
-  const clearCart = useCartStore((s) => s.clearCart);
 
   // Estados locales de los selectores
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
