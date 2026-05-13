@@ -18,6 +18,8 @@ import { ProfilePage } from '../pages/client/ProfilePage';
 import { AddressesPage } from '../pages/client/AddressesPage';
 import { CheckoutPage } from '../features/checkout/components/CheckoutPage';
 import { OrderConfirmationPage } from '../features/orders/components/OrderConfirmationPage';
+import { PedidosAdminPage } from '../pages/admin/PedidosAdminPage';
+import { MisPedidosPage } from '../pages/client/MisPedidosPage';
 
 /**
  * Redirige la raíz `/` según el rol del usuario:
