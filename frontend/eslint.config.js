@@ -19,5 +19,33 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      /**
+       * D8: Prohibir namespace imports de lucide-react.
+       * `import * as Icons from 'lucide-react'` bloatea el bundle (~1500 íconos).
+       * Usar named imports: `import { Home, ShoppingCart } from 'lucide-react'`.
+       */
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'lucide-react',
+              importNames: ['*'],
+              message:
+                'Prohibido namespace import de lucide-react. Usá named imports: import { Home } from "lucide-react".',
+            },
+          ],
+          patterns: [
+            {
+              group: ['lucide-react'],
+              importNamePattern: '^\\*$',
+              message:
+                'Prohibido namespace import de lucide-react. Usá named imports: import { Home } from "lucide-react".',
+            },
+          ],
+        },
+      ],
+    },
   },
 ])

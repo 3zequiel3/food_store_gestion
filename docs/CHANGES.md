@@ -20,8 +20,9 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 
 ### Estado actual (2026-05-12)
 
-- **Sprints 0 a 4**: ✅ Archivados completos (changes #1 al #13)
+- **Sprints 0 a 4**: ✅ Archivados completos (changes #1 al #13) — *ver nota sobre #2/#5/#7/#8 refactoreados*
 - **Refactors**: ✅ Archivados — `refactor-uow-to-context-manager` (68/68), `refactor-auth-to-uow`, `refactor-users-route-to-spanish`
+- **Frontend rebuild**: 🔄 En progreso — `frontend-rebuild-on-feature-first` (BLOQUEANTE de Fase B). Changes #2/#5/#7/#8 marcados como refactored — su código fue reemplazado por este change.
 - **Sprint 5**: 🔄 En progreso — `order-creation-backend` (#14) ✅ archivado, `payment-mercadopago-backend` (#15) ✅ archivado, `order-state-machine-fsm` (#16) 🔄 En implementación
 
 ---
@@ -35,7 +36,7 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 - **Historias**: US-000, US-000a
 - **Dependencias**: Ninguna
 
-### 2. **setup-frontend-core** ✅
+### 2. **setup-frontend-core** ~~✅~~ ⚠️ Refactored 2026-05-12 — sustituido por `frontend-rebuild-on-feature-first`
 - **Funcionalidad**: Scaffolding del frontend, estructura FSD, dependencias React/Vite, configuración Tailwind
 - **Historias**: US-000, US-000c
 - **Dependencias**: Ninguna
@@ -51,7 +52,7 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 - **Historias**: US-068, US-074
 - **Dependencias**: setup-backend-core
 
-### 5. **zustand-stores-base** ✅
+### 5. **zustand-stores-base** ~~✅~~ ⚠️ Refactored 2026-05-12 — sustituido por `frontend-rebuild-on-feature-first`
 - **Funcionalidad**: Cuatro stores de Zustand: authStore, cartStore, paymentStore, uiStore (todos tipados, con persist)
 - **Historias**: US-000e
 - **Dependencias**: setup-frontend-core
@@ -66,13 +67,13 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 - **Historias**: US-001, US-002, US-003, US-004, US-005, US-006, US-073
 - **Dependencias**: database-schema-seed, backend-error-handling-validation
 
-### 7. **auth-frontend-interceptor** ✅
+### 7. **auth-frontend-interceptor** ~~✅~~ ⚠️ Refactored 2026-05-12 — sustituido por `frontend-rebuild-on-feature-first`
 - **Funcionalidad**: Formularios de login/registro, interceptor Axios para JWT, renovación automática en 401, toast de errores, authStore integration
 - **Historias**: US-001, US-002, US-066, US-067
 - **Dependencias**: auth-backend, zustand-stores-base, setup-frontend-core
 - **Nota**: Adelantado para validar el contrato del auth-backend con UI real.
 
-### 8. **navigation-routing-base** ✅
+### 8. **navigation-routing-base** ~~✅~~ ⚠️ Refactored 2026-05-12 — sustituido por `frontend-rebuild-on-feature-first`
 - **Funcionalidad**: Layout base, navbar/sidebar adaptado por rol, react-router con guards, rutas públicas/privadas, componentes de error (403, 404)
 - **Historias**: US-075, US-076
 - **Dependencias**: auth-frontend-interceptor
@@ -139,6 +140,13 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 ### ✅ **refactor-users-route-to-spanish**
 - **Funcionalidad**: Alinear ruta HTTP `/api/v1/users` → `/api/v1/usuarios` según lexicón español del integrador §5.
 - **Estado**: ✅ Archivado
+
+### 🔄 **frontend-rebuild-on-feature-first** — BLOQUEANTE DE FASE B
+- **Funcionalidad**: Reconstrucción consolidada de la fundación del frontend adaptada a Feature-First plano. Reemplaza #2, #5, #7 y #8 (refactoreados). Incluye: interceptors HTTP (auth + RFC 7807 ApiError, single-flight refresh), authStore + cartStore (Zustand+persist), auth feature end-to-end (schemas Zod, service, hooks TanStack Query, LoginForm/RegisterForm con TanStack Form), router nested con guards (PublicRoute/PrivateRoute/RoleGuard), páginas de error 401/403/404, layout dual (Sidebar hover-expand+lock desktop, BottomNav+TopNavbar mobile), design tokens dark-first vía Tailwind v4 @theme, QueryClient defaults globales, ESLint rule anti-namespace lucide.
+- **Historias**: US-000c, US-000e, US-001, US-002, US-066, US-067, US-075, US-076
+- **Dependencias**: auth-backend ✅
+- **Estado**: 🔄 En implementación (2026-05-12)
+- **Por qué**: El refactor de Feature-First plano invalidó cuatro changes archivados que asumían FSD nominal y 4 stores fijos. Este change es el consolidado que repone la fundación adaptada.
 
 ---
 
