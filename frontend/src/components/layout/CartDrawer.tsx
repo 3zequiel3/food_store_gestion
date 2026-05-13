@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, ShoppingCart, Trash2, Minus, Plus, Loader2 } from 'lucide-react';
+import { X, ShoppingCart, Trash2, Minus, Plus } from 'lucide-react';
 import { useCartStore } from '../../features/cart/stores/cartStore';
 import { useValidateCart } from '../../features/checkout/hooks/useValidateCart';
 import { CartValidationModal } from '../../features/checkout/components/CartValidationModal';

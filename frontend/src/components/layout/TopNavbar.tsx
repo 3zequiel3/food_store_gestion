@@ -26,7 +26,7 @@ export function TopNavbar({ onCartOpen }: TopNavbarProps) {
     >
       <div className="flex h-full items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold bg-gradient-to-r from-primary via-primary to-secondary bg-clip-text text-transparent tracking-tight">
+          <span className="text-lg font-bold text-primary tracking-tight">
             Food Store
           </span>
         </div>
