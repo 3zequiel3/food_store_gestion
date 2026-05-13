@@ -15,6 +15,7 @@ import { useAuthStore } from '../features/auth/stores/authStore';
 import { CatalogPage } from '../pages/client/CatalogPage';
 import { ProductDetailPage } from '../pages/client/ProductDetailPage';
 import { ProfilePage } from '../pages/client/ProfilePage';
+import { AddressesPage } from '../pages/client/AddressesPage';
 
 /**
  * Redirige la raíz `/` según el rol del usuario:
@@ -109,10 +110,7 @@ export default function AppRoute() {
                 path="pedidos"
                 element={<PlaceholderPage title="Mis pedidos" description="Historial y seguimiento de pedidos." />}
               />
-              <Route
-                path="direcciones"
-                element={<PlaceholderPage title="Mis direcciones" description="ABM de direcciones de delivery." />}
-              />
+              <Route path="direcciones" element={<AddressesPage />} />
               <Route path="perfil" element={<ProfilePage />} />
             </Route>
           </Route>
