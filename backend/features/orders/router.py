@@ -15,7 +15,7 @@ D3: Service-driven UoW — the router does NOT open a UnitOfWork.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 
 from backend.features.auth.dependencies import get_current_user, require_role
 from backend.features.orders.schemas import (
@@ -45,7 +45,7 @@ router = APIRouter()
 )
 async def listar_pedidos(
     current_user: Annotated[Usuario, Depends(get_current_user)],
-    filtros: Annotated[PedidoListFilters, Query()],
+    filtros: Annotated[PedidoListFilters, Depends()],
 ) -> PaginatedPedidos:
     """
     GET /api/v1/pedidos — role-aware order list.

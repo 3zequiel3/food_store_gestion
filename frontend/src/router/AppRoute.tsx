@@ -16,6 +16,8 @@ import { CatalogPage } from '../pages/client/CatalogPage';
 import { ProductDetailPage } from '../pages/client/ProductDetailPage';
 import { ProfilePage } from '../pages/client/ProfilePage';
 import { AddressesPage } from '../pages/client/AddressesPage';
+import { MisPedidosPage } from '../pages/client/MisPedidosPage';
+import { PedidosAdminPage } from '../pages/admin/PedidosAdminPage';
 
 /**
  * Redirige la raíz `/` según el rol del usuario:
@@ -79,7 +81,7 @@ export default function AppRoute() {
               />
               <Route
                 path="pedidos"
-                element={<PlaceholderPage title="Pedidos" description="Gestión y transición de estados de los pedidos." />}
+                element={<PedidosAdminPage />}
               />
               <Route
                 path="usuarios"
@@ -108,7 +110,7 @@ export default function AppRoute() {
               <Route path="catalogo/:id" element={<ProductDetailPage />} />
               <Route
                 path="pedidos"
-                element={<PlaceholderPage title="Mis pedidos" description="Historial y seguimiento de pedidos." />}
+                element={<MisPedidosPage />}
               />
               <Route path="direcciones" element={<AddressesPage />} />
               <Route path="perfil" element={<ProfilePage />} />

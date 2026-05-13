@@ -73,6 +73,13 @@ class Settings(BaseSettings):
         case_sensitive = True
         extra = "ignore"  # Tolerate unrelated env vars (e.g. shell exports like DB_USER)
 
+    @field_validator("AUTH_COOKIE_SECURE", mode="before")
+    @classmethod
+    def validate_cookie_secure(cls, v):
+        if str(v).lower() in ("false", "0") and os.getenv("ENVIRONMENT") == "production":
+            raise ValueError("AUTH_COOKIE_SECURE must be true in production!")
+        return v
+
     @field_validator("JWT_SECRET", mode="before")
     @classmethod
     def validate_jwt_secret(cls, v):
