@@ -19,6 +19,7 @@ import { AddressesPage } from '../pages/client/AddressesPage';
 import { CheckoutPage } from '../features/checkout/components/CheckoutPage';
 import { OrderConfirmationPage } from '../features/orders/components/OrderConfirmationPage';
 import { PedidosAdminPage } from '../pages/admin/PedidosAdminPage';
+import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
 import { MisPedidosPage } from '../pages/client/MisPedidosPage';
 import { PaymentPage } from '../pages/client/PaymentPage';
 import { PaymentResultPage } from '../pages/client/PaymentResultPage';
@@ -87,10 +88,7 @@ export default function AppRoute() {
                 path="pedidos"
                 element={<PedidosAdminPage />}
               />
-              <Route
-                path="usuarios"
-                element={<PlaceholderPage title="Usuarios" description="Gestión de cuentas, roles y bloqueos." />}
-              />
+              <Route path="usuarios" element={<AdminUsersPage />} />
               <Route
                 path="metricas"
                 element={<PlaceholderPage title="Métricas" description="Dashboard con KPIs operativos." />}
