@@ -67,8 +67,26 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AuthSessionResponse(BaseModel):
+    """Public auth response for cookie-backed sessions (no raw tokens)."""
+
+    user: UserResponse = Field(
+        ...,
+        description="Authenticated user profile (id, name, email, roles)",
+    )
+    expires_in: int = Field(
+        ...,
+        description="Access token expiration time in seconds",
+        examples=[1800],
+    )
+    token_type: str = Field(
+        default="cookie",
+        description="Token transport type",
+    )
+
+
 class TokenPairResponse(BaseModel):
-    """Response containing access and refresh tokens, plus the authenticated user."""
+    """Internal token pair plus user, used before setting HttpOnly cookies."""
 
     access_token: str = Field(
         ...,

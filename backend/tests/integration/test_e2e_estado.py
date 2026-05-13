@@ -69,7 +69,7 @@ def auth_headers_pedidos_e2e(client, test_db_session: Session, sample_roles):
         "/api/v1/auth/login",
         json={"email": "pedidos_e2e@example.com", "password": "e2e_pw_123"},
     )
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    return {}
 
 
 @pytest.fixture
@@ -94,7 +94,7 @@ def auth_headers_admin_e2e(client, test_db_session: Session, sample_roles):
         "/api/v1/auth/login",
         json={"email": "admin_e2e@example.com", "password": "admin_e2e_pw_123"},
     )
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    return {}
 
 
 # ---------------------------------------------------------------------------

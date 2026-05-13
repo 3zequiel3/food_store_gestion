@@ -1,7 +1,6 @@
 /**
  * Tipos del dominio auth.
- * Matchean el schema del backend (backend/features/auth/schemas.py).
- * Campos en snake_case para espejear el contrato JSON del backend.
+ * Tokens are transported via HttpOnly cookies and are not exposed to JS.
  */
 
 export interface Usuario {
@@ -9,9 +8,8 @@ export interface Usuario {
   email: string;
   nombre: string;
   apellido: string;
-  /** Códigos de rol (ADMIN, STOCK, PEDIDOS, CLIENT). El backend devuelve strings, no objetos. */
+  /** Códigos de rol (ADMIN, STOCK, PEDIDOS, CLIENT). */
   roles: string[];
-  created_at: string;
 }
 
 export interface LoginCredentials {
@@ -31,19 +29,14 @@ export interface PasswordChangePayload {
   new_password: string;
 }
 
-export interface TokenPair {
-  access_token: string;
-  refresh_token: string;
-}
-
-/** Response completo de /auth/login — incluye tokens + usuario */
-export interface LoginResponse extends TokenPair {
+/** Response público de auth: no expone access/refresh token. */
+export interface AuthSessionResponse {
   user: Usuario;
+  expires_in: number;
+  token_type: 'cookie';
 }
 
-/** Payload de sesión que se persiste en authStore */
+/** Payload de sesión que se mantiene en authStore. */
 export interface SessionPayload {
-  accessToken: string;
-  refreshToken: string;
   user: Usuario;
 }

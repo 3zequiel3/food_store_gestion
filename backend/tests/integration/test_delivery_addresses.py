@@ -108,7 +108,7 @@ def second_user_auth_headers(client: TestClient, second_user):
         json={"email": "second@example.com", "password": "second_password_123"},
     )
     assert resp.status_code == 200
-    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+    return {}
 
 
 @pytest.fixture
@@ -140,7 +140,7 @@ def admin_auth_headers(client: TestClient, admin_user):
         json={"email": "admin@addresses.com", "password": "admin_pass_123"},
     )
     assert resp.status_code == 200
-    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+    return {}
 
 
 # ---------------------------------------------------------------------------

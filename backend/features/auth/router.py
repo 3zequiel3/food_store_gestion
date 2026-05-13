@@ -9,29 +9,37 @@ Transaction ownership lives in AuthService — each service method opens
 its own UnitOfWork context.
 """
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import APIRouter, Depends, Request, Response
 
+from backend.config import settings
+from backend.features.auth.cookies import clear_auth_cookies, set_auth_cookies
 from backend.features.auth.dependencies import get_current_user
 from backend.features.auth.schemas import (
+    AuthSessionResponse,
     LoginRequest,
-    RefreshRequest,
     RegisterRequest,
-    TokenPairResponse,
     UserResponse,
 )
 from backend.features.auth.service import AuthService
+from backend.features.users.models import Usuario
+from backend.shared.exceptions import UnauthorizedError
 from backend.shared.rate_limiter import RATE_LIMITS, limiter
 
 router = APIRouter()
 
-# OAuth2 scheme for token extraction
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+
+def _session_response(tokens) -> AuthSessionResponse:
+    """Project the internal token response to the public cookie-session DTO."""
+    return AuthSessionResponse(
+        user=tokens.user,
+        expires_in=tokens.expires_in,
+        token_type="cookie",
+    )
 
 
 @router.post(
     "/register",
-    response_model=TokenPairResponse,
+    response_model=AuthSessionResponse,
     status_code=201,
     summary="Register a new user",
     description="Creates a new user account with CLIENT role automatically assigned.",
@@ -39,91 +47,75 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 @limiter.limit(RATE_LIMITS["register"])
 async def register(
     request: Request,
+    response: Response,
     data: RegisterRequest,
 ):
-    """
-    Register a new user.
-
-    - **email**: Valid email address (must be unique)
-    - **password**: Minimum 8 characters
-    - **nombre**: First name (2-100 characters)
-    - **apellido**: Last name (2-100 characters)
-
-    Returns a token pair (access + refresh) on success.
-    Rate limit: 3 registrations per hour per IP.
-    """
+    """Register a new user and start a cookie-backed session."""
     service = AuthService()
-    return service.register(data)
+    tokens = service.register(data)
+    set_auth_cookies(response, tokens)
+    return _session_response(tokens)
 
 
 @router.post(
     "/login",
-    response_model=TokenPairResponse,
+    response_model=AuthSessionResponse,
     summary="User login",
-    description="Authenticate with email and password to receive access and refresh tokens.",
+    description="Authenticate with email and password and set HttpOnly auth cookies.",
 )
 @limiter.limit(RATE_LIMITS["login"])
 async def login(
     request: Request,
+    response: Response,
     data: LoginRequest,
 ):
-    """
-    Login with email and password.
-
-    - **email**: Registered email address
-    - **password**: Account password
-
-    Returns a token pair on success.
-    Rate limit: 5 attempts per 15 minutes per IP.
-    Error message is the same for invalid email or password (security).
-    """
+    """Login with email and password and start a cookie-backed session."""
     service = AuthService()
     client_ip = request.client.host if request.client else None
-    return service.login(data, client_ip=client_ip)
+    tokens = service.login(data, client_ip=client_ip)
+    set_auth_cookies(response, tokens)
+    return _session_response(tokens)
 
 
 @router.post(
     "/refresh",
-    response_model=TokenPairResponse,
+    response_model=AuthSessionResponse,
     summary="Refresh access token",
-    description="Exchange a refresh token for a new token pair. Implements token rotation.",
+    description="Rotate refresh token from HttpOnly cookie and set new auth cookies.",
 )
 @limiter.limit(RATE_LIMITS["refresh"])
 async def refresh(
     request: Request,
-    data: RefreshRequest,
+    response: Response,
 ):
-    """
-    Refresh tokens using a refresh token.
+    """Refresh tokens using the refresh token HttpOnly cookie."""
+    refresh_token = request.cookies.get(settings.AUTH_COOKIE_REFRESH_NAME)
+    if not refresh_token:
+        raise UnauthorizedError("Token de refresco requerido")
 
-    - **refresh_token**: Valid refresh token received from login/register
-
-    Returns a new token pair. The old refresh token is marked as used.
-    Rate limit: 10 requests per minute per IP.
-    """
     service = AuthService()
-    return service.refresh(data.refresh_token)
+    tokens = service.refresh(refresh_token)
+    set_auth_cookies(response, tokens)
+    return _session_response(tokens)
 
 
 @router.post(
     "/logout",
     status_code=204,
     summary="User logout",
-    description="Revoke the refresh token to end the session.",
+    description="Revoke refresh token cookie and clear auth cookies.",
 )
 async def logout(
-    data: RefreshRequest,
+    request: Request,
+    response: Response,
 ):
-    """
-    Logout and revoke refresh token.
+    """Best-effort logout: revoke if refresh cookie exists, always clear cookies."""
+    refresh_token = request.cookies.get(settings.AUTH_COOKIE_REFRESH_NAME)
+    if refresh_token:
+        service = AuthService()
+        service.logout(refresh_token)
 
-    - **refresh_token**: The refresh token to revoke
-
-    Returns 204 No Content on success.
-    Note: Access tokens remain valid until expiration (stateless).
-    """
-    service = AuthService()
-    service.logout(data.refresh_token)
+    clear_auth_cookies(response)
     return None
 
 
@@ -134,15 +126,9 @@ async def logout(
     description="Returns information about the authenticated user.",
 )
 async def get_me(
-    token: str = Depends(oauth2_scheme),
+    user: Usuario = Depends(get_current_user),
 ):
-    """
-    Get current authenticated user information.
-
-    Requires a valid access token in the Authorization header.
-    Returns UserResponse with id, nombre, apellido, email, roles[], created_at.
-    """
-    user = get_current_user(token)
+    """Get current authenticated user information from auth cookies."""
     return UserResponse(
         id=user.id,
         email=user.email,

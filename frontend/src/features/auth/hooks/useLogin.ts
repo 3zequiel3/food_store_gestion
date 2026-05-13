@@ -14,11 +14,7 @@ export function useLogin() {
   return useMutation({
     mutationFn: (credentials: LoginCredentials) => login(credentials),
     onSuccess(data) {
-      useAuthStore.getState().setSession({
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        user: data.user,
-      });
+      useAuthStore.getState().setSession({ user: data.user });
     },
   });
 }

@@ -38,7 +38,7 @@ def _admin_headers(client: TestClient) -> dict[str, str]:
         json={"email": "admin@test.com", "password": "admin_password_123"},
     )
     assert response.status_code == 200, f"Admin login failed: {response.json()}"
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    return {}
 
 
 def _stock_headers(client: TestClient) -> dict[str, str]:
@@ -48,7 +48,7 @@ def _stock_headers(client: TestClient) -> dict[str, str]:
         json={"email": "stock@test.com", "password": "stock_password_123"},
     )
     assert response.status_code == 200, f"Stock login failed: {response.json()}"
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    return {}
 
 
 def _client_headers(client: TestClient) -> dict[str, str]:
@@ -58,7 +58,7 @@ def _client_headers(client: TestClient) -> dict[str, str]:
         json={"email": "test@example.com", "password": "test_password_123"},
     )
     assert response.status_code == 200, f"Client login failed: {response.json()}"
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    return {}
 
 
 # ===========================================================================

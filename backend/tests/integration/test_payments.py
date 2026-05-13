@@ -79,7 +79,7 @@ def otro_auth_headers(client, otro_usuario):
         "/api/v1/auth/login",
         json={"email": "otro@example.com", "password": "otro_password_123"},
     )
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    return {}
 
 
 @pytest.fixture

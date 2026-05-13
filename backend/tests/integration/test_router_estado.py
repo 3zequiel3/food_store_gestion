@@ -78,7 +78,7 @@ def auth_headers_pedidos(client, test_db_session: Session, sample_roles):
         "/api/v1/auth/login",
         json={"email": "pedidos_router@example.com", "password": "pedidos_pw_123"},
     )
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    return {}
 
 
 @pytest.fixture
@@ -103,7 +103,7 @@ def auth_headers_admin(client, test_db_session: Session, sample_roles):
         "/api/v1/auth/login",
         json={"email": "admin_router@example.com", "password": "admin_router_pw"},
     )
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    return {}
 
 
 # ---------------------------------------------------------------------------

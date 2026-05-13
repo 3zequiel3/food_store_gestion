@@ -40,7 +40,7 @@ router = APIRouter()
     description=(
         "Lista pedidos con filtros y paginación. "
         "CLIENT ve solo sus propios pedidos; PEDIDOS/ADMIN ven todos. "
-        "STOCK recibe 403. Requiere autenticación JWT."
+        "STOCK recibe 403. Requiere autenticación por cookie."
     ),
 )
 async def listar_pedidos(
@@ -50,7 +50,7 @@ async def listar_pedidos(
     """
     GET /api/v1/pedidos — role-aware order list.
 
-    Authentication: Bearer JWT required (401 if missing/invalid).
+    Authentication: cookie-backed session required (401 if missing/invalid).
     Authorization: dynamic RBAC in OrderService.listar_pedidos().
     HTTP mapping (global exception handler):
       ForbiddenError → 403
@@ -77,7 +77,7 @@ async def get_pedido_detalle(
     """
     GET /api/v1/pedidos/{pedido_id} — role-aware order detail.
 
-    Authentication: Bearer JWT required (401 if missing/invalid).
+    Authentication: cookie-backed session required (401 if missing/invalid).
     Authorization: dynamic RBAC in OrderService.get_pedido_detalle().
     HTTP mapping (global exception handler):
       NotFoundError → 404  (pedido inexistente O ajeno para CLIENT — anti-leak D2)
@@ -106,7 +106,7 @@ async def crear_pedido(
     """
     POST /api/v1/pedidos — create a new order (spec §7.1, 9-step UoW).
 
-    Authentication: Bearer JWT required (401 if missing/invalid).
+    Authentication: cookie-backed session required (401 if missing/invalid).
     Authorization: CLIENT role required (403 if user lacks CLIENT role).
     """
     service = OrderService()
@@ -123,7 +123,7 @@ async def crear_pedido(
         "Ejecuta una transición de estado manual sobre un pedido. "
         "Valida FSM, RBAC por transición y ownership (CLIENT solo sus propios pedidos). "
         "CONFIRMADO no es un valor aceptado — esa transición es exclusiva del webhook de pago. "
-        "Requiere autenticación JWT."
+        "Requiere autenticación por cookie."
     ),
 )
 async def avanzar_estado(
@@ -134,7 +134,7 @@ async def avanzar_estado(
     """
     PATCH /api/v1/pedidos/{pedido_id}/estado
 
-    Authentication: Bearer JWT required (401 if missing/invalid).
+    Authentication: cookie-backed session required (401 if missing/invalid).
     Authorization: RBAC dynamic — validated inside OrderService.avanzar_estado().
 
     HTTP mapping (global exception handler):

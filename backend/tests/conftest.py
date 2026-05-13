@@ -236,7 +236,7 @@ def sample_user(test_db_session: Session, sample_roles):
 
 @pytest.fixture
 def auth_headers(client, sample_user):
-    """Get authentication headers for the sample user."""
+    """Authenticate the TestClient via auth cookies and return no extra headers."""
     response = client.post(
         "/api/v1/auth/login",
         json={
@@ -244,8 +244,8 @@ def auth_headers(client, sample_user):
             "password": "test_password_123",
         },
     )
-    data = response.json()
-    return {"Authorization": f"Bearer {data['access_token']}"}
+    assert response.status_code == 200
+    return {}
 
 
 # ---------------------------------------------------------------------------

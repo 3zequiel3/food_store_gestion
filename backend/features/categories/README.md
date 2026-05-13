@@ -23,15 +23,15 @@ El modelo `Categoria` vive en `backend.features.catalog.models` (no se duplica a
 ## Curl ejemplo
 
 ```bash
-# Crear categoría raíz (requiere token ADMIN o STOCK)
+# Crear categoría raíz (requiere sesión ADMIN o STOCK en cookies.txt)
 curl -X POST http://localhost:8000/api/v1/categorias \
-  -H "Authorization: Bearer <token>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"nombre": "Bebidas"}'
 
 # Crear subcategoría
 curl -X POST http://localhost:8000/api/v1/categorias \
-  -H "Authorization: Bearer <token>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"nombre": "Gaseosas", "padre_id": 1}'
 

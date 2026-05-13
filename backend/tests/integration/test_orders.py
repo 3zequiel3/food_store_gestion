@@ -204,8 +204,6 @@ class TestAuth:
             json={"email": "admin_only@example.com", "password": "admin_pass_123"},
         )
         assert login_resp.status_code == 200
-        token = login_resp.json()["access_token"]
-
         payload = {
             "items": [{"producto_id": 1, "cantidad": 1}],
             "forma_pago_codigo": "MERCADOPAGO",
@@ -213,7 +211,6 @@ class TestAuth:
         response = client.post(
             BASE_URL + "/",
             json=payload,
-            headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 403
 

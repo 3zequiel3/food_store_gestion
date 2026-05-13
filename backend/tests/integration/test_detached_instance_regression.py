@@ -46,14 +46,16 @@ _AUTH_EMAIL = "regresion_pg@example.com"
 _AUTH_PASSWORD = "secure_regression_pass_123"
 
 
-def _register_and_login() -> str:
-    """Register a fresh user and return a Bearer token.
+def _register_and_login() -> requests.Session:
+    """Register a fresh user and return an authenticated requests Session.
 
     Uses the real HTTP API (not the TestClient) because these tests require
-    the backend to run against Postgres. Returns the access_token string.
+    the backend to run against Postgres. Returns a session carrying auth cookies.
     """
+    session = requests.Session()
+
     # Register
-    resp = requests.post(
+    resp = session.post(
         f"{BASE_URL}/api/v1/auth/register",
         json={
             "email": _AUTH_EMAIL,
@@ -69,7 +71,7 @@ def _register_and_login() -> str:
     )
 
     # Login
-    login = requests.post(
+    login = session.post(
         f"{BASE_URL}/api/v1/auth/login",
         json={"email": _AUTH_EMAIL, "password": _AUTH_PASSWORD},
         timeout=10,
@@ -77,11 +79,7 @@ def _register_and_login() -> str:
     assert login.status_code == 200, (
         f"Login failed: {login.status_code} — {login.text}"
     )
-    return login.json()["access_token"]
-
-
-def _auth_headers(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
+    return session
 
 
 # ---------------------------------------------------------------------------
@@ -103,13 +101,11 @@ def test_patch_users_me_returns_200_against_postgres():
     cache post-commit, Pydantic can read email, nombre, apellido, telefono and
     roles without hitting the closed session.
     """
-    token = _register_and_login()
-    headers = _auth_headers(token)
+    session = _register_and_login()
 
-    response = requests.patch(
+    response = session.patch(
         f"{BASE_URL}/api/v1/usuarios/me",
         json={"telefono": "+54 11 1234-5678"},
-        headers=headers,
         timeout=10,
     )
 
@@ -137,10 +133,9 @@ def test_post_direcciones_returns_201_against_postgres():
 
     After fix: all scalar attributes survive commit and serialize cleanly.
     """
-    token = _register_and_login()
-    headers = _auth_headers(token)
+    session = _register_and_login()
 
-    response = requests.post(
+    response = session.post(
         f"{BASE_URL}/api/v1/direcciones/",
         json={
             "calle": "Av Regresión PG",
@@ -148,7 +143,6 @@ def test_post_direcciones_returns_201_against_postgres():
             "ciudad": "Buenos Aires",
             "codigo_postal": "1000",
         },
-        headers=headers,
         timeout=10,
     )
 
@@ -185,11 +179,10 @@ def test_post_pedidos_returns_201_against_postgres():
     If the backend is freshly seeded, this test passes. If the DB is empty,
     the endpoint will return 400/404, not 500.
     """
-    token = _register_and_login()
-    headers = _auth_headers(token)
+    session = _register_and_login()
 
     # Create a delivery address first (pre-condition for orders with direccion_id)
-    addr_resp = requests.post(
+    addr_resp = session.post(
         f"{BASE_URL}/api/v1/direcciones/",
         json={
             "calle": "Av Pedido Regresión",
@@ -197,7 +190,6 @@ def test_post_pedidos_returns_201_against_postgres():
             "ciudad": "Rosario",
             "codigo_postal": "2000",
         },
-        headers=headers,
         timeout=10,
     )
     assert addr_resp.status_code == 201, (
@@ -221,14 +213,13 @@ def test_post_pedidos_returns_201_against_postgres():
     )
     producto_id = available[0]["id"]
 
-    response = requests.post(
+    response = session.post(
         f"{BASE_URL}/api/v1/pedidos/",
         json={
             "items": [{"producto_id": producto_id, "cantidad": 1}],
             "forma_pago_codigo": "MERCADOPAGO",
             "direccion_id": direccion_id,
         },
-        headers=headers,
         timeout=10,
     )
 

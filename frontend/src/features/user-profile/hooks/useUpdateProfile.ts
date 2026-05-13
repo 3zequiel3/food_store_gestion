@@ -15,8 +15,6 @@ export function useUpdateProfile() {
       const current = useAuthStore.getState();
       if (current.user) {
         current.setSession({
-          accessToken: current.accessToken!,
-          refreshToken: current.refreshToken!,
           user: {
             ...current.user,
             nombre: updatedProfile.nombre,

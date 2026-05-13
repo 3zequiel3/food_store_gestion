@@ -39,6 +39,14 @@ class Settings(BaseSettings):
         description="Refresh token expiration time in days",
     )
 
+    # Auth cookies (development defaults; production Secure=true is follow-up)
+    AUTH_COOKIE_ACCESS_NAME: str = Field(default="access_token")
+    AUTH_COOKIE_REFRESH_NAME: str = Field(default="refresh_token")
+    AUTH_COOKIE_ACCESS_PATH: str = Field(default="/api/v1")
+    AUTH_COOKIE_REFRESH_PATH: str = Field(default="/api/v1/auth")
+    AUTH_COOKIE_SAMESITE: str = Field(default="lax")
+    AUTH_COOKIE_SECURE: bool = Field(default=False)
+
     # Server
     API_PORT: int = Field(default=8000, description="API server port")
     ENVIRONMENT: str = Field(

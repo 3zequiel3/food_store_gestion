@@ -23,7 +23,7 @@ Gestión de direcciones de entrega para clientes autenticados. Cubre US-024 a US
 
 ```bash
 curl -X POST https://api.example.com/api/v1/direcciones \
-  -H "Authorization: Bearer <access_token>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{
     "calle": "Av Siempre Viva",

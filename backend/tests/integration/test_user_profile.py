@@ -59,7 +59,7 @@ def auth_headers_telefono(client: TestClient, sample_user_with_telefono):
         json={"email": "contelefono@example.com", "password": "secure_pass_123"},
     )
     assert resp.status_code == 200
-    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+    return {}
 
 
 @pytest.fixture
@@ -92,7 +92,7 @@ def admin_headers(client: TestClient, admin_user):
         json={"email": "admin@example.com", "password": "admin_pass_123"},
     )
     assert resp.status_code == 200
-    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+    return {}
 
 
 @pytest.fixture
@@ -673,7 +673,7 @@ def test_refresh_with_old_token_after_password_change_returns_401(
         json={"email": "test@example.com", "password": "test_password_123"},
     )
     assert login_resp.status_code == 200
-    old_refresh_token = login_resp.json()["refresh_token"]
+    old_refresh_token = login_resp.cookies.get("refresh_token")
 
     # Change password (this revokes all refresh tokens)
     change_resp = client.post(
@@ -687,10 +687,8 @@ def test_refresh_with_old_token_after_password_change_returns_401(
     assert change_resp.status_code == 204
 
     # Try to use the old refresh token → must fail with 401
-    refresh_resp = client.post(
-        "/api/v1/auth/refresh",
-        json={"refresh_token": old_refresh_token},
-    )
+    client.cookies.set("refresh_token", old_refresh_token, path="/api/v1/auth")
+    refresh_resp = client.post("/api/v1/auth/refresh")
     assert refresh_resp.status_code == 401
 
 
@@ -831,7 +829,7 @@ def test_two_users_isolated(
         json={"email": "second@example.com", "password": "second_pass_123"},
     )
     assert login_b.status_code == 200
-    headers_b = {"Authorization": f"Bearer {login_b.json()['access_token']}"}
+    headers_b = {}
 
     # Get User B's profile
     resp_b = client.get("/api/v1/usuarios/me", headers=headers_b)

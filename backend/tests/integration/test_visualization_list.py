@@ -177,7 +177,7 @@ def stock_user(test_db_session: Session, sample_roles):
 
 def _get_headers(client: TestClient, email: str, password: str) -> dict:
     resp = client.post("/api/v1/auth/login", json={"email": email, "password": password})
-    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+    return {}
 
 
 # ---------------------------------------------------------------------------

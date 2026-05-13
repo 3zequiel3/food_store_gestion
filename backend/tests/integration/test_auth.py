@@ -9,6 +9,21 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 
+def assert_auth_cookies(response):
+    cookies = response.headers.get_list("set-cookie")
+    joined = "; ".join(cookies).lower()
+    assert "access_token=" in joined
+    assert "refresh_token=" in joined
+    assert "httponly" in joined
+    assert "samesite=lax" in joined
+
+
+def get_cookie(response, name: str) -> str:
+    value = response.cookies.get(name)
+    assert value
+    return value
+
+
 class TestRegistration:
     """Tests for POST /api/v1/auth/register endpoint."""
 
@@ -26,10 +41,12 @@ class TestRegistration:
 
         assert response.status_code == 201
         data = response.json()
-        assert "access_token" in data
-        assert "refresh_token" in data
-        assert data["token_type"] == "bearer"
+        assert "access_token" not in data
+        assert "refresh_token" not in data
+        assert data["token_type"] == "cookie"
         assert data["expires_in"] == 1800
+        assert data["user"]["email"] == "newuser@example.com"
+        assert_auth_cookies(response)
 
         # Verify user was created with CLIENT role
         from backend.features.users.models import Usuario
@@ -100,10 +117,12 @@ class TestLogin:
 
         assert response.status_code == 200
         data = response.json()
-        assert "access_token" in data
-        assert "refresh_token" in data
-        assert data["token_type"] == "bearer"
+        assert "access_token" not in data
+        assert "refresh_token" not in data
+        assert data["token_type"] == "cookie"
         assert data["expires_in"] == 1800
+        assert data["user"]["email"] == "test@example.com"
+        assert_auth_cookies(response)
 
     def test_login_invalid_email(self, client: TestClient, sample_user):
         """Login with non-existent email returns 401 with generic message."""
@@ -170,20 +189,17 @@ class TestTokenRefresh:
                 "password": "test_password_123",
             },
         )
-        refresh_token = login_response.json()["refresh_token"]
+        refresh_token = get_cookie(login_response, "refresh_token")
 
-        # Now refresh
-        response = client.post(
-            "/api/v1/auth/refresh",
-            json={"refresh_token": refresh_token},
-        )
+        # Now refresh using cookie jar
+        response = client.post("/api/v1/auth/refresh")
 
         assert response.status_code == 200
         data = response.json()
-        assert "access_token" in data
-        assert "refresh_token" in data
-        # New refresh token should be different
-        assert data["refresh_token"] != refresh_token
+        assert "access_token" not in data
+        assert "refresh_token" not in data
+        assert data["token_type"] == "cookie"
+        assert get_cookie(response, "refresh_token") != refresh_token
 
     def test_refresh_expired_token(self, client: TestClient, test_db_session: Session, sample_user):
         """Refresh with expired token returns 401."""
@@ -201,10 +217,8 @@ class TestTokenRefresh:
         test_db_session.add(refresh_db)
         test_db_session.commit()
 
-        response = client.post(
-            "/api/v1/auth/refresh",
-            json={"refresh_token": expired_token},
-        )
+        client.cookies.set("refresh_token", expired_token, path="/api/v1/auth")
+        response = client.post("/api/v1/auth/refresh")
 
         assert response.status_code == 401
 
@@ -218,20 +232,15 @@ class TestTokenRefresh:
                 "password": "test_password_123",
             },
         )
-        refresh_token = login_response.json()["refresh_token"]
+        refresh_token = get_cookie(login_response, "refresh_token")
 
         # Use the token once (refresh)
-        response1 = client.post(
-            "/api/v1/auth/refresh",
-            json={"refresh_token": refresh_token},
-        )
+        response1 = client.post("/api/v1/auth/refresh")
         assert response1.status_code == 200
 
         # Try to use the same token again (replay attack)
-        response2 = client.post(
-            "/api/v1/auth/refresh",
-            json={"refresh_token": refresh_token},
-        )
+        client.cookies.set("refresh_token", refresh_token, path="/api/v1/auth")
+        response2 = client.post("/api/v1/auth/refresh")
         assert response2.status_code == 401
         assert "reutilizado" in response2.json()["detail"].lower() or "reuse" in response2.json()["detail"].lower()
 
@@ -249,31 +258,23 @@ class TestLogout:
                 "password": "test_password_123",
             },
         )
-        refresh_token = login_response.json()["refresh_token"]
+        refresh_token = get_cookie(login_response, "refresh_token")
 
         # Logout
-        response = client.post(
-            "/api/v1/auth/logout",
-            json={"refresh_token": refresh_token},
-        )
+        response = client.post("/api/v1/auth/logout")
 
         assert response.status_code == 204
 
         # Try to refresh with revoked token
-        refresh_response = client.post(
-            "/api/v1/auth/refresh",
-            json={"refresh_token": refresh_token},
-        )
+        client.cookies.set("refresh_token", refresh_token, path="/api/v1/auth")
+        refresh_response = client.post("/api/v1/auth/refresh")
         assert refresh_response.status_code == 401
 
-    def test_logout_invalid_token(self, client: TestClient):
-        """Logout with invalid token returns 401."""
-        response = client.post(
-            "/api/v1/auth/logout",
-            json={"refresh_token": "invalid-token"},
-        )
+    def test_logout_without_cookie_is_best_effort(self, client: TestClient):
+        """Logout without refresh cookie is best-effort and clears cookies."""
+        response = client.post("/api/v1/auth/logout")
 
-        assert response.status_code == 401
+        assert response.status_code == 204
 
 
 class TestProtectedRoutes:
@@ -285,9 +286,13 @@ class TestProtectedRoutes:
 
         assert response.status_code == 401
 
-    def test_protected_route_with_token(self, client: TestClient, auth_headers):
-        """Access with valid token returns user info."""
-        response = client.get("/api/v1/auth/me", headers=auth_headers)
+    def test_protected_route_with_cookie(self, client: TestClient, sample_user):
+        """Access with valid access cookie returns user info."""
+        client.post(
+            "/api/v1/auth/login",
+            json={"email": "test@example.com", "password": "test_password_123"},
+        )
+        response = client.get("/api/v1/auth/me")
 
         assert response.status_code == 200
         data = response.json()

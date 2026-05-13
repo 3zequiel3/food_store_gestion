@@ -25,7 +25,7 @@ CRUD plano para ingredientes del catálogo. Cubre US-011, US-012, US-013, US-014
 ```bash
 # Crear ingrediente alérgeno
 curl -X POST http://localhost:8000/api/v1/ingredientes \
-  -H "Authorization: Bearer <token>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"nombre": "Mani", "es_alergeno": true}'
 

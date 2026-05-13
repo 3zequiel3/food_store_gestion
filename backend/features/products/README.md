@@ -30,7 +30,7 @@ Implements the product catalog for Food Store: CRUD, availability/stock patches,
 ```bash
 # Create a product with categories
 curl -X POST http://localhost:8000/api/v1/productos \
-  -H "Authorization: Bearer $TOKEN" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"nombre": "Pizza Margherita", "precio": "12.50", "stock_cantidad": 30, "categoria_ids": [1, 2]}'
 

@@ -15,16 +15,28 @@ import type { AxiosInstance, AxiosError } from 'axios';
  */
 export class ApiError extends Error {
   public readonly name = 'ApiError';
+  public readonly type: string;
+  public readonly title: string;
+  public readonly status: number;
+  public readonly detail: string;
+  public readonly instance?: string;
+  public readonly errors?: Array<{ field: string; message: string }>;
 
   constructor(
-    public readonly type: string,
-    public readonly title: string,
-    public readonly status: number,
-    public readonly detail: string,
-    public readonly instance?: string,
-    public readonly errors?: Array<{ field: string; message: string }>,
+    type: string,
+    title: string,
+    status: number,
+    detail: string,
+    instance?: string,
+    errors?: Array<{ field: string; message: string }>,
   ) {
     super(detail || title);
+    this.type = type;
+    this.title = title;
+    this.status = status;
+    this.detail = detail;
+    this.instance = instance;
+    this.errors = errors;
     // Necesario en ES5 targets para que instanceof funcione correctamente
     Object.setPrototypeOf(this, ApiError.prototype);
   }

@@ -96,7 +96,7 @@ def admin_headers(client: TestClient, admin_user):
         json={"email": "admin@test.com", "password": "test_pass_123"},
     )
     assert resp.status_code == 200
-    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+    return {}
 
 
 @pytest.fixture
@@ -119,7 +119,7 @@ def client_headers(client: TestClient, client_user):
         json={"email": "client@test.com", "password": "test_pass_123"},
     )
     assert resp.status_code == 200
-    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+    return {}
 
 
 @pytest.fixture
