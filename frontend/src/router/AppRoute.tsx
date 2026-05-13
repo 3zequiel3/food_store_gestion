@@ -22,6 +22,8 @@ import { PedidosAdminPage } from '../pages/admin/PedidosAdminPage';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
 import { AdminMetricasPage } from '../pages/admin/AdminMetricasPage';
 import { AdminProductosPage } from '../pages/admin/AdminProductosPage';
+import { AdminCategoriasPage } from '../pages/admin/AdminCategoriasPage';
+import { AdminIngredientesPage } from '../pages/admin/AdminIngredientesPage';
 import { MisPedidosPage } from '../pages/client/MisPedidosPage';
 import { PaymentPage } from '../pages/client/PaymentPage';
 import { PaymentResultPage } from '../pages/client/PaymentResultPage';
@@ -86,14 +88,8 @@ export default function AppRoute() {
               />
               <Route path="usuarios" element={<AdminUsersPage />} />
               <Route path="metricas" element={<AdminMetricasPage />} />
-              <Route
-                path="categorias"
-                element={<PlaceholderPage title="Categorías" description="ABM de categorías de productos." />}
-              />
-              <Route
-                path="ingredientes"
-                element={<PlaceholderPage title="Ingredientes" description="ABM de ingredientes y stock." />}
-              />
+              <Route path="categorias" element={<AdminCategoriasPage />} />
+              <Route path="ingredientes" element={<AdminIngredientesPage />} />
             </Route>
           </Route>
 
