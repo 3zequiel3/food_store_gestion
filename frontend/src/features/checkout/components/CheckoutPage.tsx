@@ -22,8 +22,6 @@ import type { CrearPedidoRequest, ItemPedidoPayload } from '../types/checkout.ty
 export function CheckoutPage() {
   const navigate = useNavigate();
   const items = useCartStore((s) => s.items);
-  const clearCart = useCartStore((s) => s.clearCart);
-
   // Estados locales de los selectores
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
@@ -81,7 +79,7 @@ export function CheckoutPage() {
     // Validar con Zod antes de enviar
     const result = crearPedidoSchema.safeParse(payload);
     if (!result.success) {
-      const errors = result.error.errors;
+      const errors = result.error.issues;
       if (errors.length > 0) {
         toast.error('Verificá los datos del pedido', {
           description: errors[0].message,

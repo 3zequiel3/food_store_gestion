@@ -13,7 +13,7 @@ interface ResultConfig {
   secondaryPath?: string;
 }
 
-function getResultConfig(status: CollectionStatus | null, navigate: (path: string) => void): ResultConfig {
+function getResultConfig(status: CollectionStatus | null): ResultConfig {
   switch (status) {
     case 'approved':
       return {
@@ -59,7 +59,7 @@ export function PaymentResultPage() {
   const navigate = useNavigate();
   const collectionStatus = searchParams.get('collection_status');
 
-  const config = getResultConfig(collectionStatus, navigate);
+  const config = getResultConfig(collectionStatus);
 
   return (
     <div className="max-w-md mx-auto py-16 px-4 text-center space-y-6">
