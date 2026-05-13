@@ -134,11 +134,11 @@ export function ProductDetailPage() {
           {/* Badge disponibilidad */}
           <div>
             {producto.disponible && producto.stock_cantidad > 0 ? (
-              <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
+              <span className="inline-flex items-center rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
                 Disponible
               </span>
             ) : (
-              <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-800 dark:bg-red-900/30 dark:text-red-400">
+              <span className="inline-flex items-center rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive">
                 Sin stock
               </span>
             )}
@@ -251,12 +251,12 @@ export function ProductDetailPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {ing.es_alergeno && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
                         Alérgeno
                       </span>
                     )}
                     {esAlergenoNoRemovible && (
-                      <span title="Alérgeno no removible" className="text-amber-600 dark:text-amber-400">
+                      <span title="Alérgeno no removible" className="text-warning">
                         <AlertTriangle className="h-4 w-4" aria-label="Alérgeno no removible" />
                       </span>
                     )}
@@ -271,19 +271,19 @@ export function ProductDetailPage() {
   );
 }
 
-/** Skeleton para el detalle mientras carga */
 function ProductDetailSkeleton() {
+  const shimmer = 'animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-muted/50 via-muted to-muted/50';
   return (
-    <div className="max-w-4xl mx-auto w-full p-4 sm:p-6 animate-pulse">
-      <div className="h-5 w-32 rounded-md bg-muted mb-6" />
+    <div className="max-w-4xl mx-auto w-full p-4 sm:p-6">
+      <div className={`h-5 w-32 rounded-md ${shimmer} mb-6`} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="aspect-square w-full rounded-xl bg-muted" />
+        <div className={`aspect-square w-full rounded-xl ${shimmer}`} />
         <div className="flex flex-col gap-4">
-          <div className="h-8 w-3/4 rounded-md bg-muted" />
-          <div className="h-10 w-1/3 rounded-md bg-muted" />
-          <div className="h-5 w-1/4 rounded-full bg-muted" />
-          <div className="h-20 w-full rounded-md bg-muted" />
-          <div className="h-12 w-full rounded-md bg-muted mt-4" />
+          <div className={`h-8 w-3/4 rounded-md ${shimmer}`} />
+          <div className={`h-10 w-1/3 rounded-md ${shimmer}`} />
+          <div className={`h-5 w-1/4 rounded-full ${shimmer}`} />
+          <div className={`h-20 w-full rounded-md ${shimmer}`} />
+          <div className={`h-12 w-full rounded-md ${shimmer} mt-4`} />
         </div>
       </div>
     </div>

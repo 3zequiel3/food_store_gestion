@@ -3,13 +3,6 @@ import { X } from 'lucide-react';
 import { useLeafCategories } from '../../hooks/useLeafCategories';
 import { useAllergenIngredients } from '../../../ingredients/hooks/useAllergenIngredients';
 
-/**
- * ActiveFilterChips — chips de los filtros activos en la URL.
- *
- * Renderiza un chip por cada filtro. Cada chip tiene un botón "×" que
- * remueve ese filtro individual. "Limpiar todo" elimina todos los filtros
- * excepto page (se resetea a 1).
- */
 export function ActiveFilterChips() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: categories } = useLeafCategories();
@@ -53,22 +46,18 @@ export function ActiveFilterChips() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {/* Chip: búsqueda */}
       {search && (
         <Chip label={`Búsqueda: ${search}`} onRemove={() => removeFilter('search')} />
       )}
 
-      {/* Chip: categoría */}
       {categoriaId && categoriaLabel && (
         <Chip label={`Categoría: ${categoriaLabel}`} onRemove={() => removeFilter('categoria_id')} />
       )}
 
-      {/* Chip: excluir alérgenos global */}
       {excluirAlergenos && (
         <Chip label="Sin alérgenos" onRemove={() => removeFilter('excluir_alergenos')} />
       )}
 
-      {/* Chips: ingredientes alérgenos específicos */}
       {excluirIds.map((id) => {
         const nombre = allergens?.find((a) => a.id === id)?.nombre ?? `Alérgeno ${id}`;
         return (
@@ -80,11 +69,10 @@ export function ActiveFilterChips() {
         );
       })}
 
-      {/* Botón limpiar todo */}
       <button
         type="button"
         onClick={clearAll}
-        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
+        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1 transition-colors"
       >
         Limpiar todo
       </button>
@@ -99,13 +87,13 @@ interface ChipProps {
 
 function Chip({ label, onRemove }: ChipProps) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 backdrop-blur-sm px-3 py-1 text-xs font-medium text-primary border border-primary/20">
       {label}
       <button
         type="button"
         onClick={onRemove}
         aria-label={`Quitar filtro: ${label}`}
-        className="ml-0.5 flex items-center justify-center rounded-full hover:bg-primary/20 p-0.5"
+        className="ml-0.5 flex items-center justify-center rounded-full hover:bg-primary/20 p-0.5 transition-colors"
       >
         <X className="h-3 w-3" />
       </button>

@@ -7,12 +7,6 @@ interface PaymentMethodSelectorProps {
   onSelect: (codigo: string) => void;
 }
 
-/**
- * Selector de forma de pago.
- *
- * Muestra un radio group con las formas de pago habilitadas
- * obtenidas via usePaymentMethods().
- */
 export function PaymentMethodSelector({
   selectedPaymentMethod,
   onSelect,
@@ -23,7 +17,7 @@ export function PaymentMethodSelector({
     return (
       <div className="space-y-3">
         <h3 className="font-semibold text-foreground">Forma de pago</h3>
-        <div className="flex items-center gap-2 p-4 bg-card border border-border rounded-lg">
+        <div className="flex items-center gap-2 p-4 rounded-lg bg-glass backdrop-blur-sm border border-glass-border">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Cargando formas de pago...</span>
         </div>
@@ -51,10 +45,10 @@ export function PaymentMethodSelector({
           <label
             key={method.codigo}
             className={`
-              flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors
+              flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-150
               ${selectedPaymentMethod === method.codigo
-                ? 'border-primary bg-primary/5'
-                : 'border-border bg-card hover:bg-accent/50'
+                ? 'border-primary bg-primary/10 shadow-sm shadow-primary/10'
+                : 'border-glass-border bg-glass backdrop-blur-sm hover:bg-glass-hover'
               }
             `}
           >

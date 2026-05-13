@@ -1,19 +1,5 @@
-# Food Store — Stack de desarrollo (3 servicios)
-#
-# Comandos típicos:
-#   docker compose up              -> levanta postgres + backend + frontend
-#   docker compose up -d           -> idem en background
-#   docker compose down            -> los baja (datos persistidos en volumen)
-#   docker compose logs -f backend -> tail de logs del backend
-#
-# Migraciones de base de datos (corren aparte, no en cada arranque):
-#   docker compose exec backend alembic upgrade head
-#   docker compose exec backend alembic revision --autogenerate -m "msg"
-#
-# Variables de entorno: ver .env (raíz) si existe, o defaults a continuación.
-
 services:
-  postgres:
+  db:
     image: postgres:18-alpine
     container_name: food_store_db
     restart: unless-stopped
@@ -38,11 +24,11 @@ services:
     container_name: food_store_backend
     restart: unless-stopped
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     environment:
-      # Networking: dentro del compose, postgres es accesible por el service name.
-      DATABASE_URL: postgresql://${DB_USER:-food_user}:${DB_PASSWORD:-food_password}@postgres:5432/${DB_NAME:-food_store}
+      # Networking: dentro del compose, db es accesible por el service name.
+      DATABASE_URL: postgresql://${DB_USER:-food_user}:${DB_PASSWORD:-food_password}@db:5432/${DB_NAME:-food_store}
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production-please}
       JWT_ALGORITHM: HS256
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
@@ -52,8 +38,6 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-TEST-your-mp-access-token-here}
     volumes:
-      # Bind del código fuente para que --reload detecte cambios.
-      # Estructura: contenido de backend/ va directo a /app/ (root del package).
       - ./backend:/app
     ports:
       - "${API_PORT:-8000}:8000"

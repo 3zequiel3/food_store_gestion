@@ -35,7 +35,7 @@ export function OrderConfirmationPage() {
     return (
       <div className="max-w-2xl mx-auto py-12 px-4">
         <div className="text-center space-y-4">
-          <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+          <CheckCircle className="h-16 w-16 text-success mx-auto" />
           <h1 className="text-2xl font-bold text-foreground">Pedido creado</h1>
           <p className="text-muted-foreground">
             Tu pedido #{id} fue creado exitosamente.
@@ -67,8 +67,8 @@ export function OrderConfirmationPage() {
     <div className="max-w-2xl mx-auto py-8 px-4">
       {/* Header con éxito */}
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
-          <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+        <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-success/10 mb-4">
+          <CheckCircle className="h-8 w-8 text-success" />
         </div>
         <h1 className="text-2xl font-bold text-foreground mb-2">¡Pedido confirmado!</h1>
         <p className="text-muted-foreground">

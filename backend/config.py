@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = Field(
-        default="postgresql://food_user:food_password@localhost:5432/food_store",
+        default="postgresql://postgres:2005@localhost:5432/FoodStoreDB",
         description="PostgreSQL database connection URL",
     )
 

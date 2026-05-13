@@ -8,15 +8,6 @@ interface ProductCardProps {
   producto: ProductoRead;
 }
 
-/**
- * ProductCard — card de producto para el grid del catálogo.
- *
- * - Cuerpo (área clickeable): navega a /cliente/catalogo/:id.
- * - Botón "Agregar": llama useCartStore.getState().addItem() con cantidad 1.
- *   D7: acceso directo al store (no hook) para no suscribir el componente al store.
- * - Deshabilitado si !disponible || stock_cantidad === 0.
- * - Feedback "✓ Agregado" por 1 segundo post-click.
- */
 export function ProductCard({ producto }: ProductCardProps) {
   const navigate = useNavigate();
   const [added, setAdded] = useState(false);
@@ -28,7 +19,7 @@ export function ProductCard({ producto }: ProductCardProps) {
   }
 
   function handleAgregar(e: React.MouseEvent) {
-    e.stopPropagation(); // No propagar el click al cuerpo
+    e.stopPropagation();
     if (sinStock) return;
 
     useCartStore.getState().addItem(
@@ -53,31 +44,30 @@ export function ProductCard({ producto }: ProductCardProps) {
 
   return (
     <div
-      className="flex flex-col rounded-xl border border-border bg-card overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+      className="group flex flex-col rounded-xl bg-glass backdrop-blur-xl border border-glass-border overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
       onClick={handleNavigate}
       role="link"
       aria-label={`Ver detalle de ${producto.nombre}`}
     >
-      {/* Imagen o placeholder SVG */}
-      <div className="aspect-square w-full bg-muted flex items-center justify-center overflow-hidden">
+      <div className="aspect-square w-full bg-muted flex items-center justify-center overflow-hidden relative">
         {producto.imagen_url ? (
           <img
             src={producto.imagen_url}
             alt={producto.nombre}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <FoodPlaceholder />
         )}
+        <div className="absolute inset-0 bg-gradient-to-t from-glass to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
       </div>
 
       <div className="flex flex-col gap-2 p-4 flex-1">
         <h3 className="text-sm font-semibold text-foreground line-clamp-2 leading-snug">
           {producto.nombre}
         </h3>
-        <p className="text-base font-bold text-primary">{precio}</p>
+        <p className="text-lg font-bold text-primary tracking-tight">{precio}</p>
 
-        {/* Botón agregar — en la parte inferior */}
         <div className="mt-auto pt-2">
           <button
             type="button"
@@ -85,8 +75,8 @@ export function ProductCard({ producto }: ProductCardProps) {
             disabled={sinStock}
             title={sinStock ? 'Sin stock' : 'Agregar al carrito'}
             aria-label={sinStock ? 'Sin stock' : `Agregar ${producto.nombre} al carrito`}
-            className="w-full flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors
-              bg-primary text-primary-foreground hover:bg-primary/90
+            className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150
+              bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm shadow-primary/20
               disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
           >
             {added ? (
@@ -107,7 +97,6 @@ export function ProductCard({ producto }: ProductCardProps) {
   );
 }
 
-/** Placeholder SVG cuando el producto no tiene imagen */
 function FoodPlaceholder() {
   return (
     <svg

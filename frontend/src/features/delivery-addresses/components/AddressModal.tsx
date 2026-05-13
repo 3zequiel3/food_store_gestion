@@ -6,6 +6,8 @@ import { useUpdateAddress } from '../hooks/useUpdateAddress';
 import { addressSchema } from '../schemas/addressSchema';
 import { ApiError } from '../../../api/interceptors/error';
 import type { DireccionRead } from '../types/deliveryAddress.types';
+import { Button } from '../../../components/ui/Button';
+import { Input } from '../../../components/ui/Input';
 
 interface AddressModalProps {
   isOpen: boolean;
@@ -72,8 +74,6 @@ export function AddressModal({ isOpen, onClose, address }: AddressModalProps) {
     ? (error.detail || 'Ocurrió un error. Intentá de nuevo.')
     : null;
 
-  const fieldClass = 'h-11 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 w-full';
-
   function renderField(
     name: keyof typeof EMPTY,
     label: string,
@@ -92,30 +92,18 @@ export function AddressModal({ isOpen, onClose, address }: AddressModalProps) {
         }}
       >
         {(field) => (
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={field.name} className="text-sm font-medium text-foreground">
-              {label}
-              {!opts.required && (
-                <span className="text-muted-foreground font-normal"> (opcional)</span>
-              )}
-            </label>
-            <input
-              id={field.name}
-              name={field.name}
-              type="text"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              disabled={isPending}
-              placeholder={opts.placeholder}
-              className={fieldClass}
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p role="alert" className="text-xs text-destructive">
-                {field.state.meta.errors.join(', ')}
-              </p>
-            )}
-          </div>
+          <Input
+            id={field.name}
+            name={field.name}
+            type="text"
+            label={label + (!opts.required ? ' (opcional)' : '')}
+            placeholder={opts.placeholder}
+            value={field.state.value}
+            onChange={(e) => field.handleChange(e.target.value)}
+            onBlur={field.handleBlur}
+            disabled={isPending}
+            error={field.state.meta.errors.join(', ') || undefined}
+          />
         )}
       </form.Field>
     );
@@ -127,8 +115,8 @@ export function AddressModal({ isOpen, onClose, address }: AddressModalProps) {
       onClose={handleClose}
       aria-labelledby="address-modal-title"
       className="
-        m-auto w-full max-w-lg rounded-xl border border-border bg-card p-0 shadow-xl
-        backdrop:bg-black/50 backdrop:backdrop-blur-sm
+        m-auto w-full max-w-lg rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-0 shadow-xl
+        backdrop:bg-black/60 backdrop:backdrop-blur-sm
         open:animate-in open:fade-in open:zoom-in-95
       "
     >
@@ -140,7 +128,7 @@ export function AddressModal({ isOpen, onClose, address }: AddressModalProps) {
           <button
             type="button"
             onClick={handleClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-glass-hover hover:text-foreground transition-colors"
             aria-label="Cerrar"
           >
             <X className="h-4 w-4" />
@@ -168,28 +156,22 @@ export function AddressModal({ isOpen, onClose, address }: AddressModalProps) {
           </div>
 
           <div className="flex gap-3 pt-1">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={handleClose}
               disabled={isPending}
-              className="flex-1 h-11 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+              className="flex-1"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              disabled={isPending}
-              className="flex-1 h-11 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+              isLoading={isPending}
+              className="flex-1"
             >
-              {isPending ? (
-                <>
-                  <span className="h-4 w-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" aria-hidden="true" />
-                  Guardando…
-                </>
-              ) : (
-                isEditing ? 'Guardar cambios' : 'Agregar dirección'
-              )}
-            </button>
+              {isPending ? 'Guardando…' : isEditing ? 'Guardar cambios' : 'Agregar dirección'}
+            </Button>
           </div>
         </form>
       </div>

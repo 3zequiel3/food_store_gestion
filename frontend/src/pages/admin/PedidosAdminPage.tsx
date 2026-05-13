@@ -42,7 +42,7 @@ export function PedidosAdminPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 flex flex-col gap-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-secondary/20">
           <ClipboardList className="h-5 w-5 text-primary" />
         </div>
         <div>
@@ -59,7 +59,7 @@ export function PedidosAdminPage() {
           <button
             type="button"
             onClick={() => refetch()}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+            className="rounded-lg border border-glass-border bg-glass backdrop-blur-sm px-4 py-2 text-sm font-medium text-foreground hover:bg-glass-hover transition-colors"
           >
             Reintentar
           </button>
@@ -72,16 +72,16 @@ export function PedidosAdminPage() {
         <>
           {!data || data.items.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-glass backdrop-blur-xl border border-glass-border">
                 <ClipboardList className="h-7 w-7 text-muted-foreground/40" />
               </div>
               <p className="text-sm text-muted-foreground">No hay pedidos que coincidan con los filtros.</p>
             </div>
           ) : (
-            <div className="rounded-xl border border-border overflow-hidden">
+            <div className="rounded-xl border border-glass-border bg-glass backdrop-blur-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                  <thead className="bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <thead className="bg-glass/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3">#</th>
                       <th className="px-4 py-3">Estado</th>
@@ -126,15 +126,15 @@ export function PedidosAdminPage() {
 
 function TableSkeleton() {
   return (
-    <div className="animate-pulse rounded-xl border border-border overflow-hidden">
-      <div className="h-10 bg-muted/50" />
+    <div className="rounded-xl border border-glass-border overflow-hidden">
+      <div className="h-10 bg-glass/50" />
       {[...Array(6)].map((_, i) => (
-        <div key={i} className="flex gap-4 border-t border-border px-4 py-3">
-          <div className="h-4 w-10 rounded bg-muted" />
-          <div className="h-5 w-24 rounded-full bg-muted" />
-          <div className="h-4 w-20 rounded bg-muted" />
-          <div className="h-4 w-28 rounded bg-muted" />
-          <div className="ml-auto h-4 w-16 rounded bg-muted" />
+        <div key={i} className="flex gap-4 border-t border-glass-border px-4 py-3">
+          <div className="h-4 w-10 rounded-md bg-gradient-to-r from-muted/50 via-muted to-muted/50 animate-shimmer bg-[length:200%_100%]" />
+          <div className="h-5 w-24 rounded-full bg-gradient-to-r from-muted/50 via-muted to-muted/50 animate-shimmer bg-[length:200%_100%]" />
+          <div className="h-4 w-20 rounded-md bg-gradient-to-r from-muted/50 via-muted to-muted/50 animate-shimmer bg-[length:200%_100%]" />
+          <div className="h-4 w-28 rounded-md bg-gradient-to-r from-muted/50 via-muted to-muted/50 animate-shimmer bg-[length:200%_100%]" />
+          <div className="ml-auto h-4 w-16 rounded-md bg-gradient-to-r from-muted/50 via-muted to-muted/50 animate-shimmer bg-[length:200%_100%]" />
         </div>
       ))}
     </div>

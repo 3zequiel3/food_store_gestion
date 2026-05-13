@@ -8,22 +8,13 @@ import { ProductGrid } from '../../features/products/components/ProductGrid';
 import { Pagination } from '../../features/products/components/Pagination';
 import type { ProductFilters } from '../../features/products/types/products.types';
 
-/**
- * CatalogPage — página principal del catálogo de productos.
- *
- * D1: todos los filtros se leen de searchParams (URL-first state).
- * D2: paginación clásica con keepPreviousData.
- * Compone: SearchBar + CategoryFilter + AllergenFilter + ActiveFilterChips + ProductGrid + Pagination.
- */
 export function CatalogPage() {
   const [searchParams] = useSearchParams();
 
-  // 5.2 — Parsear filtros desde la URL
   const filters = parseFiltersFromSearchParams(searchParams);
 
   const { data, isLoading } = useProducts(filters);
 
-  // 5.3 — isEmpty se pasa a ProductGrid para el mensaje vacío
   const isEmpty = !isLoading && (data?.total ?? 0) === 0;
 
   const currentPage = filters.page ?? 1;
@@ -31,9 +22,10 @@ export function CatalogPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 max-w-7xl mx-auto w-full">
-      {/* Encabezado */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Catálogo</h1>
+        <h1 className="text-2xl font-bold text-foreground bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          Catálogo
+        </h1>
         {data && !isLoading && (
           <p className="text-sm text-muted-foreground mt-1">
             {data.total} producto{data.total !== 1 ? 's' : ''} encontrado{data.total !== 1 ? 's' : ''}
@@ -41,26 +33,25 @@ export function CatalogPage() {
         )}
       </div>
 
-      {/* Panel de filtros */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 rounded-xl border border-border bg-card p-4">
-        <div className="sm:col-span-2 lg:col-span-1">
+      <div className="flex justify-center">
+        <div className="w-full max-w-md">
           <SearchBar />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-4 shadow-sm">
         <CategoryFilter />
         <AllergenFilter />
       </div>
 
-      {/* Chips de filtros activos */}
       <ActiveFilterChips />
 
-      {/* Grid de productos */}
       <ProductGrid
         products={data?.items ?? []}
         isLoading={isLoading}
         isEmpty={isEmpty}
       />
 
-      {/* Paginación */}
       {data && data.total > 0 && (
         <Pagination
           total={data.total}
@@ -72,10 +63,9 @@ export function CatalogPage() {
   );
 }
 
-/** Parsea los searchParams de la URL a ProductFilters tipados */
 function parseFiltersFromSearchParams(searchParams: URLSearchParams): ProductFilters {
   const filters: ProductFilters = {
-    disponible: true, // Siempre filtrar por disponibles en el catálogo cliente
+    disponible: true,
   };
 
   const page = searchParams.get('page');

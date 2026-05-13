@@ -4,6 +4,8 @@ import { X } from 'lucide-react';
 import { useChangePassword } from '../hooks/useChangePassword';
 import { passwordSchema } from '../schemas/passwordSchema';
 import { ApiError } from '../../../api/interceptors/error';
+import { Button } from '../../../components/ui/Button';
+import { Input } from '../../../components/ui/Input';
 
 interface PasswordModalProps {
   isOpen: boolean;
@@ -50,13 +52,12 @@ export function PasswordModal({ isOpen, onClose }: PasswordModalProps) {
       onClose={handleClose}
       aria-labelledby="password-modal-title"
       className="
-        m-auto w-full max-w-md rounded-xl border border-border bg-card p-0 shadow-xl
-        backdrop:bg-black/50 backdrop:backdrop-blur-sm
+        m-auto w-full max-w-md rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-0 shadow-xl
+        backdrop:bg-black/60 backdrop:backdrop-blur-sm
         open:animate-in open:fade-in open:zoom-in-95
       "
     >
       <div className="flex flex-col gap-5 p-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <h2 id="password-modal-title" className="text-lg font-semibold text-foreground">
             Cambiar contraseña
@@ -64,7 +65,7 @@ export function PasswordModal({ isOpen, onClose }: PasswordModalProps) {
           <button
             type="button"
             onClick={handleClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-glass-hover hover:text-foreground transition-colors"
             aria-label="Cerrar modal"
           >
             <X className="h-4 w-4" />
@@ -88,7 +89,6 @@ export function PasswordModal({ isOpen, onClose }: PasswordModalProps) {
           className="flex flex-col gap-4"
           noValidate
         >
-          {/* Contraseña actual */}
           <form.Field
             name="password_actual"
             validators={{
@@ -99,31 +99,21 @@ export function PasswordModal({ isOpen, onClose }: PasswordModalProps) {
             }}
           >
             {(field) => (
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor={field.name} className="text-sm font-medium text-foreground">
-                  Contraseña actual
-                </label>
-                <input
-                  id={field.name}
-                  name={field.name}
-                  type="password"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                  autoComplete="current-password"
-                  disabled={isPending}
-                  className="h-11 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 w-full"
-                />
-                {field.state.meta.errors.length > 0 && (
-                  <p role="alert" className="text-xs text-destructive">
-                    {field.state.meta.errors.join(', ')}
-                  </p>
-                )}
-              </div>
+              <Input
+                id={field.name}
+                name={field.name}
+                type="password"
+                label="Contraseña actual"
+                autoComplete="current-password"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+                disabled={isPending}
+                error={field.state.meta.errors.join(', ') || undefined}
+              />
             )}
           </form.Field>
 
-          {/* Nueva contraseña */}
           <form.Field
             name="password_nuevo"
             validators={{
@@ -134,57 +124,39 @@ export function PasswordModal({ isOpen, onClose }: PasswordModalProps) {
             }}
           >
             {(field) => (
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor={field.name} className="text-sm font-medium text-foreground">
-                  Nueva contraseña
-                </label>
-                <input
-                  id={field.name}
-                  name={field.name}
-                  type="password"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                  autoComplete="new-password"
-                  disabled={isPending}
-                  placeholder="Mínimo 8 caracteres"
-                  className="h-11 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 w-full"
-                />
-                {field.state.meta.errors.length > 0 && (
-                  <p role="alert" className="text-xs text-destructive">
-                    {field.state.meta.errors.join(', ')}
-                  </p>
-                )}
-              </div>
+              <Input
+                id={field.name}
+                name={field.name}
+                type="password"
+                label="Nueva contraseña"
+                placeholder="Mínimo 8 caracteres"
+                autoComplete="new-password"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+                disabled={isPending}
+                error={field.state.meta.errors.join(', ') || undefined}
+              />
             )}
           </form.Field>
 
           <div className="flex gap-3 pt-1">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={handleClose}
               disabled={isPending}
-              className="flex-1 h-11 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+              className="flex-1"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              disabled={isPending}
-              className="flex-1 h-11 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              isLoading={isPending}
+              className="flex-1"
             >
-              {isPending ? (
-                <>
-                  <span
-                    className="h-4 w-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin"
-                    aria-hidden="true"
-                  />
-                  Guardando…
-                </>
-              ) : (
-                'Cambiar contraseña'
-              )}
-            </button>
+              {isPending ? 'Guardando…' : 'Cambiar contraseña'}
+            </Button>
           </div>
         </form>
       </div>

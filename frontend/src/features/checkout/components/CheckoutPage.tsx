@@ -9,19 +9,13 @@ import { useCreateOrder } from '../hooks/useCreateOrder';
 import { useCartStore } from '../../cart/stores/cartStore';
 import { crearPedidoSchema } from '../schemas/checkoutSchema';
 import type { CrearPedidoRequest, ItemPedidoPayload } from '../types/checkout.types';
+import { Button } from '../../../components/ui/Button';
 
-/**
- * Página de checkout.
- *
- * Orquesta la selección de dirección, forma de pago y muestra el resumen.
- * Al confirmar, arma el payload, valida con Zod y envía la mutation.
- *
- * D1: No usa TanStack Form — cada selector maneja su estado local.
- * D4: El costo de envío se muestra como estimación (backend calcula el total real).
- */
 export function CheckoutPage() {
   const navigate = useNavigate();
   const items = useCartStore((s) => s.items);
+  const clearCart = useCartStore((s) => s.clearCart);
+
   // Estados locales de los selectores
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
@@ -29,29 +23,27 @@ export function CheckoutPage() {
 
   const createOrderMutation = useCreateOrder();
 
-  // Guard: si el carrito está vacío, mostrar mensaje (7.2)
   if (items.length === 0) {
     return (
       <div className="max-w-2xl mx-auto py-12 px-4">
         <div className="text-center space-y-4">
-          <ShoppingBag className="h-16 w-16 text-muted-foreground/40 mx-auto" />
+          <div className="flex justify-center">
+            <div className="h-16 w-16 rounded-2xl bg-glass backdrop-blur-xl border border-glass-border flex items-center justify-center">
+              <ShoppingBag className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+          </div>
           <h1 className="text-2xl font-bold text-foreground">Tu carrito está vacío</h1>
           <p className="text-muted-foreground">
             Agregá productos del catálogo para continuar con tu pedido.
           </p>
-          <button
-            onClick={() => navigate('/cliente/catalogo')}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
+          <Button onClick={() => navigate('/cliente/catalogo')} leftIcon={<ArrowLeft className="h-4 w-4" />}>
             Ir al catálogo
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
-  // Construir payload a partir del estado del carrito y selectores
   function buildOrderPayload(): CrearPedidoRequest {
     const itemsPayload: ItemPedidoPayload[] = items.map((item) => ({
       producto_id: item.producto_id,
@@ -68,7 +60,6 @@ export function CheckoutPage() {
   }
 
   function handleSubmit() {
-    // Validar que se haya seleccionado forma de pago
     if (!selectedPaymentMethod) {
       toast.error('Seleccioná una forma de pago');
       return;
@@ -76,7 +67,6 @@ export function CheckoutPage() {
 
     const payload = buildOrderPayload();
 
-    // Validar con Zod antes de enviar
     const result = crearPedidoSchema.safeParse(payload);
     if (!result.success) {
       const errors = result.error.issues;
@@ -95,7 +85,6 @@ export function CheckoutPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
-      {/* Header */}
       <div className="mb-8">
         <button
           onClick={() => navigate('/cliente/catalogo')}
@@ -104,23 +93,24 @@ export function CheckoutPage() {
           <ArrowLeft className="h-4 w-4" />
           Volver al catálogo
         </button>
-        <h1 className="text-2xl font-bold text-foreground">Finalizar compra</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          Finalizar compra
+        </h1>
+        <p className="text-muted-foreground mt-1">
           Revisá los datos de tu pedido y seleccioná la forma de pago
         </p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr,400px]">
-        {/* Columna izquierda: selectores */}
         <div className="space-y-6">
-          <div className="bg-card border border-border rounded-lg p-4">
+          <div className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-5 shadow-sm">
             <AddressSelector
               selectedAddressId={selectedAddressId}
               onSelect={setSelectedAddressId}
             />
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-4">
+          <div className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-5 shadow-sm">
             <PaymentMethodSelector
               selectedPaymentMethod={selectedPaymentMethod}
               onSelect={setSelectedPaymentMethod}
@@ -128,9 +118,8 @@ export function CheckoutPage() {
           </div>
         </div>
 
-        {/* Columna derecha: resumen y acción */}
         <div className="space-y-6">
-          <div className="bg-card border border-border rounded-lg p-4">
+          <div className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-5 shadow-sm">
             <OrderSummary
               isLocalPickup={selectedAddressId === null}
               notas={notas}
@@ -138,21 +127,15 @@ export function CheckoutPage() {
             />
           </div>
 
-          {/* Botón confirmar */}
-          <button
+          <Button
             onClick={handleSubmit}
             disabled={isSubmitDisabled}
-            className="w-full h-12 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            size="lg"
+            isLoading={createOrderMutation.isPending}
+            className="w-full"
           >
-            {createOrderMutation.isPending ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Procesando...
-              </>
-            ) : (
-              'Confirmar pedido'
-            )}
-          </button>
+            {createOrderMutation.isPending ? 'Procesando...' : 'Confirmar pedido'}
+          </Button>
 
           {!selectedPaymentMethod && (
             <p className="text-xs text-center text-muted-foreground">
