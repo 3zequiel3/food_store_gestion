@@ -50,7 +50,7 @@ export function PasswordModal({ isOpen, onClose }: PasswordModalProps) {
       onClose={handleClose}
       aria-labelledby="password-modal-title"
       className="
-        w-full max-w-md rounded-xl border border-border bg-card p-0 shadow-xl
+        m-auto w-full max-w-md rounded-xl border border-border bg-card p-0 shadow-xl
         backdrop:bg-black/50 backdrop:backdrop-blur-sm
         open:animate-in open:fade-in open:zoom-in-95
       "

@@ -42,7 +42,7 @@ export function CartValidationModal({ isOpen, onClose, result }: CartValidationM
       ref={dialogRef}
       onClick={handleBackdropClick}
       onClose={onClose}
-      className="rounded-xl border border-border bg-card p-0 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm w-full max-w-md mx-auto"
+      className="m-auto w-full max-w-md rounded-xl border border-border bg-card p-0 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
     >
       <div className="flex flex-col gap-0">
         {/* Header */}

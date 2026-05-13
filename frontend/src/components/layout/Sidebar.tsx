@@ -226,16 +226,14 @@ export function Sidebar({ onLockChange }: SidebarProps) {
     hasAdmin || hasPedidos || hasStock ? ADMIN_NAV : CLIENT_NAV;
 
   const handleToggle = () => {
-    setMode((current) => {
-      const next: SidebarMode =
-        current === 'hover'
-          ? 'locked-open'
-          : current === 'locked-open'
-            ? 'locked-closed'
-            : 'hover';
-      onLockChange?.(next === 'locked-open');
-      return next;
-    });
+    const next: SidebarMode =
+      mode === 'hover'
+        ? 'locked-open'
+        : mode === 'locked-open'
+          ? 'locked-closed'
+          : 'hover';
+    setMode(next);
+    onLockChange?.(next === 'locked-open');
   };
 
   const handleMouseEnter = () => {
