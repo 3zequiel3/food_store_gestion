@@ -23,7 +23,7 @@ export function CatalogPage() {
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 max-w-7xl mx-auto w-full">
       <div>
-        <h1 className="text-2xl font-bold text-foreground bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+        <h1 className="text-2xl font-bold text-primary">
           Catálogo
         </h1>
         {data && !isLoading && (

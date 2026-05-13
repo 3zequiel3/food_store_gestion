@@ -10,7 +10,7 @@ export function LoginPage() {
 
       <div className="relative w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-primary to-secondary bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold text-primary">
             Food Store
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
