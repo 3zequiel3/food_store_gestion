@@ -35,8 +35,8 @@ export function OrderTimeline({ historial }: OrderTimelineProps) {
         return (
           <li key={event.id} className="relative flex gap-3 pb-4 last:pb-0">
             <div className="flex flex-col items-center">
-              <div className="mt-0.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-primary/30 shrink-0" />
-              {!isLast && <div className="mt-1 flex-1 w-px bg-border" />}
+              <div className="mt-0.5 h-3 w-3 rounded-full bg-primary ring-4 ring-primary/20 shrink-0 shadow-sm shadow-primary/30" />
+              {!isLast && <div className="mt-1 flex-1 w-px bg-gradient-to-b from-primary/50 to-glass-border" />}
             </div>
             <div className="flex flex-col gap-0.5 min-w-0">
               <span className="text-sm font-medium text-foreground">

@@ -81,22 +81,23 @@ export function ProfilePage() {
 }
 
 function ProfileSkeleton() {
+  const shimmer = 'animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-muted/50 via-muted to-muted/50';
   return (
-    <div className="mx-auto max-w-lg px-4 py-8 flex flex-col gap-6 animate-pulse">
+    <div className="mx-auto max-w-lg px-4 py-8 flex flex-col gap-6">
       <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-muted" />
+        <div className={`h-10 w-10 rounded-full ${shimmer}`} />
         <div className="flex flex-col gap-2">
-          <div className="h-4 w-32 rounded bg-muted" />
-          <div className="h-3 w-48 rounded bg-muted" />
+          <div className={`h-4 w-32 rounded ${shimmer}`} />
+          <div className={`h-3 w-48 rounded ${shimmer}`} />
         </div>
       </div>
       {[...Array(4)].map((_, i) => (
         <div key={i} className="flex flex-col gap-2">
-          <div className="h-3 w-20 rounded bg-muted" />
-          <div className="h-11 w-full rounded-lg bg-muted" />
+          <div className={`h-3 w-20 rounded ${shimmer}`} />
+          <div className={`h-11 w-full rounded-lg ${shimmer}`} />
         </div>
       ))}
-      <div className="h-11 w-full rounded-lg bg-muted" />
+      <div className={`h-11 w-full rounded-lg ${shimmer}`} />
     </div>
   );
 }

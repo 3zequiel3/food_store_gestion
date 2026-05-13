@@ -1,14 +1,16 @@
 import { Link } from 'react-router-dom';
+import { Button } from '../../components/ui/Button';
 
-/**
- * Página 403 — Acceso denegado.
- * Reachable via route `path="/403"` o redirect desde RoleGuard.
- */
 export function Forbidden() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
-      <div className="flex flex-col items-center gap-2">
-        <span className="text-7xl font-bold text-muted-foreground/30">403</span>
+    <div className="relative flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-destructive/5 via-transparent to-primary/5" />
+      <div className="pointer-events-none absolute top-1/3 left-1/4 h-64 w-64 rounded-full bg-destructive/5 blur-3xl" />
+
+      <div className="relative flex flex-col items-center gap-4">
+        <span className="text-8xl font-bold bg-gradient-to-r from-destructive to-primary bg-clip-text text-transparent">
+          403
+        </span>
         <h1 className="text-2xl font-bold text-foreground">
           Acceso denegado
         </h1>
@@ -16,11 +18,8 @@ export function Forbidden() {
           No tenés permiso para ver esta página. Si creés que es un error, contactá al administrador.
         </p>
       </div>
-      <Link
-        to="/"
-        className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-6 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
-      >
-        Volver al inicio
+      <Link to="/">
+        <Button>Volver al inicio</Button>
       </Link>
     </div>
   );

@@ -18,8 +18,6 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../features/auth/stores/authStore';
 
-// ─── Nav items definition ─────────────────────────────────────────────────────
-
 interface NavSubItem {
   label: string;
   path: string;
@@ -92,8 +90,6 @@ const CLIENT_NAV: NavItem[] = [
   },
 ];
 
-// ─── SidebarItem component ────────────────────────────────────────────────────
-
 interface SidebarItemProps {
   item: NavItem;
   isExpanded: boolean;
@@ -103,12 +99,10 @@ function SidebarItem({ item, isExpanded }: SidebarItemProps) {
   const location = useLocation();
   const isActive = location.pathname.startsWith(item.path);
 
-  // Submenú: autoexpandido si la ruta actual está bajo este item
   const [subMenuOpen, setSubMenuOpen] = useState(isActive);
 
   const hasSubItems = item.subItems && item.subItems.length > 0;
 
-  // D3: submenús solo en estado expanded
   const showSubMenu = isExpanded && hasSubItems && subMenuOpen;
 
   const handleClick = () => {
@@ -117,12 +111,17 @@ function SidebarItem({ item, isExpanded }: SidebarItemProps) {
     }
   };
 
+  const activeBar = isActive
+    ? 'before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-0.5 before:rounded-full before:bg-primary before:shadow-sm before:shadow-primary/50'
+    : '';
+
   const itemClasses = `
-    flex items-center gap-3 rounded-lg px-3 h-10 w-full
-    transition-colors duration-100 cursor-pointer
+    relative flex items-center gap-3 rounded-lg px-3 h-10 w-full
+    transition-all duration-150 cursor-pointer
+    ${activeBar}
     ${isActive
-      ? 'bg-accent text-accent-foreground font-medium'
-      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+      ? 'bg-primary/10 text-primary font-medium'
+      : 'text-muted-foreground hover:bg-glass-hover hover:text-foreground'
     }
   `;
 
@@ -136,10 +135,8 @@ function SidebarItem({ item, isExpanded }: SidebarItemProps) {
           title={!isExpanded ? item.label : undefined}
           aria-expanded={isExpanded && subMenuOpen}
         >
-          {/* Ícono — siempre visible */}
           <span className="flex-shrink-0">{item.icon}</span>
 
-          {/* Label + chevron — solo en expanded */}
           {isExpanded && (
             <>
               <span className="flex-1 truncate text-sm">{item.label}</span>
@@ -164,7 +161,6 @@ function SidebarItem({ item, isExpanded }: SidebarItemProps) {
         </Link>
       )}
 
-      {/* Sub-items */}
       {showSubMenu && (
         <div className="ml-8 mt-1 flex flex-col gap-0.5">
           {item.subItems!.map((sub) => (
@@ -172,10 +168,10 @@ function SidebarItem({ item, isExpanded }: SidebarItemProps) {
               key={sub.path}
               to={sub.path}
               className={`
-                flex h-9 items-center rounded-md px-3 text-sm transition-colors
+                flex h-9 items-center rounded-md px-3 text-sm transition-all duration-150
                 ${location.pathname === sub.path
-                  ? 'bg-accent text-accent-foreground font-medium'
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-muted-foreground hover:bg-glass-hover hover:text-foreground'
                 }
               `}
             >
@@ -188,36 +184,19 @@ function SidebarItem({ item, isExpanded }: SidebarItemProps) {
   );
 }
 
-// ─── Sidebar component ────────────────────────────────────────────────────────
-
 type SidebarMode = 'hover' | 'locked-open' | 'locked-closed';
 
 interface SidebarProps {
-  /** Callback para notificar a AppLayout del ancho actual (locked-open vs collapsed) */
   onLockChange?: (isLockedOpen: boolean) => void;
 }
 
-/**
- * D3 — Sidebar desktop con hover-expand + lock.
- *
- * Estados:
- *   hover → expand on mouseenter, collapse on mouseleave
- *   locked-open → siempre expandido (240px), ignora hover
- *   locked-closed → siempre colapsado (64px), ignora hover
- *
- * Click en toggle cicla: hover → locked-open → locked-closed → hover
- *
- * Solo visible en md+ (hidden md:flex — en mobile se usa BottomNav).
- */
 export function Sidebar({ onLockChange }: SidebarProps) {
   const [mode, setMode] = useState<SidebarMode>('hover');
   const [mouseInside, setMouseInside] = useState(false);
 
-  // isExpanded: true si locked-open o si hover && mouse adentro
   const isExpanded =
     mode === 'locked-open' || (mode === 'hover' && mouseInside);
 
-  // 7.A.8 — Role-aware nav: prioridad ADMIN > PEDIDOS > STOCK > CLIENTE
   const hasAdmin = useAuthStore((s) => s.hasRole('ADMIN'));
   const hasPedidos = useAuthStore((s) => s.hasRole('PEDIDOS'));
   const hasStock = useAuthStore((s) => s.hasRole('STOCK'));
@@ -249,21 +228,20 @@ export function Sidebar({ onLockChange }: SidebarProps) {
       className={`
         hidden md:flex flex-col
         fixed left-0 top-14 bottom-0
-        bg-chrome border-r border-border z-20
+        bg-chrome backdrop-blur-xl border-r border-chrome-border z-20
         overflow-hidden
-        transition-all duration-150 ease-out
+        transition-all duration-200 ease-out
         ${isExpanded ? 'w-60' : 'w-16'}
       `}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       aria-label="Navegación lateral"
     >
-      {/* Toggle button */}
-      <div className="flex h-12 flex-shrink-0 items-center justify-end px-3 border-b border-border/50">
+      <div className="flex h-12 flex-shrink-0 items-center justify-end px-3 border-b border-chrome-border/50">
         <button
           type="button"
           onClick={handleToggle}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-glass-hover hover:text-foreground transition-colors"
           title={
             mode === 'hover'
               ? 'Fijar sidebar abierto'
@@ -281,7 +259,6 @@ export function Sidebar({ onLockChange }: SidebarProps) {
         </button>
       </div>
 
-      {/* Nav items */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden p-2">
         <div className="flex flex-col gap-0.5">
           {navItems.map((item) => (

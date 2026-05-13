@@ -1,12 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
 import { useAllergenIngredients } from '../../../ingredients/hooks/useAllergenIngredients';
 
-/**
- * AllergenFilter — D6:
- *   1. Checkbox `excluir_alergenos` (bool) — excluye todos los alérgenos no-removibles.
- *   2. Multi-select de ingredientes alérgenos — popula `excluir_alergeno_ids[]`.
- * Semántica AND (definida por el backend).
- */
 export function AllergenFilter() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: allergens } = useAllergenIngredients();
@@ -31,7 +25,6 @@ export function AllergenFilter() {
     setSearchParams((prev) => {
       const updated = new URLSearchParams(prev);
       const current = updated.getAll('excluir_alergeno_ids').map(Number);
-      // Eliminar todos los valores del param y reescribir
       updated.delete('excluir_alergeno_ids');
       const next = current.includes(id)
         ? current.filter((x) => x !== id)
@@ -45,21 +38,19 @@ export function AllergenFilter() {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 rounded-lg border border-glass-border bg-glass backdrop-blur-sm p-3">
       <p className="text-sm font-medium text-foreground">Alérgenos</p>
 
-      {/* Checkbox principal */}
       <label className="flex items-center gap-2 cursor-pointer select-none">
         <input
           type="checkbox"
           checked={excluirAlergenos}
           onChange={handleExcluirAlergenosChange}
-          className="h-4 w-4 rounded border-input accent-primary"
+          className="h-4 w-4 rounded border-glass-border accent-primary"
         />
         <span className="text-sm text-foreground">Excluir todos los alérgenos</span>
       </label>
 
-      {/* Multi-select de ingredientes alérgenos */}
       {allergens && allergens.length > 0 && (
         <div className="flex flex-col gap-1.5 pl-2">
           <p className="text-xs text-muted-foreground">Excluir ingredientes específicos:</p>
@@ -69,7 +60,7 @@ export function AllergenFilter() {
                 type="checkbox"
                 checked={excluirIds.includes(ing.id)}
                 onChange={() => handleIngredienteToggle(ing.id)}
-                className="h-4 w-4 rounded border-input accent-primary"
+                className="h-4 w-4 rounded border-glass-border accent-primary"
               />
               <span className="text-sm text-foreground">{ing.nombre}</span>
             </label>

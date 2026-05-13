@@ -24,11 +24,11 @@ export function OrderCard({ order, onClick }: OrderCardProps) {
     <button
       type="button"
       onClick={() => onClick(order.id)}
-      className="w-full rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="w-full rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-4 text-left transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-secondary/20">
             <ShoppingBag className="h-4 w-4 text-primary" />
           </div>
           <div className="flex flex-col min-w-0">

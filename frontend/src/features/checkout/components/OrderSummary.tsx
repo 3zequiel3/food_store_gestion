@@ -6,17 +6,8 @@ interface OrderSummaryProps {
   onNotasChange: (notas: string) => void;
 }
 
-const SHIPPING_COST = 50; // Costo de envío fijo v1 (D5)
+const SHIPPING_COST = 50;
 
-/**
- * Resumen del pedido.
- *
- * Muestra:
- * - Tabla de items (nombre, cantidad, precio unitario, subtotal)
- * - Costo de envío ($50 para domicilio, $0 para retiro en local)
- * - Total estimado
- * - Textarea para notas opcionales (max 500 chars)
- */
 export function OrderSummary({ isLocalPickup, notas, onNotasChange }: OrderSummaryProps) {
   const items = useCartStore((s) => s.items);
 
@@ -28,17 +19,16 @@ export function OrderSummary({ isLocalPickup, notas, onNotasChange }: OrderSumma
     <div className="space-y-4">
       <h3 className="font-semibold text-foreground">Resumen del pedido</h3>
 
-      {/* Tabla de items */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="rounded-lg border border-glass-border overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50">
+          <thead className="bg-glass">
             <tr>
               <th className="px-3 py-2 text-left font-medium text-muted-foreground">Producto</th>
               <th className="px-3 py-2 text-center font-medium text-muted-foreground">Cant.</th>
               <th className="px-3 py-2 text-right font-medium text-muted-foreground">Subtotal</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="divide-y divide-glass-border">
             {items.map((item) => (
               <tr key={item.producto_id}>
                 <td className="px-3 py-2">
@@ -66,8 +56,7 @@ export function OrderSummary({ isLocalPickup, notas, onNotasChange }: OrderSumma
         </table>
       </div>
 
-      {/* Totales */}
-      <div className="space-y-2 bg-muted/30 p-3 rounded-lg">
+      <div className="space-y-2 rounded-lg bg-glass backdrop-blur-sm border border-glass-border p-3">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Subtotal</span>
           <span className="text-foreground">${subtotal.toFixed(2)}</span>
@@ -78,7 +67,7 @@ export function OrderSummary({ isLocalPickup, notas, onNotasChange }: OrderSumma
           </span>
           <span className="text-foreground">${shippingCost.toFixed(2)}</span>
         </div>
-        <div className="flex justify-between pt-2 border-t border-border">
+        <div className="flex justify-between pt-2 border-t border-glass-border">
           <span className="font-medium text-foreground">Total estimado</span>
           <span className="font-bold text-lg text-foreground">${estimatedTotal.toFixed(2)}</span>
         </div>
@@ -87,7 +76,6 @@ export function OrderSummary({ isLocalPickup, notas, onNotasChange }: OrderSumma
         </p>
       </div>
 
-      {/* Notas */}
       <div className="space-y-2">
         <label htmlFor="notas" className="text-sm font-medium text-foreground">
           Notas (opcional)
@@ -99,7 +87,7 @@ export function OrderSummary({ isLocalPickup, notas, onNotasChange }: OrderSumma
           placeholder="Instrucciones especiales para la entrega, alergias, etc."
           maxLength={500}
           rows={3}
-          className="w-full px-3 py-2 text-sm bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+          className="w-full px-3 py-2 text-sm bg-glass backdrop-blur-sm border border-glass-border rounded-lg text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150 resize-none"
         />
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>Máximo 500 caracteres</span>

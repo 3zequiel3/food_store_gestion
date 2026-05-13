@@ -4,6 +4,8 @@ import { useUpdateProfile } from '../hooks/useUpdateProfile';
 import { profileSchema } from '../schemas/profileSchema';
 import { ApiError } from '../../../api/interceptors/error';
 import type { ProfileRead } from '../types/userProfile.types';
+import { Button } from '../../../components/ui/Button';
+import { Input } from '../../../components/ui/Input';
 
 interface ProfileFormProps {
   profile: ProfileRead;
@@ -50,19 +52,17 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         </div>
       )}
 
-      {/* Email — solo lectura */}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-foreground">Email</label>
         <input
           type="email"
           value={profile.email}
           disabled
-          className="h-11 rounded-lg border border-input bg-muted px-3 py-2 text-sm text-muted-foreground cursor-not-allowed w-full"
+          className="h-11 rounded-lg border border-glass-border bg-glass backdrop-blur-sm px-3 py-2 text-sm text-muted-foreground cursor-not-allowed w-full"
         />
         <p className="text-xs text-muted-foreground">El email no se puede cambiar.</p>
       </div>
 
-      {/* Nombre */}
       <form.Field
         name="nombre"
         validators={{
@@ -73,30 +73,20 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         }}
       >
         {(field) => (
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={field.name} className="text-sm font-medium text-foreground">
-              Nombre
-            </label>
-            <input
-              id={field.name}
-              name={field.name}
-              type="text"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              disabled={isPending}
-              className="h-11 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 w-full"
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p role="alert" className="text-xs text-destructive">
-                {field.state.meta.errors.join(', ')}
-              </p>
-            )}
-          </div>
+          <Input
+            id={field.name}
+            name={field.name}
+            type="text"
+            label="Nombre"
+            value={field.state.value}
+            onChange={(e) => field.handleChange(e.target.value)}
+            onBlur={field.handleBlur}
+            disabled={isPending}
+            error={field.state.meta.errors.join(', ') || undefined}
+          />
         )}
       </form.Field>
 
-      {/* Apellido */}
       <form.Field
         name="apellido"
         validators={{
@@ -107,30 +97,20 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         }}
       >
         {(field) => (
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={field.name} className="text-sm font-medium text-foreground">
-              Apellido
-            </label>
-            <input
-              id={field.name}
-              name={field.name}
-              type="text"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              disabled={isPending}
-              className="h-11 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 w-full"
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p role="alert" className="text-xs text-destructive">
-                {field.state.meta.errors.join(', ')}
-              </p>
-            )}
-          </div>
+          <Input
+            id={field.name}
+            name={field.name}
+            type="text"
+            label="Apellido"
+            value={field.state.value}
+            onChange={(e) => field.handleChange(e.target.value)}
+            onBlur={field.handleBlur}
+            disabled={isPending}
+            error={field.state.meta.errors.join(', ') || undefined}
+          />
         )}
       </form.Field>
 
-      {/* Teléfono */}
       <form.Field
         name="telefono"
         validators={{
@@ -142,52 +122,31 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         }}
       >
         {(field) => (
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={field.name} className="text-sm font-medium text-foreground">
-              Teléfono <span className="text-muted-foreground font-normal">(opcional)</span>
-            </label>
-            <input
-              id={field.name}
-              name={field.name}
-              type="tel"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              disabled={isPending}
-              placeholder="+54 11 1234-5678"
-              className="h-11 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 w-full"
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p role="alert" className="text-xs text-destructive">
-                {field.state.meta.errors.join(', ')}
-              </p>
-            )}
-          </div>
+          <Input
+            id={field.name}
+            name={field.name}
+            type="tel"
+            label="Teléfono"
+            placeholder="+54 11 1234-5678"
+            value={field.state.value}
+            onChange={(e) => field.handleChange(e.target.value)}
+            onBlur={field.handleBlur}
+            disabled={isPending}
+            helperText="Opcional"
+            error={field.state.meta.errors.join(', ') || undefined}
+          />
         )}
       </form.Field>
 
-      <button
+      <Button
         type="submit"
-        disabled={isPending}
-        className="h-11 w-full rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        size="lg"
+        isLoading={isPending}
+        className="w-full"
+        rightIcon={isSuccess && !isPending ? <Check className="h-4 w-4" /> : undefined}
       >
-        {isPending ? (
-          <>
-            <span
-              className="h-4 w-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin"
-              aria-hidden="true"
-            />
-            Guardando…
-          </>
-        ) : isSuccess ? (
-          <>
-            <Check className="h-4 w-4" />
-            Guardado
-          </>
-        ) : (
-          'Guardar cambios'
-        )}
-      </button>
+        {isPending ? 'Guardando…' : isSuccess ? 'Guardado' : 'Guardar cambios'}
+      </Button>
     </form>
   );
 }

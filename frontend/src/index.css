@@ -3,57 +3,59 @@
 /* ============================================================
    FOOD STORE — DESIGN TOKENS
    Stack: Tailwind v4 (@theme directive)
-   Mode: dark-first (default). Light mode = add class="light" to <html>.
-   Color format: OKLCH (perceptually uniform, modern, Tailwind v4 native).
-   Doc: docs/frontend-architecture.md §12
-
-   Brand palette (docs/colores.md):
-     #2F2FE4  primary       (azul índigo vibrante — CTAs, ring, brand)
-     #162E93  secondary     (azul medio — accents, secondary surfaces)
-     #1A1953  card           (azul profundo — surfaces elevadas)
-     #080616  background    (casi negro azulado — fondo dark)
+   Mode: light-first SIEMPRE (dark mode requiere class="dark" en <html>).
+   Color format: OKLCH.
+   Aesthetic: Blue & white glassmorphism — clean, airy,
+              celeste sobre blanco, translúcido y luminoso.
    ============================================================ */
 
 @theme {
   /* ---- Base surface pair ---- */
-  --color-background: oklch(0.08 0.03 274);   /* #080616 */
-  --color-foreground: oklch(0.97 0.012 270);
+  --color-background: oklch(0.985 0.003 255);
+  --color-foreground: oklch(0.15 0.02 260);
 
   /* ---- Elevated surfaces ---- */
-  --color-card: oklch(0.22 0.10 273);          /* #1A1953 */
-  --color-card-foreground: oklch(0.97 0.012 270);
-  --color-popover: oklch(0.22 0.10 273);
-  --color-popover-foreground: oklch(0.97 0.012 270);
+  --color-card: oklch(0.995 0.002 255);
+  --color-card-foreground: oklch(0.15 0.02 260);
+  --color-popover: oklch(0.995 0.002 255);
+  --color-popover-foreground: oklch(0.15 0.02 260);
 
-  /* ---- Chrome (shell surfaces: TopNavbar + Sidebar) ----
-     Más oscuro que card, distinguible del background por un escalón sutil. */
-  --color-chrome: oklch(0.12 0.06 274);
-  --color-chrome-foreground: oklch(0.97 0.012 270);
+  /* ---- Glass surfaces ---- */
+  --color-glass: oklch(1 0 0 / 0.55);
+  --color-glass-border: oklch(0.78 0.015 260 / 0.2);
+  --color-glass-hover: oklch(1 0 0 / 0.8);
 
-  /* ---- Brand (vibrant indigo — CTAs, focus, links) ---- */
-  --color-primary: oklch(0.48 0.27 270);       /* #2F2FE4 */
-  --color-primary-foreground: oklch(0.99 0.005 270);
+  /* ---- Chrome ---- */
+  --color-chrome: oklch(0.98 0.005 255 / 0.88);
+  --color-chrome-foreground: oklch(0.15 0.02 260);
+  --color-chrome-border: oklch(0.80 0.01 260 / 0.25);
 
-  /* ---- Neutral / accent surfaces ---- */
-  --color-secondary: oklch(0.32 0.18 268);     /* #162E93 */
-  --color-secondary-foreground: oklch(0.97 0.012 270);
-  --color-muted: oklch(0.22 0.10 273);          /* same family as card */
-  --color-muted-foreground: oklch(0.70 0.04 275);
-  --color-accent: oklch(0.32 0.18 268);        /* same as secondary */
-  --color-accent-foreground: oklch(0.97 0.012 270);
+  /* ---- Brand (celeste vibrante) ---- */
+  --color-primary: oklch(0.58 0.17 255);
+  --color-primary-foreground: oklch(0.99 0.005 255);
 
-  /* ---- Semantic states (kept hue-distinct from brand for legibility) ---- */
-  --color-destructive: oklch(0.60 0.22 27);
+  /* ---- Neutral / accent ---- */
+  --color-secondary: oklch(0.93 0.02 260);
+  --color-secondary-foreground: oklch(0.25 0.04 260);
+  --color-muted: oklch(0.95 0.01 255);
+  --color-muted-foreground: oklch(0.55 0.02 260);
+  --color-accent: oklch(0.93 0.02 260);
+  --color-accent-foreground: oklch(0.25 0.04 260);
+
+  /* ---- Semantic states ---- */
+  --color-destructive: oklch(0.55 0.20 25);
   --color-destructive-foreground: oklch(0.985 0.005 60);
-  --color-success: oklch(0.65 0.18 145);
-  --color-success-foreground: oklch(0.145 0.012 60);
-  --color-warning: oklch(0.75 0.15 85);
-  --color-warning-foreground: oklch(0.145 0.012 60);
+  --color-success: oklch(0.53 0.15 155);
+  --color-success-foreground: oklch(0.985 0.005 60);
+  --color-warning: oklch(0.68 0.15 75);
+  --color-warning-foreground: oklch(0.15 0.01 75);
+  --color-info: oklch(0.55 0.16 250);
+  --color-info-foreground: oklch(0.985 0.005 60);
 
   /* ---- Utility colors ---- */
-  --color-border: oklch(0.28 0.10 272);
-  --color-input: oklch(0.28 0.10 272);
-  --color-ring: oklch(0.48 0.27 270);          /* = primary */
+  --color-border: oklch(0.88 0.01 260);
+  --color-input: oklch(0.88 0.01 260);
+  --color-ring: oklch(0.58 0.17 255);
 
   /* ---- Typography ---- */
   --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -66,58 +68,75 @@
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
 
-  /* ---- Shadows (tuned for dark — softer, less harsh than light defaults) ---- */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.35);
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.4);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.45), 0 2px 4px -2px rgb(0 0 0 / 0.4);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.55), 0 4px 6px -4px rgb(0 0 0 / 0.4);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.55), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+  /* ---- Shadows ---- */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.06);
+
+  /* ---- Animation ---- */
+  --animate-shimmer: shimmer 2s infinite linear;
+}
+
+/* Dark mode variant for Tailwind — class-based, matches :root.dark */
+@variant dark (&:where(.dark, .dark *));
+
+/* Shimmer keyframe for skeleton loading */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 /* ============================================================
-   LIGHT MODE OVERRIDE
-   Activated when <html class="light">. Same token names, light values
-   that keep the indigo brand consistent across modes.
+   DARK MODE — class-based, solo si <html class="dark">
    ============================================================ */
 
-:root.light {
-  --color-background: oklch(0.99 0.005 275);
-  --color-foreground: oklch(0.15 0.08 273);    /* derived from #1A1953 */
+:root.dark {
+  --color-background: oklch(0.10 0.03 260);
+  --color-foreground: oklch(0.92 0.01 260);
 
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.15 0.08 273);
-  --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.15 0.08 273);
+  --color-card: oklch(0.15 0.035 260);
+  --color-card-foreground: oklch(0.92 0.01 260);
+  --color-popover: oklch(0.15 0.035 260);
+  --color-popover-foreground: oklch(0.92 0.01 260);
 
-  --color-chrome: oklch(0.96 0.015 275);
-  --color-chrome-foreground: oklch(0.15 0.08 273);
+  --color-glass: oklch(0.18 0.035 260 / 0.35);
+  --color-glass-border: oklch(0.35 0.04 260 / 0.15);
+  --color-glass-hover: oklch(0.18 0.035 260 / 0.55);
 
-  --color-primary: oklch(0.48 0.27 270);       /* same #2F2FE4 — brand carries */
-  --color-primary-foreground: oklch(0.99 0.005 270);
+  --color-chrome: oklch(0.10 0.03 260 / 0.85);
+  --color-chrome-foreground: oklch(0.92 0.01 260);
+  --color-chrome-border: oklch(0.35 0.04 260 / 0.1);
 
-  --color-secondary: oklch(0.93 0.025 275);
-  --color-secondary-foreground: oklch(0.22 0.10 273);
-  --color-muted: oklch(0.93 0.025 275);
-  --color-muted-foreground: oklch(0.45 0.05 273);
-  --color-accent: oklch(0.93 0.025 275);
-  --color-accent-foreground: oklch(0.22 0.10 273);
+  --color-primary: oklch(0.62 0.17 255);
+  --color-primary-foreground: oklch(0.99 0.005 255);
 
-  --color-destructive: oklch(0.55 0.22 27);
+  --color-secondary: oklch(0.22 0.05 260);
+  --color-secondary-foreground: oklch(0.85 0.02 260);
+  --color-muted: oklch(0.15 0.035 260);
+  --color-muted-foreground: oklch(0.55 0.03 260);
+  --color-accent: oklch(0.22 0.05 260);
+  --color-accent-foreground: oklch(0.85 0.02 260);
+
+  --color-destructive: oklch(0.58 0.20 25);
   --color-destructive-foreground: oklch(0.985 0.005 60);
-  --color-success: oklch(0.55 0.18 145);
+  --color-success: oklch(0.58 0.15 155);
   --color-success-foreground: oklch(0.985 0.005 60);
-  --color-warning: oklch(0.70 0.15 85);
-  --color-warning-foreground: oklch(0.145 0.012 60);
+  --color-warning: oklch(0.72 0.15 75);
+  --color-warning-foreground: oklch(0.15 0.01 75);
+  --color-info: oklch(0.58 0.16 250);
+  --color-info-foreground: oklch(0.985 0.005 60);
 
-  --color-border: oklch(0.88 0.02 275);
-  --color-input: oklch(0.88 0.02 275);
-  --color-ring: oklch(0.48 0.27 270);
+  --color-border: oklch(0.25 0.035 260);
+  --color-input: oklch(0.25 0.035 260);
+  --color-ring: oklch(0.62 0.17 255);
 
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.2);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.25);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.25);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.35), 0 8px 10px -6px rgb(0 0 0 / 0.3);
 }
 
 /* ============================================================
@@ -134,11 +153,11 @@
   }
 
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
-  html.light {
-    color-scheme: light;
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
@@ -149,19 +168,17 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Accessible focus rings using the ring token */
   *:focus-visible {
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
   }
 
-  /* Scrollbar styling — subtle, themed */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: var(--color-background);
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
     background: var(--color-border);

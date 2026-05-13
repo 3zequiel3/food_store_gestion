@@ -2,26 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 
-/**
- * SearchBar — input de búsqueda de productos con debounce.
- *
- * D5: 300ms de debounce antes de actualizar el param `search` en la URL.
- * Sin botón "Buscar" — la query se dispara automáticamente.
- * Botón "×" limpia el campo y elimina el param.
- */
 export function SearchBar() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialValue = searchParams.get('search') ?? '';
   const [value, setValue] = useState(initialValue);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sync local value cuando el param de la URL cambia externamente (ej: "Limpiar todo")
   useEffect(() => {
     const urlSearch = searchParams.get('search') ?? '';
     if (urlSearch !== value) {
       setValue(urlSearch);
     }
-    // Solo sincronizar cuando cambia la URL, no en cada render de value
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -64,7 +55,7 @@ export function SearchBar() {
         onChange={handleChange}
         placeholder="Buscar productos..."
         aria-label="Buscar productos"
-        className="w-full pl-9 pr-9 py-2 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        className="w-full pl-9 pr-9 py-2.5 rounded-lg border border-glass-border bg-glass backdrop-blur-sm text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150"
       />
       {value && (
         <button
