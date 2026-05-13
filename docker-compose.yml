@@ -1,24 +1,18 @@
-# Food Store — Stack de desarrollo (3 servicios)
-
 services:
-  postgres:
-    image: postgres:16-alpine
+  db:
+    image: postgres:18-alpine
     container_name: food_store_db
     restart: unless-stopped
-
     environment:
-      POSTGRES_DB: ${DB_NAME:-FoodStoreDB}
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-2005}
-
+      POSTGRES_DB: ${DB_NAME:-food_store}
+      POSTGRES_USER: ${DB_USER:-food_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-food_password}
     ports:
       - "${DB_PORT:-5433}:5432"
-
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-
+      - postgres_data_18:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-FoodStoreDB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-food_user} -d ${DB_NAME:-food_store}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,43 +21,29 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile.dev
-
     container_name: food_store_backend
     restart: unless-stopped
-
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
-
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-2005}@postgres:5432/${DB_NAME:-FoodStoreDB}
-
+      # Networking: dentro del compose, db es accesible por el service name.
+      DATABASE_URL: postgresql://${DB_USER:-food_user}:${DB_PASSWORD:-food_password}@db:5432/${DB_NAME:-food_store}
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production-please}
       JWT_ALGORITHM: HS256
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
       JWT_REFRESH_TOKEN_EXPIRE_DAYS: 7
-
       ENVIRONMENT: development
       LOG_LEVEL: INFO
-
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
-
       MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-TEST-your-mp-access-token-here}
-
     volumes:
-      # Bind del código fuente para que --reload detecte cambios.
-      - ./backend:/app/backend
+      - ./backend:/app
     ports:
       - "${API_PORT:-8000}:8000"
-
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs', timeout=2)"
-        ]
+      # Usamos python para no agregar curl extra; el endpoint /docs siempre responde.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs', timeout=2)"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -73,24 +53,23 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile.dev
-
     container_name: food_store_frontend
     restart: unless-stopped
-
     depends_on:
       backend:
         condition: service_healthy
-
     environment:
+      # vite.config.ts lee esto para apuntar el proxy /api al backend del compose.
       API_PROXY_TARGET: ${API_PROXY_TARGET:-http://backend:8000}
-
     volumes:
+      # Bind del código fuente para HMR.
       - ./frontend:/app
+      # Anonymous volume protege node_modules instalado en build (Linux container)
+      # de ser pisado por el del host (potencialmente otra arquitectura).
       - frontend_node_modules:/app/node_modules
-
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
 
 volumes:
-  postgres_data:
+  postgres_data_18:
   frontend_node_modules:
