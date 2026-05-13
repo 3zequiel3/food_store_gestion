@@ -1,0 +1,38 @@
+# VCS
+.git
+.gitignore
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+
+# Docs / OPSX (no afectan runtime)
+docs
+openspec
+testsprite_tests
+.engram
+.claude
+.agents
+*.md
+
+# Python
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.venv
+**/venv
+
+# Node / Frontend
+**/node_modules
+**/dist
+**/.cache
+
+# Tests
+**/tests
+**/test_*.py
+
+# Local env (las pasamos por docker-compose, no por COPY)
+**/.env
+**/.env.local

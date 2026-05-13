@@ -1,0 +1,23 @@
+# Frontend dev image — Vite dev server con pnpm
+# El código se monta como bind volume desde docker-compose; node_modules vive
+# en un anonymous volume para no ser pisado por el bind.
+
+FROM node:24-alpine
+
+# pnpm via corepack (incluido en Node 16+)
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+# Cacheamos la capa de pnpm install copiando solo manifests
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# El código se monta como volumen en runtime — NO se copia acá.
+# Estructura esperada en runtime: /app/<src,public,vite.config.ts,...>
+
+EXPOSE 5173
+
+# --host 0.0.0.0 para que el dev server escuche en todas las interfaces
+# (necesario para que el puerto sea visible desde fuera del container)
+CMD ["pnpm", "dev", "--host", "0.0.0.0"]
