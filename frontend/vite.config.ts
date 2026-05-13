@@ -15,7 +15,7 @@ export default defineProject(
         '/api': {
           // Default localhost para dev local; docker-compose lo pisa con
           // API_PROXY_TARGET=http://backend:8000 (service name de compose).
-          target: process.env.API_PROXY_TARGET ?? 'http://localhost:8000',
+          target: process.env.API_PROXY_TARGET ?? process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000',
           changeOrigin: true,
         },
       },
