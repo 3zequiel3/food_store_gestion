@@ -1,32 +1,24 @@
 # Food Store — Stack de desarrollo (3 servicios)
-#
-# Comandos típicos:
-#   docker compose up              -> levanta postgres + backend + frontend
-#   docker compose up -d           -> idem en background
-#   docker compose down            -> los baja (datos persistidos en volumen)
-#   docker compose logs -f backend -> tail de logs del backend
-#
-# Migraciones de base de datos (corren aparte, no en cada arranque):
-#   docker compose exec backend alembic upgrade head
-#   docker compose exec backend alembic revision --autogenerate -m "msg"
-#
-# Variables de entorno: ver .env (raíz) si existe, o defaults a continuación.
 
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:16-alpine
     container_name: food_store_db
     restart: unless-stopped
+
     environment:
-      POSTGRES_DB: ${DB_NAME:-food_store}
-      POSTGRES_USER: ${DB_USER:-food_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-food_password}
+      POSTGRES_DB: ${DB_NAME:-FoodStoreDB}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-2005}
+
     ports:
       - "${DB_PORT:-5433}:5432"
+
     volumes:
-      - postgres_data_18:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql/data
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-food_user} -d ${DB_NAME:-food_store}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-FoodStoreDB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -35,31 +27,43 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile.dev
+
     container_name: food_store_backend
     restart: unless-stopped
+
     depends_on:
       postgres:
         condition: service_healthy
+
     environment:
-      # Networking: dentro del compose, postgres es accesible por el service name.
-      DATABASE_URL: postgresql://${DB_USER:-food_user}:${DB_PASSWORD:-food_password}@postgres:5432/${DB_NAME:-food_store}
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-2005}@postgres:5432/${DB_NAME:-FoodStoreDB}
+
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production-please}
       JWT_ALGORITHM: HS256
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
       JWT_REFRESH_TOKEN_EXPIRE_DAYS: 7
+
       ENVIRONMENT: development
       LOG_LEVEL: INFO
+
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+
       MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-TEST-your-mp-access-token-here}
+
     volumes:
       # Bind del código fuente para que --reload detecte cambios.
-      # Estructura: contenido de backend/ va directo a /app/ (root del package).
-      - ./backend:/app
+      - ./backend:/app/backend
     ports:
       - "${API_PORT:-8000}:8000"
+
     healthcheck:
-      # Usamos python para no agregar curl extra; el endpoint /docs siempre responde.
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs', timeout=2)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs', timeout=2)"
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -69,23 +73,24 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile.dev
+
     container_name: food_store_frontend
     restart: unless-stopped
+
     depends_on:
       backend:
         condition: service_healthy
+
     environment:
-      # vite.config.ts lee esto para apuntar el proxy /api al backend del compose.
       API_PROXY_TARGET: ${API_PROXY_TARGET:-http://backend:8000}
+
     volumes:
-      # Bind del código fuente para HMR.
       - ./frontend:/app
-      # Anonymous volume protege node_modules instalado en build (Linux container)
-      # de ser pisado por el del host (potencialmente otra arquitectura).
       - frontend_node_modules:/app/node_modules
+
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
 
 volumes:
-  postgres_data_18:
+  postgres_data:
   frontend_node_modules:

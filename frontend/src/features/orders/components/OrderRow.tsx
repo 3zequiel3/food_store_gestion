@@ -23,7 +23,7 @@ interface OrderRowProps {
 
 export function OrderRow({ order, onViewDetail }: OrderRowProps) {
   return (
-    <tr className="border-b border-border hover:bg-accent/30 transition-colors">
+    <tr className="border-b border-glass-border hover:bg-glass-hover transition-colors">
       <td className="px-4 py-3 text-sm font-medium text-foreground">#{order.id}</td>
       <td className="px-4 py-3">
         <OrderStatusBadge estado={order.estado_codigo} />
@@ -39,7 +39,7 @@ export function OrderRow({ order, onViewDetail }: OrderRowProps) {
         <button
           type="button"
           onClick={() => onViewDetail(order.id)}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md border border-glass-border bg-glass backdrop-blur-sm px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-glass-hover transition-colors"
         >
           <Eye className="h-3.5 w-3.5" />
           Ver detalle

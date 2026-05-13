@@ -23,11 +23,6 @@ interface BottomNavItem {
   action?: () => void;
 }
 
-/**
- * D3 — Mobile bottom navigation bar.
- * Fixed bottom, visible solo en <md (md:hidden).
- * Touch targets: cada item h-14 (56px) para iOS HIG compliance.
- */
 export function BottomNav({ onMoreOpen }: BottomNavProps) {
   const location = useLocation();
   const hasAdmin = useAuthStore((s) => s.hasRole('ADMIN'));
@@ -60,7 +55,7 @@ export function BottomNav({ onMoreOpen }: BottomNavProps) {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-20 flex h-16 bg-chrome border-t border-border md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-20 flex h-16 bg-chrome backdrop-blur-xl border-t border-chrome-border md:hidden"
       aria-label="Navegación móvil"
     >
       {items.map((item) => {
@@ -68,14 +63,17 @@ export function BottomNav({ onMoreOpen }: BottomNavProps) {
 
         const content = (
           <>
+            {isActive && (
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-primary" />
+            )}
             <span
               className={`transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
             >
               {item.icon}
             </span>
             <span
-              className={`text-xs transition-colors ${
-                isActive ? 'text-primary font-medium' : 'text-muted-foreground'
+              className={`text-[10px] leading-tight transition-colors ${
+                isActive ? 'text-primary font-semibold' : 'text-muted-foreground'
               }`}
             >
               {item.label}
@@ -83,14 +81,13 @@ export function BottomNav({ onMoreOpen }: BottomNavProps) {
           </>
         );
 
-        // Items con action (el "Más")
         if (item.action) {
           return (
             <button
               key={item.label}
               type="button"
               onClick={item.action}
-              className="flex flex-1 flex-col items-center justify-center gap-1 h-full min-w-[56px]"
+              className="relative flex flex-1 flex-col items-center justify-center gap-0.5 h-full min-w-[56px]"
               aria-label={item.label}
             >
               {content}
@@ -102,7 +99,7 @@ export function BottomNav({ onMoreOpen }: BottomNavProps) {
           <Link
             key={item.path}
             to={item.path}
-            className="flex flex-1 flex-col items-center justify-center gap-1 h-full min-w-[56px]"
+            className="relative flex flex-1 flex-col items-center justify-center gap-0.5 h-full min-w-[56px]"
             aria-label={item.label}
             aria-current={isActive ? 'page' : undefined}
           >

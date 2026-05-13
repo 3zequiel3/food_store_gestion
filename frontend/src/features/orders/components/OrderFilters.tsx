@@ -34,7 +34,7 @@ export function OrderFilters() {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+    <div className="flex flex-col gap-3 rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-4 shadow-sm">
       <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Filtros
       </h2>
@@ -47,14 +47,14 @@ export function OrderFilters() {
             placeholder="Buscar por id o cliente…"
             value={q}
             onChange={(e) => setParam('q', e.target.value)}
-            className="w-full rounded-lg border border-border bg-muted/50 py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full rounded-lg border border-glass-border bg-glass backdrop-blur-sm py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150"
           />
         </div>
 
         <select
           value={estado}
           onChange={(e) => setParam('estado', e.target.value)}
-          className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          className="rounded-lg border border-glass-border bg-glass backdrop-blur-sm px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150"
         >
           {ESTADOS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -67,7 +67,7 @@ export function OrderFilters() {
           type="date"
           value={desde}
           onChange={(e) => setParam('desde', e.target.value)}
-          className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          className="rounded-lg border border-glass-border bg-glass backdrop-blur-sm px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150"
           aria-label="Desde"
         />
 
@@ -75,7 +75,7 @@ export function OrderFilters() {
           type="date"
           value={hasta}
           onChange={(e) => setParam('hasta', e.target.value)}
-          className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          className="rounded-lg border border-glass-border bg-glass backdrop-blur-sm px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150"
           aria-label="Hasta"
         />
       </div>

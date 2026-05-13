@@ -45,14 +45,14 @@ export function OrderDetailModal({ orderId, isAdmin = false, onClose }: OrderDet
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-card border border-border shadow-xl"
+        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-glass backdrop-blur-xl border border-glass-border shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-6 py-4">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-glass-border bg-glass backdrop-blur-xl px-6 py-4">
           <div className="flex items-center gap-3">
             <Package className="h-5 w-5 text-primary" />
             <h2 className="text-base font-semibold text-foreground">
@@ -63,7 +63,7 @@ export function OrderDetailModal({ orderId, isAdmin = false, onClose }: OrderDet
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-glass-hover hover:text-foreground transition-colors"
             aria-label="Cerrar"
           >
             <X className="h-4 w-4" />
@@ -131,7 +131,7 @@ export function OrderDetailModal({ orderId, isAdmin = false, onClose }: OrderDet
                   {order.items.map((item) => (
                     <li
                       key={item.id}
-                      className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm"
+                      className="flex items-center justify-between rounded-lg bg-glass border border-glass-border px-3 py-2 text-sm"
                     >
                       <div className="flex flex-col">
                         <span className="font-medium text-foreground">{item.nombre_snapshot}</span>
@@ -158,7 +158,7 @@ export function OrderDetailModal({ orderId, isAdmin = false, onClose }: OrderDet
                     {order.pagos.map((pago) => (
                       <li
                         key={pago.id}
-                        className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm"
+                        className="flex items-center justify-between rounded-lg bg-glass border border-glass-border px-3 py-2 text-sm"
                       >
                         <div className="flex flex-col">
                           <span className="text-foreground capitalize">{pago.status}</span>
@@ -191,16 +191,16 @@ export function OrderDetailModal({ orderId, isAdmin = false, onClose }: OrderDet
 
 function ModalSkeleton() {
   return (
-    <div className="animate-pulse flex flex-col gap-4">
-      <div className="h-4 w-48 rounded bg-muted" />
+    <div className="flex flex-col gap-4">
+      <div className="h-4 w-48 rounded-md bg-gradient-to-r from-muted/50 via-muted to-muted/50 animate-shimmer bg-[length:200%_100%]" />
       <div className="grid grid-cols-2 gap-3">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-10 rounded bg-muted" />
+          <div key={i} className="h-10 rounded-lg bg-gradient-to-r from-muted/50 via-muted to-muted/50 animate-shimmer bg-[length:200%_100%]" />
         ))}
       </div>
-      <div className="h-4 w-32 rounded bg-muted" />
+      <div className="h-4 w-32 rounded-md bg-gradient-to-r from-muted/50 via-muted to-muted/50 animate-shimmer bg-[length:200%_100%]" />
       {[...Array(3)].map((_, i) => (
-        <div key={i} className="h-12 rounded bg-muted" />
+        <div key={i} className="h-12 rounded-lg bg-gradient-to-r from-muted/50 via-muted to-muted/50 animate-shimmer bg-[length:200%_100%]" />
       ))}
     </div>
   );

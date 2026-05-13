@@ -7,16 +7,6 @@ interface AddressSelectorProps {
   onSelect: (addressId: number | null) => void;
 }
 
-/**
- * Selector de dirección de entrega.
- *
- * Muestra un radio group con:
- * 1. "Retiro en local" (sin envío, costo $0) — primera opción
- * 2. Direcciones del usuario obtenidas via useAddresses()
- *
- * Retorna `selectedAddressId: number | null` donde null = retiro en local.
- * Todo el estado se deriva del prop `selectedAddressId` — no hay estado local redundante.
- */
 export function AddressSelector({ selectedAddressId, onSelect }: AddressSelectorProps) {
   const { data: addresses, isLoading } = useAddresses();
 
@@ -25,8 +15,8 @@ export function AddressSelector({ selectedAddressId, onSelect }: AddressSelector
       <div className="space-y-3">
         <h3 className="font-semibold text-foreground">Dirección de entrega</h3>
         <div className="space-y-2">
-          <div className="h-16 bg-muted rounded-lg animate-pulse" />
-          <div className="h-16 bg-muted rounded-lg animate-pulse" />
+          <div className="h-16 rounded-lg bg-gradient-to-r from-muted/50 via-muted to-muted/50 animate-shimmer bg-[length:200%_100%]" />
+          <div className="h-16 rounded-lg bg-gradient-to-r from-muted/50 via-muted to-muted/50 animate-shimmer bg-[length:200%_100%]" />
         </div>
       </div>
     );
@@ -39,13 +29,12 @@ export function AddressSelector({ selectedAddressId, onSelect }: AddressSelector
       <h3 className="font-semibold text-foreground">Dirección de entrega</h3>
 
       <div className="space-y-2">
-        {/* Opción: Retiro en local */}
         <label
           className={`
-            flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors
+            flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-150
             ${selectedAddressId === null
-              ? 'border-primary bg-primary/5'
-              : 'border-border bg-card hover:bg-accent/50'
+              ? 'border-primary bg-primary/10 shadow-sm shadow-primary/10'
+              : 'border-glass-border bg-glass backdrop-blur-sm hover:bg-glass-hover'
             }
           `}
           onClick={() => onSelect(null)}
@@ -72,15 +61,14 @@ export function AddressSelector({ selectedAddressId, onSelect }: AddressSelector
           </div>
         </label>
 
-        {/* Direcciones del usuario */}
         {hasAddresses && addresses.map((address: DireccionRead) => (
           <label
             key={address.id}
             className={`
-              flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors
+              flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-150
               ${selectedAddressId === address.id
-                ? 'border-primary bg-primary/5'
-                : 'border-border bg-card hover:bg-accent/50'
+                ? 'border-primary bg-primary/10 shadow-sm shadow-primary/10'
+                : 'border-glass-border bg-glass backdrop-blur-sm hover:bg-glass-hover'
               }
             `}
             onClick={() => onSelect(address.id)}
@@ -126,7 +114,6 @@ export function AddressSelector({ selectedAddressId, onSelect }: AddressSelector
           </label>
         ))}
 
-        {/* Sin direcciones */}
         {!hasAddresses && (
           <p className="text-sm text-muted-foreground px-1">
             No tenés direcciones guardadas. Podés agregar una desde{' '}
