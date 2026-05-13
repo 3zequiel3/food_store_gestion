@@ -75,11 +75,15 @@ The system SHALL reject creating or editing a category whose `(nombre, padre_id)
 - **THEN** the response is 201
 
 ### Requirement: List category tree endpoint
-The system SHALL expose `GET /api/v1/categorias` (public, no authentication required) that returns the full tree of non-deleted categories as a nested JSON array of `CategoriaTreeNode({id: int, nombre: str, padre_id: int | None, subcategorias: list[CategoriaTreeNode]})`. The tree SHALL be built using a recursive Common Table Expression (CTE) starting from root nodes (`padre_id IS NULL`). Soft-deleted categories (`eliminado_en IS NOT NULL`) SHALL be excluded. (US-008, RN-CA09)
+The system SHALL expose `GET /api/v1/categorias` (public, no authentication required) that supports two response modes governed by the query param `solo_hojas: bool = False`.
 
-#### Scenario: Tree returns nested structure
+When `solo_hojas` is `false` (default), the endpoint SHALL return the full tree of non-deleted categories as a nested JSON array of `CategoriaTreeNode({id: int, nombre: str, padre_id: int | None, subcategorias: list[CategoriaTreeNode]})`. The tree SHALL be built using a recursive Common Table Expression (CTE) starting from root nodes (`padre_id IS NULL`). Soft-deleted categories (`eliminado_en IS NOT NULL`) SHALL be excluded.
+
+When `solo_hojas` is `true`, the endpoint SHALL return a flat JSON array of `CategoriaRead({id: int, nombre: str, padre_id: int | None, creado_en, actualizado_en})` containing only **leaf** categories — i.e. active categories (`eliminado_en IS NULL`) that have zero non-deleted children. The result SHALL be sorted alphabetically by `nombre` (ascending, case-insensitive). The flat mode SHALL NOT nest under `subcategorias`. (US-008, RN-CA09)
+
+#### Scenario: Tree mode returns nested structure
 - **GIVEN** categories: `Bebidas (id=1, padre=NULL)`, `Gaseosas (id=2, padre=1)`, `Coca (id=3, padre=2)`, `Postres (id=4, padre=NULL)`
-- **WHEN** `GET /api/v1/categorias` is called
+- **WHEN** `GET /api/v1/categorias` is called (no params)
 - **THEN** the response is 200 with body equivalent to:
   ```json
   [
@@ -92,7 +96,22 @@ The system SHALL expose `GET /api/v1/categorias` (public, no authentication requ
   ]
   ```
 
-#### Scenario: Empty catalog returns empty list
+#### Scenario: solo_hojas=true returns flat leaves only
+- **GIVEN** categories: `Bebidas (id=1, raíz, tiene hijas)`, `Gaseosas (id=2, hija de 1, sin hijas)`, `Coca (id=3, hija de 2, sin hijas)`, `Postres (id=4, raíz, sin hijas)`
+- **WHEN** `GET /api/v1/categorias?solo_hojas=true` is called
+- **THEN** the response is 200 with a flat array `[Coca, Postres]` (sorted alphabetically); items 1 and 2 are excluded because they have active children; the items SHALL NOT contain a `subcategorias` key
+
+#### Scenario: solo_hojas excludes categories whose only children are soft-deleted parents-of-leaves promoted to leaf
+- **GIVEN** category `Bebidas (id=1)` had child `Gaseosas (id=2)` which is soft-deleted; `Bebidas` now has zero active children
+- **WHEN** `GET /api/v1/categorias?solo_hojas=true` is called
+- **THEN** the response includes `Bebidas` (it is now effectively a leaf because the only child is soft-deleted)
+
+#### Scenario: solo_hojas with empty catalog returns empty list
+- **GIVEN** the `categories` table has no non-deleted rows
+- **WHEN** `GET /api/v1/categorias?solo_hojas=true` is called
+- **THEN** the response is 200 with body `[]`
+
+#### Scenario: Empty catalog returns empty list (tree mode)
 - **GIVEN** the `categories` table has no non-deleted rows
 - **WHEN** `GET /api/v1/categorias` is called
 - **THEN** the response is 200 with body `[]`
@@ -102,8 +121,8 @@ The system SHALL expose `GET /api/v1/categorias` (public, no authentication requ
 - **WHEN** `GET /api/v1/categorias` is called
 - **THEN** the response excludes `id=2` and treats `id=3` as if it were detached (still listed if its `eliminado_en IS NULL`, with `padre_id=2` preserved but no parent path)
 
-#### Scenario: Endpoint is public
-- **WHEN** an anonymous client calls `GET /api/v1/categorias`
+#### Scenario: Endpoint is public regardless of mode
+- **WHEN** an anonymous client calls `GET /api/v1/categorias` or `GET /api/v1/categorias?solo_hojas=true`
 - **THEN** the response is 200 (no auth required)
 
 ### Requirement: Update category endpoint
@@ -250,3 +269,26 @@ All error responses from category endpoints SHALL conform to RFC 7807 (`{type, t
 #### Scenario: BusinessRuleError yields RFC 7807 422
 - **WHEN** the service raises `BusinessRuleError` (cycle, active children, active products)
 - **THEN** the response is 422 with `title` matching the business-rule handler
+
+### Requirement: Repository helper list_leaf_categories
+The system SHALL provide `CategoryRepository.list_leaf_categories() -> list[Categoria]` that returns all active categories (`eliminado_en IS NULL`) that have zero non-deleted children. The query SHALL use a single SQL statement with a NOT EXISTS antijoin against `categories` self-referencing on `padre_id`. The result SHALL be ordered alphabetically by `nombre` ascending. The repository method SHALL NOT commit, flush, or otherwise mutate the session.
+
+#### Scenario: Returns only leaves
+- **GIVEN** categories: `Bebidas (id=1, padre=NULL, tiene hijas)`, `Gaseosas (id=2, padre=1, sin hijas)`, `Postres (id=3, padre=NULL, sin hijas)`
+- **WHEN** `list_leaf_categories()` is called
+- **THEN** the result contains `Gaseosas` and `Postres`, ordered alphabetically (Gaseosas first), and excludes `Bebidas`
+
+#### Scenario: Soft-deleted categories are excluded from results
+- **GIVEN** category `id=4` is a leaf but soft-deleted
+- **WHEN** `list_leaf_categories()` is called
+- **THEN** category 4 is not in the result
+
+#### Scenario: A category whose only children are soft-deleted counts as a leaf
+- **GIVEN** category `id=1` ("Bebidas") had child `id=2` ("Gaseosas") which is now soft-deleted
+- **WHEN** `list_leaf_categories()` is called
+- **THEN** `Bebidas` is included in the result (it has no active children anymore)
+
+#### Scenario: Empty table returns empty list
+- **GIVEN** the `categories` table has no non-deleted rows
+- **WHEN** `list_leaf_categories()` is called
+- **THEN** the result is `[]`

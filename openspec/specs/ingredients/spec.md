@@ -112,6 +112,16 @@ The system SHALL expose `GET /api/v1/ingredientes` (public, no authentication re
 - **WHEN** `GET /api/v1/ingredientes?page=0` is called
 - **THEN** the response is 422 (RFC 7807)
 
+#### Scenario: es_alergeno filter combined with pagination
+- **GIVEN** 30 active ingredients with `es_alergeno=true`
+- **WHEN** `GET /api/v1/ingredientes?es_alergeno=true&page=2&limit=10` is called
+- **THEN** the response has `items.length == 10`, `total == 30`, `page == 2`, `limit == 10`
+
+#### Scenario: Soft-deleted allergens excluded by default
+- **GIVEN** ingredient `id=10` has `es_alergeno=true` and `eliminado_en IS NOT NULL`
+- **WHEN** `GET /api/v1/ingredientes?es_alergeno=true` is called by anyone except ADMIN with `incluir_eliminados=true`
+- **THEN** the response does NOT include ingredient 10
+
 ### Requirement: Get ingredient by id endpoint
 The system SHALL expose `GET /api/v1/ingredientes/{id}` (public, no authentication required) that returns a single non-deleted ingredient as `IngredienteRead`. Soft-deleted or non-existent ingredients SHALL return 404. This endpoint exists primarily to support `products-backend` (#11) when validating ingredient associations.
 

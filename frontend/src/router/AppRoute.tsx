@@ -12,6 +12,8 @@ import { AdminLayout } from '../pages/admin/AdminLayout';
 import { ClienteLayout } from '../pages/client/ClienteLayout';
 import { PlaceholderPage } from '../components/common/PlaceholderPage';
 import { useAuthStore } from '../features/auth/stores/authStore';
+import { CatalogPage } from '../pages/client/CatalogPage';
+import { ProductDetailPage } from '../pages/client/ProductDetailPage';
 
 /**
  * Redirige la raíz `/` según el rol del usuario:
@@ -100,10 +102,8 @@ export default function AppRoute() {
           <Route element={<RoleGuard roles={['CLIENT']} />}>
             <Route path="/cliente" element={<ClienteLayout />}>
               <Route index element={<Navigate to="catalogo" replace />} />
-              <Route
-                path="catalogo"
-                element={<PlaceholderPage title="Catálogo" description="Productos disponibles con filtros y búsqueda." />}
-              />
+              <Route path="catalogo" element={<CatalogPage />} />
+              <Route path="catalogo/:id" element={<ProductDetailPage />} />
               <Route
                 path="pedidos"
                 element={<PlaceholderPage title="Mis pedidos" description="Historial y seguimiento de pedidos." />}
