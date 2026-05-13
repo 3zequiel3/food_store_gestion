@@ -25,6 +25,16 @@ export function ProductDetailPage() {
   const { data: producto, isLoading, error } = useProduct(productoId);
   const [cantidad, setCantidad] = useState(1);
   const [added, setAdded] = useState(false);
+  const [excluidos, setExcluidos] = useState<Set<number>>(new Set());
+
+  function toggleExcluido(id: number) {
+    setExcluidos((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   // 6.4 — Volver al catálogo
   function handleBack() {
@@ -59,12 +69,19 @@ export function ProductDetailPage() {
   function handleAgregar() {
     if (!producto || sinStock) return;
 
+    const ingredientesRemovibles = producto.ingredientes?.filter((i) => i.es_removible) ?? [];
+    const excluye = ingredientesRemovibles.filter((i) => excluidos.has(i.id));
+    const personalizacion = excluye.length > 0
+      ? excluye.map((i) => `sin ${i.nombre}`).join(', ')
+      : undefined;
+
     useCartStore.getState().addItem(
       {
         producto_id: producto.id,
         nombre: producto.nombre,
-        precio: producto.precio,
+        precio: Number(producto.precio),
         imagen_url: producto.imagen_url ?? undefined,
+        personalizacion,
       },
       cantidad,
     );
@@ -196,7 +213,12 @@ export function ProductDetailPage() {
       {/* 6.2 — Ingredientes */}
       {producto.ingredientes && producto.ingredientes.length > 0 && (
         <div className="mt-10">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Ingredientes</h2>
+          <div className="flex items-baseline gap-2 mb-4">
+            <h2 className="text-lg font-semibold text-foreground">Ingredientes</h2>
+            {producto.ingredientes.some((i) => i.es_removible) && (
+              <span className="text-xs text-muted-foreground">Desmarcá los que no querés</span>
+            )}
+          </div>
           <ul className="divide-y divide-border rounded-xl border border-border overflow-hidden">
             {producto.ingredientes.map((ing) => {
               const esAlergenoNoRemovible = ing.es_alergeno && !ing.es_removible;
@@ -205,7 +227,27 @@ export function ProductDetailPage() {
                   key={ing.id}
                   className="flex items-center justify-between px-4 py-3 bg-card"
                 >
-                  <span className="text-sm text-foreground">{ing.nombre}</span>
+                  <div className="flex items-center gap-3">
+                    {ing.es_removible ? (
+                      <input
+                        type="checkbox"
+                        id={`ing-${ing.id}`}
+                        checked={!excluidos.has(ing.id)}
+                        onChange={() => toggleExcluido(ing.id)}
+                        disabled={sinStock}
+                        className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+                        aria-label={`Incluir ${ing.nombre}`}
+                      />
+                    ) : (
+                      <div className="h-4 w-4 flex-shrink-0" />
+                    )}
+                    <label
+                      htmlFor={ing.es_removible ? `ing-${ing.id}` : undefined}
+                      className={`text-sm ${ing.es_removible ? 'cursor-pointer select-none' : ''} ${excluidos.has(ing.id) ? 'line-through text-muted-foreground' : 'text-foreground'}`}
+                    >
+                      {ing.nombre}
+                    </label>
+                  </div>
                   <div className="flex items-center gap-2">
                     {ing.es_alergeno && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
@@ -213,15 +255,9 @@ export function ProductDetailPage() {
                       </span>
                     )}
                     {esAlergenoNoRemovible && (
-                      <span
-                        title="Alérgeno no removible"
-                        className="text-amber-600 dark:text-amber-400"
-                      >
+                      <span title="Alérgeno no removible" className="text-amber-600 dark:text-amber-400">
                         <AlertTriangle className="h-4 w-4" aria-label="Alérgeno no removible" />
                       </span>
-                    )}
-                    {ing.es_removible && (
-                      <span className="text-xs text-muted-foreground">removible</span>
                     )}
                   </div>
                 </li>

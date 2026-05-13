@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { X, ShoppingCart, Trash2 } from 'lucide-react';
+import { X, ShoppingCart, Trash2, Minus, Plus } from 'lucide-react';
 import { useCartStore } from '../../features/cart/stores/cartStore';
 
 interface CartDrawerProps {
@@ -16,6 +16,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const items = useCartStore((s) => s.items);
   const removeItem = useCartStore((s) => s.removeItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
   const getTotalPrice = useCartStore((s) => s.getTotalPrice);
   const clearCart = useCartStore((s) => s.clearCart);
 
@@ -91,8 +92,16 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                   key={item.producto_id}
                   className="flex items-center gap-3 px-4 py-3"
                 >
-                  {/* Imagen placeholder */}
-                  <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-muted" />
+                  {/* Imagen o placeholder */}
+                  <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-muted overflow-hidden">
+                    {item.imagen_url ? (
+                      <img
+                        src={item.imagen_url}
+                        alt={item.nombre}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
@@ -100,7 +109,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                       {item.nombre}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {item.cantidad} × ${Number(item.precio).toFixed(2)}
+                      ${Number(item.precio).toFixed(2)} c/u
                     </p>
                     {item.personalizacion && (
                       <p className="truncate text-xs text-muted-foreground italic">
@@ -109,19 +118,40 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                     )}
                   </div>
 
-                  {/* Subtotal + remove */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Controles cantidad + subtotal + remove */}
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     <span className="text-sm font-semibold text-foreground">
                       ${(Number(item.precio) * item.cantidad).toFixed(2)}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => removeItem(item.producto_id)}
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                      aria-label={`Eliminar ${item.nombre}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.producto_id, item.cantidad - 1)}
+                        className="flex h-6 w-6 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent transition-colors"
+                        aria-label={`Reducir cantidad de ${item.nombre}`}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="w-6 text-center text-sm font-medium text-foreground">
+                        {item.cantidad}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.producto_id, item.cantidad + 1)}
+                        className="flex h-6 w-6 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent transition-colors"
+                        aria-label={`Aumentar cantidad de ${item.nombre}`}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.producto_id)}
+                        className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors ml-1"
+                        aria-label={`Eliminar ${item.nombre}`}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
                 </li>
               ))}
