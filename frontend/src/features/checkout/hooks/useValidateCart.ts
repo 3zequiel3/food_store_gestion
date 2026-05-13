@@ -36,16 +36,17 @@ async function validateCartItems(
 }
 
 export function useValidateCart() {
-  const items = useCartStore((s) =>
-    s.items.map((i) => ({
-      producto_id: i.producto_id,
-      nombre: i.nombre,
-      cantidad: i.cantidad,
-      precio: Number(i.precio),
-    })),
-  );
+  const items = useCartStore((s) => s.items);
 
   return useMutation({
-    mutationFn: () => validateCartItems(items),
+    mutationFn: () =>
+      validateCartItems(
+        items.map((i) => ({
+          producto_id: i.producto_id,
+          nombre: i.nombre,
+          cantidad: i.cantidad,
+          precio: Number(i.precio),
+        })),
+      ),
   });
 }
