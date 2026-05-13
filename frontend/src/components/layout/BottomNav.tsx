@@ -60,7 +60,7 @@ export function BottomNav({ onMoreOpen }: BottomNavProps) {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-20 flex h-16 bg-card border-t border-border md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-20 flex h-16 bg-chrome border-t border-border md:hidden"
       aria-label="Navegación móvil"
     >
       {items.map((item) => {

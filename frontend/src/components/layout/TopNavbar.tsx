@@ -27,13 +27,15 @@ export function TopNavbar({ onCartOpen }: TopNavbarProps) {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-30 h-14 bg-card border-b border-border"
+      className="fixed top-0 left-0 right-0 z-30 h-14 bg-chrome border-b border-border"
       aria-label="Barra de navegación"
     >
       <div className="flex h-full items-center justify-between px-4">
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-primary">Food Store</span>
+          <span className="text-lg font-semibold text-foreground/90 tracking-tight">
+            Food Store
+          </span>
         </div>
 
         {/* Right slots */}

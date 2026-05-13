@@ -57,7 +57,7 @@ export function MobileMoreDrawer({ isOpen, onClose }: MobileMoreDrawerProps) {
       onClose={onClose}
       className="
         fixed bottom-16 left-0 right-0 m-0 max-w-none w-full
-        rounded-t-2xl bg-card border-t border-border p-0
+        rounded-t-2xl bg-chrome border-t border-border p-0
         backdrop:bg-black/50 backdrop:backdrop-blur-sm
         open:animate-in open:slide-in-from-bottom-4
       "

@@ -251,7 +251,7 @@ export function Sidebar({ onLockChange }: SidebarProps) {
       className={`
         hidden md:flex flex-col
         fixed left-0 top-14 bottom-0
-        bg-card border-r border-border z-20
+        bg-chrome border-r border-border z-20
         overflow-hidden
         transition-all duration-150 ease-out
         ${isExpanded ? 'w-60' : 'w-16'}
