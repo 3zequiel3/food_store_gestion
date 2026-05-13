@@ -112,6 +112,10 @@ export default function AppRoute() {
               />
               <Route path="direcciones" element={<AddressesPage />} />
               <Route path="perfil" element={<ProfilePage />} />
+              <Route
+                path="checkout"
+                element={<PlaceholderPage title="Checkout" description="Finalización del pedido — llega en #26." />}
+              />
             </Route>
           </Route>
         </Route>

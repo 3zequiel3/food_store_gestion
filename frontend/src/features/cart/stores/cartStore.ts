@@ -20,6 +20,8 @@ interface CartActions {
    * Si cantidad <= 0, remueve el item (spec req: updateQuantity a 0 → remove).
    */
   updateQuantity(producto_id: number, cantidad: number): void;
+  /** Actualiza el precio de un item sin tocar ningún otro campo (post-validación) */
+  updateItemPrice(producto_id: number, precio: number): void;
   /** Vacía el carrito completamente */
   clearCart(): void;
   /** Cantidad total de unidades en el carrito (suma de cantidades) */
@@ -74,6 +76,14 @@ export const useCartStore = create<CartStore>()(
         set((state) => ({
           items: state.items.map((i) =>
             i.producto_id === producto_id ? { ...i, cantidad } : i,
+          ),
+        }));
+      },
+
+      updateItemPrice(producto_id, precio) {
+        set((state) => ({
+          items: state.items.map((i) =>
+            i.producto_id === producto_id ? { ...i, precio } : i,
           ),
         }));
       },
