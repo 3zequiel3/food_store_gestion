@@ -1,39 +1,108 @@
 """
-Payments feature router.
+Payments router — registered in main.py under /api/v1/pagos.
 
-Endpoints for payment management and webhooks.
+Endpoints:
+  POST /api/v1/pagos                      — create MP preference for a PENDIENTE order
+  POST /api/v1/pagos/webhook/mercadopago  — IPN handler (no auth — MP calls this)
+  GET  /api/v1/pagos/pedido/{pedido_id}   — latest payment status for an order
+
+Webhook format tolerance (three MP notification formats are normalised here):
+  Format 1 — Modern webhook: POST JSON {"type": "payment", "data": {"id": "123"}}
+  Format 2 — Old IPN body:   POST JSON {"topic": "payment", "resource": "https://.../payments/123"}
+  Format 3 — Classic IPN:    POST (empty body) + query params ?topic=payment&id=123
 """
 
-from fastapi import APIRouter
+from __future__ import annotations
+
+import re
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query, Request
+
+from backend.features.auth.dependencies import require_role
+from backend.features.payments.schemas import PagoCreate, PagoRead
+from backend.features.payments.service import PaymentService
+from backend.features.users.models import Usuario
 
 router = APIRouter()
 
 
-@router.get("/{payment_id}")
-async def get_payment(payment_id: str):
+def _extract_mp_payment_id(
+    body: dict,
+    topic: Optional[str],
+    payment_id: Optional[str],
+) -> Optional[str]:
+    # Format 1 — modern webhook body
+    if body.get("type") == "payment":
+        pid = body.get("data", {}).get("id")
+        if pid:
+            return str(pid)
+    # Format 2 — old IPN with resource URL
+    if body.get("topic") == "payment":
+        match = re.search(r"/payments/(\d+)", body.get("resource", ""))
+        if match:
+            return match.group(1)
+    # Format 3 — classic IPN via query params
+    if topic == "payment" and payment_id:
+        return str(payment_id)
+    return None
+
+
+@router.post("/", status_code=201, response_model=PagoRead)
+def crear_pago(
+    body: PagoCreate,
+    current_user: Usuario = Depends(require_role("CLIENT")),
+) -> PagoRead:
     """
-    Get payment by ID.
+    Initiate a MercadoPago payment for an order.
 
-    Implementation in payments feature.
+    Creates a preference in MP and registers a Pago record.
+    Returns PagoRead with init_point (checkout URL).
     """
-    return {"status": "not_implemented"}
+    pago, init_point = PaymentService().crear_preferencia(
+        user_id=current_user.id,
+        pedido_id=body.pedido_id,
+    )
+    data = PagoRead.model_validate(pago)
+    data.init_point = init_point
+    return data
 
 
-@router.post("/")
-async def create_payment():
+@router.post("/webhook/mercadopago", status_code=200)
+async def webhook_mercadopago(
+    request: Request,
+    topic: Optional[str] = Query(default=None),
+    payment_id: Optional[str] = Query(default=None, alias="id"),
+) -> dict:
     """
-    Create new payment.
+    Receive IPN notifications from MercadoPago.
 
-    Implementation in payments feature.
+    Tolerates all three notification formats MP may send.
+    No user authentication — MP calls this endpoint directly.
+    Idempotent: safe to receive the same notification multiple times.
     """
-    return {"status": "not_implemented"}
+    body: dict = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+
+    mp_payment_id = _extract_mp_payment_id(body, topic, payment_id)
+    if mp_payment_id:
+        PaymentService().procesar_webhook(mp_payment_id)
+    return {"status": "ok"}
 
 
-@router.post("/webhook/mercadopago")
-async def webhook_mercadopago():
+@router.get("/pedido/{pedido_id}", response_model=PagoRead)
+def obtener_pago_pedido(
+    pedido_id: int,
+    current_user: Usuario = Depends(require_role("CLIENT")),
+) -> PagoRead:
     """
-    MercadoPago webhook handler.
-
-    Implementation in payments feature.
+    Return the latest payment status for an order owned by the authenticated client.
     """
-    return {"status": "not_implemented"}
+    pago = PaymentService().obtener_pago_por_pedido(
+        user_id=current_user.id,
+        pedido_id=pedido_id,
+    )
+    return PagoRead.model_validate(pago)

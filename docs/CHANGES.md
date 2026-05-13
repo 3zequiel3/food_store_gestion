@@ -7,313 +7,386 @@ Un **change** es la unidad mínima de trabajo en SDD. Cada change es un conjunto
 - **design.md**: CÓMO técnicamente (arquitectura, modelos, endpoints)
 - **tasks.md**: Checklist atómica de implementación
 
-Este documento define el mapa completo de **25 changes** para desarrollar Food Store de principio a fin, organizados en orden de implementación. Cada change respeta las dependencias y está agrupado en sprints lógicos.
+Este documento define el mapa completo de **30 changes** para desarrollar Food Store de principio a fin, organizados en orden de implementación.
+
+### Estrategia: Backend-First → Frontend-First
+
+El proyecto se desarrolla en **dos fases secuenciales**:
+
+- **FASE A — Backend completo (Sprints 0–6)**: Se construye toda la API REST con tests de integración fuertes. La validación es 100% automatizada (`pytest`) y manual (Postman/curl). Sin UI hasta el final de esta fase.
+- **FASE B — Frontend completo (Sprints 7–12)**: Una vez que el backend está estable y testeado, se construye toda la UI sobre una API congelada.
+
+**Tradeoff aceptado**: la validación E2E se concentra en la Fase B. Los bugs de integración (CORS, formatos de fecha, paginación, snapshots) aparecerán de golpe al arrancar el frontend. Para mitigarlo, los tests de integración del backend deben cubrir todos los caminos críticos.
+
+### Estado actual (2026-05-12)
+
+- **Sprints 0 a 4**: ✅ Archivados completos (changes #1 al #13) — *ver nota sobre #2/#5/#7/#8 refactoreados*
+- **Refactors**: ✅ Archivados — `refactor-uow-to-context-manager` (68/68), `refactor-auth-to-uow`, `refactor-users-route-to-spanish`
+- **Frontend rebuild**: 🔄 En progreso — `frontend-rebuild-on-feature-first` (BLOQUEANTE de Fase B). Changes #2/#5/#7/#8 marcados como refactored — su código fue reemplazado por este change.
+- **Sprint 5**: 🔄 En progreso — `order-creation-backend` (#14) ✅ archivado, `payment-mercadopago-backend` (#15) ✅ archivado, `order-state-machine-fsm` (#16) 🔄 En implementación
 
 ---
 
-## Sprint 0 — Infraestructura Base (5 changes)
+# FASE A — Backend Completo
 
-### 1. **setup-backend-core**
+## Sprint 0 — Infraestructura Base ✅ ARCHIVADO
+
+### 1. **setup-backend-core** ✅
 - **Funcionalidad**: Scaffolding del backend, estructura feature-first, dependencias FastAPI, configuración inicial
 - **Historias**: US-000, US-000a
 - **Dependencias**: Ninguna
-- **Razón**: Fundación sobre la que se construye todo. Sin esto, no hay backend.
-- **Duración estimada**: 2-3 horas
 
-### 2. **setup-frontend-core**
+### 2. **setup-frontend-core** ~~✅~~ ⚠️ Refactored 2026-05-12 — sustituido por `frontend-rebuild-on-feature-first`
 - **Funcionalidad**: Scaffolding del frontend, estructura FSD, dependencias React/Vite, configuración Tailwind
 - **Historias**: US-000, US-000c
 - **Dependencias**: Ninguna
-- **Razón**: Fundación del frontend. Puede hacerse en paralelo con setup-backend-core.
-- **Duración estimada**: 2-3 horas
+- **Nota**: Adelantado en Sprint 0 para no bloquear la Fase B después.
 
-### 3. **database-schema-seed**
+### 3. **database-schema-seed** ✅
 - **Funcionalidad**: Todas las tablas del ERD v5, migraciones Alembic, script de seed (Roles, EstadoPedidos, FormaPago, usuario admin)
 - **Historias**: US-000b, US-000d
 - **Dependencias**: setup-backend-core
-- **Razón**: Las tablas y datos base deben existir antes de implementar cualquier módulo funcional.
-- **Duración estimada**: 3-4 horas
 
-### 4. **backend-error-handling-validation**
+### 4. **backend-error-handling-validation** ✅
 - **Funcionalidad**: RFC 7807 (Problem Details), manejo de excepciones global, validación Pydantic v2, sanitización de inputs
 - **Historias**: US-068, US-074
 - **Dependencias**: setup-backend-core
-- **Razón**: Patrón transversal que debe estar en lugar antes de que los routers comiencen a escribirse.
-- **Duración estimada**: 2-3 horas
 
-### 5. **zustand-stores-base**
+### 5. **zustand-stores-base** ~~✅~~ ⚠️ Refactored 2026-05-12 — sustituido por `frontend-rebuild-on-feature-first`
 - **Funcionalidad**: Cuatro stores de Zustand: authStore, cartStore, paymentStore, uiStore (todos tipados, con persist)
 - **Historias**: US-000e
 - **Dependencias**: setup-frontend-core
-- **Razón**: Los stores son la base del estado del cliente en todo el frontend.
-- **Duración estimada**: 2-3 horas
+- **Nota**: Adelantado en Sprint 0 para que el frontend tenga base lista cuando arranque la Fase B.
 
 ---
 
-## Sprint 1 — Autenticación y Autorización (3 changes)
+## Sprint 1 — Autenticación y Autorización ✅ ARCHIVADO
 
-### 6. **auth-backend**
+### 6. **auth-backend** ✅
 - **Funcionalidad**: Login, registro, JWT (access+refresh), refresh automático, logout, RBAC (require_role), rate limiting, BaseRepository + UnitOfWork
 - **Historias**: US-001, US-002, US-003, US-004, US-005, US-006, US-073
 - **Dependencias**: database-schema-seed, backend-error-handling-validation
-- **Razón**: Sistema de seguridad central. Sin auth, no hay control de acceso en nada.
-- **Duración estimada**: 5-6 horas
 
-### 7. **auth-frontend-interceptor**
+### 7. **auth-frontend-interceptor** ~~✅~~ ⚠️ Refactored 2026-05-12 — sustituido por `frontend-rebuild-on-feature-first`
 - **Funcionalidad**: Formularios de login/registro, interceptor Axios para JWT, renovación automática en 401, toast de errores, authStore integration
 - **Historias**: US-001, US-002, US-066, US-067
 - **Dependencias**: auth-backend, zustand-stores-base, setup-frontend-core
-- **Razón**: Implementa el lado del cliente del flujo de autenticación.
-- **Duración estimada**: 3-4 horas
+- **Nota**: Adelantado para validar el contrato del auth-backend con UI real.
 
-### 8. **navigation-routing-base**
+### 8. **navigation-routing-base** ~~✅~~ ⚠️ Refactored 2026-05-12 — sustituido por `frontend-rebuild-on-feature-first`
 - **Funcionalidad**: Layout base, navbar/sidebar adaptado por rol, react-router con guards, rutas públicas/privadas, componentes de error (403, 404)
 - **Historias**: US-075, US-076
 - **Dependencias**: auth-frontend-interceptor
-- **Razón**: El esqueleto de navegación que todas las páginas futuras necesitarán.
-- **Duración estimada**: 3-4 horas
 
 ---
 
-## Sprint 2 — Catálogo Base (2 changes)
+## Sprint 2 — Catálogo Base ✅ ARCHIVADO
 
-### 9. **categories-backend**
+### 9. **categories-backend** ✅
 - **Funcionalidad**: CRUD completo de categorías, jerarquía recursiva con CTE, soft delete, validación de ciclos
 - **Historias**: US-007, US-008, US-009, US-010
 - **Dependencias**: auth-backend
-- **Razón**: Las categorías son estructura del catálogo. Los productos las necesitan.
-- **Duración estimada**: 3-4 horas
+- **Duración**: 3-4 horas
 
-### 10. **ingredients-backend**
+### 10. **ingredients-backend** ✅
 - **Funcionalidad**: CRUD de ingredientes, campo es_alergeno, soft delete, filtrados por alérgeno
 - **Historias**: US-011, US-012, US-013, US-014
 - **Dependencias**: auth-backend
-- **Razón**: Los ingredientes se asocian a productos. Independiente de categorías.
-- **Duración estimada**: 2-3 horas
+- **Duración**: 2-3 horas
 
 ---
 
-## Sprint 3 — Productos (2 changes)
+## Sprint 3 — Productos (Backend) ✅ ARCHIVADO
 
-### 11. **products-backend**
+### 11. **products-backend** ✅
 - **Funcionalidad**: CRUD de productos, asociación M2M con categorías e ingredientes, stock management, soft delete, endpoint público con filtros
 - **Historias**: US-015, US-016, US-017, US-018, US-019, US-020, US-021, US-022, US-023
 - **Dependencias**: categories-backend, ingredients-backend
-- **Razón**: El corazón del catálogo. Los clientes necesitan ver productos.
+- **Razón**: El corazón del catálogo. Bloquea casi toda la Fase A restante.
 - **Duración estimada**: 5-6 horas
-
-### 12. **products-frontend-catalog**
-- **Funcionalidad**: Listado de productos (catálogo público), detalle de producto, filtros (categoría, búsqueda, rango de precio, alergenos), paginación, skeleton loaders, TanStack Query
-- **Historias**: US-018, US-019, US-023
-- **Dependencias**: products-backend, navigation-routing-base
-- **Razón**: Los clientes necesitan ver y explorar el catálogo.
-- **Duración estimada**: 4-5 horas
 
 ---
 
-## Sprint 4 — Perfil y Direcciones (2 changes)
+## Sprint 4 — Perfil y Direcciones (Backend) ✅ ARCHIVADO
 
-### 13. **user-profile**
-- **Funcionalidad**: Ver perfil propio, editar datos personales, cambiar contraseña (validación de actual), invalidación de refresh tokens en cambio de password
+### 12. **user-profile-backend** ✅
+- **Funcionalidad**: GET /me, PUT /me (datos personales), POST /me/password (cambio de contraseña con validación de la actual), invalidación de refresh tokens en cambio de password
 - **Historias**: US-061, US-062, US-063
-- **Dependencias**: auth-backend, navigation-routing-base
-- **Razón**: Básico de cualquier usuario autenticado.
-- **Duración estimada**: 2-3 horas
+- **Dependencias**: auth-backend
+- **Razón**: Endpoints básicos de cualquier usuario autenticado.
+- **Duración estimada**: 2 horas
 
-### 14. **delivery-addresses**
+### 13. **delivery-addresses-backend** ✅
 - **Funcionalidad**: CRUD de direcciones, dirección predeterminada, ownership validation, endpoint GET único del cliente, PATCH /principal
 - **Historias**: US-024, US-025, US-026, US-027, US-028
 - **Dependencias**: auth-backend
-- **Razón**: Necesarias antes de crear pedidos. Los clientes almacenan direcciones.
-- **Duración estimada**: 3-4 horas
-
----
-
-## Sprint 5 — Carrito de Compras (2 changes)
-
-### 15. **shopping-cart-zustand**
-- **Funcionalidad**: Store Zustand completo (addItem, removeItem, updateQuantity, clearCart), persistencia en localStorage, personalización de ingredientes, cálculo de totales
-- **Historias**: US-029, US-030, US-031, US-032, US-033, US-034
-- **Dependencias**: products-backend, zustand-stores-base
-- **Razón**: El carrito es 100% client-side. No hay backend para esto.
-- **Duración estimada**: 2-3 horas
-
-### 16. **checkout-validation-frontend**
-- **Funcionalidad**: Validación pre-checkout (stock, disponibilidad), detección de cambios de precio, modal de confirmación, notificaciones al cliente
-- **Historias**: US-069, US-070
-- **Dependencias**: shopping-cart-zustand, products-backend
-- **Razón**: Validar ANTES de intentar crear el pedido. Mejor UX.
+- **Razón**: Necesarias antes de crear pedidos. Bloquea order-creation-backend.
 - **Duración estimada**: 2-3 horas
 
 ---
 
-## Sprint 6 — Creación de Pedidos (2 changes)
+## Refactors — Fuera del roadmap original ✅ ARCHIVADOS
 
-### 17. **order-creation-backend**
+### ✅ **refactor-uow-to-context-manager**
+- **Funcionalidad**: Migrar el lifecycle del UnitOfWork de los routers a los services usando context manager. Elimina `Depends(get_uow)`, traslada `commit()`/`rollback()` al service, y resuelve el "double-read pattern" en routers.
+- **Justificación**: Deuda técnica reconocida en los design.md archivados de Sprints 2-4. El patrón actual mezcla preocupaciones HTTP con transaccionales.
+- **Dependencias**: categories-backend, ingredients-backend, products-backend, user-profile-backend, delivery-addresses-backend
+- **Estado**: ✅ 68/68 tasks completadas — Archivado
+
+### ✅ **refactor-auth-to-uow**
+- **Funcionalidad**: Migrar AuthService al patrón service-driven UoW. Cierra bug latente de atomicidad en register, elimina `Depends(get_db)`.
+- **Estado**: ✅ Archivado
+
+### ✅ **refactor-users-route-to-spanish**
+- **Funcionalidad**: Alinear ruta HTTP `/api/v1/users` → `/api/v1/usuarios` según lexicón español del integrador §5.
+- **Estado**: ✅ Archivado
+
+### 🔄 **frontend-rebuild-on-feature-first** — BLOQUEANTE DE FASE B
+- **Funcionalidad**: Reconstrucción consolidada de la fundación del frontend adaptada a Feature-First plano. Reemplaza #2, #5, #7 y #8 (refactoreados). Incluye: interceptors HTTP (auth + RFC 7807 ApiError, single-flight refresh), authStore + cartStore (Zustand+persist), auth feature end-to-end (schemas Zod, service, hooks TanStack Query, LoginForm/RegisterForm con TanStack Form), router nested con guards (PublicRoute/PrivateRoute/RoleGuard), páginas de error 401/403/404, layout dual (Sidebar hover-expand+lock desktop, BottomNav+TopNavbar mobile), design tokens dark-first vía Tailwind v4 @theme, QueryClient defaults globales, ESLint rule anti-namespace lucide.
+- **Historias**: US-000c, US-000e, US-001, US-002, US-066, US-067, US-075, US-076
+- **Dependencias**: auth-backend ✅
+- **Estado**: 🔄 En implementación (2026-05-12)
+- **Por qué**: El refactor de Feature-First plano invalidó cuatro changes archivados que asumían FSD nominal y 4 stores fijos. Este change es el consolidado que repone la fundación adaptada.
+
+---
+
+## Sprint 5 — Ciclo de Vida del Pedido (Backend)
+
+### 14. **order-creation-backend** ✅
 - **Funcionalidad**: Endpoint POST /pedidos, creación atómica con UoW, snapshots de precio y dirección, validación de stock dentro de transacción, HistorialEstadoPedido inicial, estado PENDIENTE
 - **Historias**: US-035, US-036, US-037, US-038
-- **Dependencias**: delivery-addresses, products-backend, database-schema-seed
-- **Razón**: Core del negocio. Crear un pedido es la operación más compleja — múltiples inserts atómicos.
+- **Dependencias**: delivery-addresses-backend, products-backend, database-schema-seed
+- **Razón**: Core del negocio. Operación más compleja del backend — múltiples inserts atómicos.
 - **Duración estimada**: 5-6 horas
 
-### 18. **order-creation-frontend-checkout**
-- **Funcionalidad**: Componentes de checkout (selección de dirección, confirmación de items con snapshots, resumen de total), flujo post-creación, confirmación visual
-- **Historias**: US-035, US-071
-- **Dependencias**: order-creation-backend, checkout-validation-frontend, shopping-cart-zustand
-- **Razón**: UI para que el cliente confirme y cree el pedido.
-- **Duración estimada**: 3-4 horas
-
----
-
-## Sprint 7 — Pagos MercadoPago (1 change)
-
-### 19. **payment-mercadopago-integration**
-- **Funcionalidad**: SDK MercadoPago.js (tokenización PCI SAQ-A), endpoint crear preferencia/orden, webhook IPN (/webhooks/mercadopago), idempotency_key UUID, transición automática PENDIENTE→CONFIRMADO, tabla Pago completa
-- **Historias**: US-045, US-046, US-047, US-048
+### 15. **payment-mercadopago-backend**
+- **Funcionalidad**: Endpoint crear preferencia/orden, webhook IPN (/webhooks/mercadopago), idempotency_key UUID, transición automática PENDIENTE→CONFIRMADO, tabla Pago completa
+- **Historias**: US-045, US-046, US-047, US-048 (parte backend)
 - **Dependencias**: order-creation-backend
-- **Razón**: Los pedidos pasan de PENDIENTE a CONFIRMADO cuando el pago es aprobado. Sin esto, los pedidos nunca avanzan.
-- **Duración estimada**: 6-7 horas (incluye configuración Sandbox y testing)
+- **Razón**: La mitad servidora del flujo de pago. La tokenización (SDK MercadoPago.js) queda para la Fase B.
+- **Validación**: ngrok + Postman para simular el webhook IPN. El flujo completo no se valida hasta el frontend.
+- **Duración estimada**: 4-5 horas
 
----
-
-## Sprint 8 — Máquina de Estados (1 change)
-
-### 20. **order-state-machine-fsm**
-- **Funcionalidad**: FSM completa (PENDIENTE, CONFIRMADO, EN_PREPARACIÓN, EN_CAMINO, ENTREGADO, CANCELADO), transiciones validadas en Service, decremento de stock en CONFIRMADO, restauración en CANCELADO, HistorialEstadoPedido append-only con auditoría completa
+### 16. **order-state-machine-fsm**
+- **Funcionalidad**: FSM completa (PENDIENTE, CONFIRMADO, EN_PREPARACIÓN, EN_CAMINO, ENTREGADO, CANCELADO), transiciones validadas en Service, decremento de stock en CONFIRMADO, restauración en CANCELADO, HistorialEstadoPedido append-only
 - **Historias**: US-039, US-040, US-041, US-042, US-043, US-044
-- **Dependencias**: payment-mercadopago-integration
-- **Razón**: Define todo el ciclo de vida del pedido. Gestores de pedidos usarán esto para avanzar estados.
+- **Dependencias**: payment-mercadopago-backend
+- **Razón**: Define todo el ciclo de vida del pedido. Endpoints para que gestores avancen estados.
 - **Duración estimada**: 5-6 horas
 
----
-
-## Sprint 9 — Visualización de Pedidos (2 changes)
-
-### 21. **order-visualization-backend**
+### 17. **order-visualization-backend** ✅
 - **Funcionalidad**: GET /pedidos (listado filtrado por usuario si es CLIENT, todos si ADMIN/PEDIDOS), GET /pedidos/{id} con snapshots y historial, paginación, filtros por estado y fecha
 - **Historias**: US-049, US-050, US-051, US-052
 - **Dependencias**: order-state-machine-fsm
-- **Razón**: Clientes ven sus pedidos, gestores ven todos. Información read-only.
+- **Razón**: Endpoints read-only para clientes y gestores.
 - **Duración estimada**: 3-4 horas
-
-### 22. **order-visualization-frontend**
-- **Funcionalidad**: Página "Mis Pedidos" (cliente), panel de gestión de pedidos (gestor), detalles con timeline de estados, historial, información de pago, botones para cambiar estado (solo gestor)
-- **Historias**: US-049, US-050, US-051, US-052, US-072
-- **Dependencias**: order-visualization-backend, navigation-routing-base
-- **Razón**: UI para que clientes y gestores vean sus pedidos y cambien estados.
-- **Duración estimada**: 4-5 horas
+- **Estado**: Completado — 45/45 tests verdes
 
 ---
 
-## Sprint 10 — Administración de Usuarios (1 change)
+## Sprint 6 — Administración (Backend)
 
-### 23. **admin-users-management**
-- **Funcionalidad**: Panel de usuarios (GET /admin/usuarios), editar usuario (PUT), cambiar rol, desactivar (PATCH /estado), busca por email/nombre, filtro por rol, paginación, validación de no quitar último ADMIN
+### 18. **admin-users-backend**
+- **Funcionalidad**: GET /admin/usuarios (listado paginado), PUT /admin/usuarios/{id} (editar), PATCH /admin/usuarios/{id}/rol (cambiar rol), PATCH /admin/usuarios/{id}/estado (desactivar), búsqueda por email/nombre, filtro por rol, validación de no quitar último ADMIN
 - **Historias**: US-053, US-054, US-055
-- **Dependencias**: auth-backend, navigation-routing-base
+- **Dependencias**: auth-backend
 - **Razón**: Admin necesita controlar usuarios del sistema.
-- **Duración estimada**: 3-4 horas
+- **Duración estimada**: 2-3 horas
 
----
-
-## Sprint 11 — Acceso Admin Ampliado (1 change)
-
-### 24. **admin-catalog-permissions**
+### 19. **admin-catalog-permissions**
 - **Funcionalidad**: Extender endpoints de productos, categorías e ingredientes para aceptar tanto ADMIN como STOCK/PEDIDOS según corresponda. Admin tiene acceso completo a gestionar todo.
 - **Historias**: US-064, US-065
-- **Dependencias**: products-backend, order-state-machine-fsm, admin-users-management
-- **Razón**: Admin necesita poder intervenir en catalogo y pedidos sin depender del gestor.
+- **Dependencias**: products-backend, order-state-machine-fsm, admin-users-backend
+- **Razón**: Admin necesita poder intervenir en catálogo y pedidos sin depender del gestor.
 - **Duración estimada**: 1-2 horas
 
----
-
-## Sprint 12 — Dashboard y Métricas (1 change)
-
-### 25. **admin-dashboard-metrics**
-- **Funcionalidad**: Panel de métricas (GET /admin/metricas/resumen), gráfico de ventas por periodo, top productos más vendidos, distribución por estado, filtro por fecha, recharts en frontend
-- **Historias**: US-056, US-057, US-058, US-059
+### 20. **admin-metrics-backend**
+- **Funcionalidad**: GET /admin/metricas/resumen, agregaciones de ventas por periodo, top productos más vendidos, distribución por estado, filtro por fecha
+- **Historias**: US-056, US-057, US-058, US-059 (parte backend)
 - **Dependencias**: order-creation-backend (datos)
-- **Razón**: Admin ve inteligencia del negocio. Prioridad media pero completa la experiencia admin.
-- **Duración estimada**: 4-5 horas
-
----
-
-## Sprint 13 (Futuro) — Configuración del Sistema
-
-### 26. **system-configuration** *(Baja prioridad — postergable)*
-- **Funcionalidad**: Panel de configuración global (horarios, zona de entrega, parámetros), tabla key-value en BD
-- **Historias**: US-060
-- **Dependencias**: auth-backend
-- **Razón**: Baja prioridad. Se puede implementar en fase posterior.
+- **Razón**: Inteligencia del negocio. Solo endpoints — la visualización con recharts va a la Fase B.
 - **Duración estimada**: 2-3 horas
 
 ---
 
-## Grafo de Dependencias
+# FASE B — Frontend Completo
+
+A partir de acá la API está congelada y todos los changes son frontend-only.
+
+---
+
+## Sprint 7 — Catálogo (Frontend)
+
+### 21. **products-frontend-catalog**
+- **Funcionalidad**: Listado de productos (catálogo público), detalle de producto, filtros (categoría, búsqueda, rango de precio, alérgenos), paginación, skeleton loaders, TanStack Query
+- **Historias**: US-018, US-019, US-023
+- **Dependencias**: products-backend ✅, navigation-routing-base ✅
+- **Razón**: Primera UI funcional sobre el backend completo. Validación E2E del catálogo.
+- **Duración estimada**: 4-5 horas
+
+---
+
+## Sprint 8 — Perfil y Direcciones (Frontend)
+
+### 22. **user-profile-frontend**
+- **Funcionalidad**: Página de perfil, formulario de edición de datos, modal de cambio de contraseña, manejo de invalidación de tokens (re-login)
+- **Historias**: US-061, US-062, US-063
+- **Dependencias**: user-profile-backend ✅, navigation-routing-base ✅
+- **Duración estimada**: 2 horas
+
+### 23. **delivery-addresses-frontend**
+- **Funcionalidad**: Lista de direcciones del cliente, formulario alta/edición, marcar predeterminada, eliminar
+- **Historias**: US-024, US-025, US-026, US-027, US-028
+- **Dependencias**: delivery-addresses-backend ✅
+- **Duración estimada**: 2-3 horas
+
+---
+
+## Sprint 9 — Carrito y Checkout (Frontend)
+
+### 24. **shopping-cart-zustand**
+- **Funcionalidad**: Store Zustand completo (addItem, removeItem, updateQuantity, clearCart), persistencia en localStorage, personalización de ingredientes, cálculo de totales
+- **Historias**: US-029, US-030, US-031, US-032, US-033, US-034
+- **Dependencias**: products-frontend-catalog, zustand-stores-base ✅
+- **Razón**: 100% client-side. No hay backend para esto.
+- **Duración estimada**: 2-3 horas
+
+### 25. **checkout-validation-frontend** ✅
+- **Funcionalidad**: Validación pre-checkout (stock, disponibilidad), detección de cambios de precio, modal de confirmación, notificaciones al cliente
+- **Historias**: US-069, US-070
+- **Dependencias**: shopping-cart-zustand, products-backend ✅
+- **Razón**: Validar ANTES de intentar crear el pedido. Mejor UX.
+- **Duración estimada**: 2-3 horas
+- **Estado**: Completado — 16/16 tasks, archivado 2026-05-13
+
+### 26. **order-creation-frontend-checkout** ✅
+- **Funcionalidad**: Componentes de checkout (selección de dirección, confirmación de items con snapshots, resumen de total), flujo post-creación, confirmación visual
+- **Historias**: US-035, US-071
+- **Dependencias**: order-creation-backend ✅, checkout-validation-frontend ✅, delivery-addresses-frontend ✅
+- **Razón**: UI para que el cliente confirme y cree el pedido.
+- **Duración estimada**: 3-4 horas
+- **Estado**: Completado — 24/24 tasks, archivado 2026-05-13
+
+---
+
+## Sprint 10 — Pagos (Frontend)
+
+### 27. **payment-mercadopago-frontend**
+- **Funcionalidad**: SDK MercadoPago.js (tokenización PCI SAQ-A), formulario de pago, integración con preferencia generada por backend, redirección post-pago, polling/listener para confirmación de estado
+- **Historias**: US-045, US-046, US-047, US-048 (parte frontend)
+- **Dependencias**: payment-mercadopago-backend ✅, order-creation-frontend-checkout
+- **Razón**: Cierra el flujo de pago. Acá se valida E2E todo el ciclo PENDIENTE→CONFIRMADO con MP Sandbox.
+- **Duración estimada**: 3-4 horas
+
+---
+
+## Sprint 11 — Visualización de Pedidos (Frontend)
+
+### 28. **order-visualization-frontend**
+- **Funcionalidad**: Página "Mis Pedidos" (cliente), panel de gestión de pedidos (gestor), detalles con timeline de estados, historial, información de pago, botones para cambiar estado (solo gestor)
+- **Historias**: US-049, US-050, US-051, US-052, US-072
+- **Dependencias**: order-visualization-backend ✅, order-state-machine-fsm ✅
+- **Razón**: UI para que clientes vean sus pedidos y gestores gestionen estados.
+- **Duración estimada**: 4-5 horas
+
+---
+
+## Sprint 12 — Administración (Frontend)
+
+### 29. **admin-users-frontend**
+- **Funcionalidad**: Panel de usuarios con tabla paginada, filtros, búsqueda, modales para editar / cambiar rol / desactivar
+- **Historias**: US-053, US-054, US-055
+- **Dependencias**: admin-users-backend ✅, navigation-routing-base ✅
+- **Duración estimada**: 2-3 horas
+
+### 30. **admin-dashboard-frontend**
+- **Funcionalidad**: Panel de métricas con recharts, gráfico de ventas por periodo, top productos, distribución por estado, filtro por fecha
+- **Historias**: US-056, US-057, US-058, US-059
+- **Dependencias**: admin-metrics-backend ✅
+- **Razón**: Cierra la experiencia admin con visualización completa.
+- **Duración estimada**: 3-4 horas
+
+---
+
+# Postergable (fuera de las dos fases)
+
+### **system-configuration** *(Baja prioridad)*
+- **Funcionalidad**: Panel de configuración global (horarios, zona de entrega, parámetros), tabla key-value en BD, endpoints + UI
+- **Historias**: US-060
+- **Dependencias**: auth-backend ✅
+- **Razón**: Baja prioridad. Solo se aborda si queda tiempo después del Sprint 12; si no, queda documentado como deuda.
+- **Duración estimada**: 2-3 horas
+
+---
+
+## Grafo de Dependencias (post-reorganización)
 
 ```
-setup-backend-core
-├─ database-schema-seed
-├─ backend-error-handling-validation
-└─ zustand-stores-base ← setup-frontend-core
-   
-auth-backend (depende: database-schema-seed, backend-error-handling-validation)
-└─ auth-frontend-interceptor (depende: zustand-stores-base)
-   └─ navigation-routing-base
+FASE A — Backend
+================
 
-categories-backend (depende: auth-backend)
-├─ products-backend
-│  ├─ products-frontend-catalog
-│  ├─ order-creation-backend
-│  └─ checkout-validation-frontend
-│
-ingredients-backend (depende: auth-backend)
-└─ products-backend
+categories-backend ✅
+└─ products-backend ──┐
+ingredients-backend ✅┘
+                      │
+products-backend ─────┼─ admin-catalog-permissions
+                      │
+delivery-addresses-backend ─┐
+                            ├─ order-creation-backend
+products-backend ───────────┘
+                                  │
+                                  └─ payment-mercadopago-backend
+                                        │
+                                        └─ order-state-machine-fsm
+                                              ├─ order-visualization-backend
+                                              └─ admin-catalog-permissions
 
-user-profile (depende: auth-backend, navigation-routing-base)
+user-profile-backend (auth)
+admin-users-backend (auth) ─ admin-catalog-permissions
+admin-metrics-backend (depende: order-creation-backend)
 
-delivery-addresses (depende: auth-backend)
-└─ order-creation-backend
 
-shopping-cart-zustand (depende: products-backend)
-└─ checkout-validation-frontend
-   └─ order-creation-frontend-checkout
-      └─ order-creation-backend
+FASE B — Frontend
+=================
 
-order-creation-backend
-└─ payment-mercadopago-integration
-   └─ order-state-machine-fsm
-      ├─ order-visualization-backend
-      │  └─ order-visualization-frontend
-      │
-      └─ admin-catalog-permissions
+products-frontend-catalog (products-backend ✅)
+└─ shopping-cart-zustand
+   └─ checkout-validation-frontend
+      └─ order-creation-frontend-checkout
+         └─ payment-mercadopago-frontend (payment-backend ✅)
 
-admin-users-management
+user-profile-frontend (user-profile-backend ✅)
+delivery-addresses-frontend (delivery-addresses-backend ✅)
+└─ order-creation-frontend-checkout
 
-admin-dashboard-metrics (depende: order-creation-backend)
+order-visualization-frontend (visualization-backend ✅)
+admin-users-frontend (admin-users-backend ✅)
+admin-dashboard-frontend (admin-metrics-backend ✅)
 ```
 
 ---
 
 ## Resumen por Sprint
 
-| Sprint | Changes | Duración | Objetivo |
-|--------|---------|----------|----------|
-| **0** | setup-backend-core, setup-frontend-core, database-schema-seed, backend-error-handling-validation, zustand-stores-base | 12-16h | Infraestructura base |
-| **1** | auth-backend, auth-frontend-interceptor, navigation-routing-base | 11-14h | Autenticación y navegación |
-| **2** | categories-backend, ingredients-backend | 5-7h | Catálogo base |
-| **3** | products-backend, products-frontend-catalog | 9-11h | Productos |
-| **4** | user-profile, delivery-addresses | 5-7h | Perfil y direcciones |
-| **5** | shopping-cart-zustand, checkout-validation-frontend | 4-6h | Carrito |
-| **6** | order-creation-backend, order-creation-frontend-checkout | 8-10h | Creación de pedidos |
-| **7** | payment-mercadopago-integration | 6-7h | Pagos MercadoPago |
-| **8** | order-state-machine-fsm | 5-6h | FSM completa |
-| **9** | order-visualization-backend, order-visualization-frontend | 7-9h | Visualización de pedidos |
-| **10** | admin-users-management | 3-4h | Admin usuarios |
-| **11** | admin-catalog-permissions | 1-2h | Permisos admin ampliados |
-| **12** | admin-dashboard-metrics | 4-5h | Dashboard y métricas |
+| Fase | Sprint | Changes | Duración | Estado |
+|------|--------|---------|----------|--------|
+| A | **0** | setup-backend-core, setup-frontend-core, database-schema-seed, backend-error-handling-validation, zustand-stores-base | 12-16h | ✅ Archivado |
+| A | **1** | auth-backend, auth-frontend-interceptor, navigation-routing-base | 11-14h | ✅ Archivado |
+| A | **2** | categories-backend, ingredients-backend | 5-7h | ✅ Archivado |
+| A | **3** | products-backend | 5-6h | ✅ Archivado |
+| A | **4** | user-profile-backend, delivery-addresses-backend | 4-5h | ✅ Archivado |
+| — | **Refactors** | refactor-uow-to-context-manager, refactor-auth-to-uow, refactor-users-route-to-spanish | — | ✅ Archivados |
+| A | **5** | order-creation-backend ✅, payment-mercadopago-backend, order-state-machine-fsm, order-visualization-backend | 17-21h | 🔄 En progreso |
+| A | **6** | admin-users-backend ✅, admin-catalog-permissions ✅, admin-metrics-backend | 5-8h | 🔄 En progreso |
+| B | **7** | products-frontend-catalog | 4-5h | Pendiente |
+| B | **8** | user-profile-frontend, delivery-addresses-frontend | 4-5h | Pendiente |
+| B | **9** | shopping-cart-zustand ✅, checkout-validation-frontend ✅, order-creation-frontend-checkout ✅ | 7-10h | ✅ Archivado |
+| B | **10** | payment-mercadopago-frontend | 3-4h | Pendiente |
+| B | **11** | order-visualization-frontend | 4-5h | Pendiente |
+| B | **12** | admin-users-frontend, admin-dashboard-frontend | 5-7h | Pendiente |
+| — | Postergable | system-configuration | 2-3h | Opcional |
 
-**Total estimado**: 80-110 horas
+**Total estimado**: 88-116 horas (30 changes)
 
 ---
 
@@ -328,16 +401,18 @@ admin-dashboard-metrics (depende: order-creation-backend)
 - **El orden importa**: Si el change B necesita código del change A, A debe estar archivado antes.
 - **Un change = un commit** (o varios commits atómicos). Nunca mezcles dos changes.
 - **Las specs son código**: Se versionan en git, se revisan en PRs, evolucionan con el proyecto.
+- **Backend-first significa tests-fuertes**: Sin UI para validar visualmente, los tests de integración del backend son la única red de seguridad. Cobertura mínima de los caminos críticos en cada change de Fase A.
 
 ---
 
 ## Próximos Pasos
 
-1. Revisá este mapa y discutí si hay cambios
-2. Una vez aprobado, comenzamos con: `/opsx:propose setup-backend-core`
-3. Cada change genera proposal.md, design.md y tasks.md
-4. Se revisan los artefactos antes de implementar
-5. Se ejecuta `/opsx:apply [nombre]` cuando esté aprobado
-6. Se ejecuta `/opsx:archive [nombre]` cuando esté completado
+1. **Proponer `payment-mercadopago-backend`** (#15) — `/opsx:propose payment-mercadopago-backend`.
+2. Continuar la Fase A change por change: `order-state-machine-fsm` (#16) → `order-visualization-backend` (#17) → Sprint 6.
+3. Sin desviarse al frontend hasta cerrar el Sprint 6.
+4. Cada change genera proposal.md, design.md y tasks.md con `/opsx:propose <nombre>`.
+5. Revisar artefactos antes de implementar.
+6. Ejecutar `/opsx:apply <nombre>` cuando esté aprobado.
+7. Ejecutar `/opsx:archive <nombre>` solo después de revisión humana.
 
-¡Adelante! 🚀
+¡Adelante!

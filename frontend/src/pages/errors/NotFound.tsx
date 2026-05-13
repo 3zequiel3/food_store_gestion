@@ -1,23 +1,27 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router-dom';
 
-export const NotFound: React.FC = () => {
+/**
+ * Página 404 — Ruta no encontrada.
+ * Reachable via catch-all route `path="*"`.
+ */
+export function NotFound() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="text-center">
-        <h1 className="text-6xl font-bold text-primary mb-4">404</h1>
-        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
+      <div className="flex flex-col items-center gap-2">
+        <span className="text-7xl font-bold text-muted-foreground/30">404</span>
+        <h1 className="text-2xl font-bold text-foreground">
           Página no encontrada
-        </h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md">
-          Disculpa, la página que buscas no existe. Puede que haya sido movida o eliminada.
+        </h1>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          La página que buscás no existe o fue movida. Revisá la URL e intentá de nuevo.
         </p>
-        <Link
-          to="/"
-          className="inline-block px-6 py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition-colors"
-        >
-          Volver al inicio
-        </Link>
       </div>
+      <Link
+        to="/"
+        className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-6 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+      >
+        Volver al inicio
+      </Link>
     </div>
-  )
+  );
 }

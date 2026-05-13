@@ -24,6 +24,166 @@
       "sessions": 17,
       "memories": 14,
       "prompts": 2
+    },
+    {
+      "id": "310d7ca0",
+      "created_by": "LENOVO",
+      "created_at": "2026-05-06T12:06:51Z",
+      "sessions": 1,
+      "memories": 2,
+      "prompts": 0
+    },
+    {
+      "id": "cbc2614b",
+      "created_by": "pc",
+      "created_at": "2026-05-06T11:41:28Z",
+      "sessions": 1,
+      "memories": 0,
+      "prompts": 1
+    },
+    {
+      "id": "bb22cbd4",
+      "created_by": "LENOVO",
+      "created_at": "2026-05-07T15:06:24Z",
+      "sessions": 1,
+      "memories": 4,
+      "prompts": 0
+    },
+    {
+      "id": "fef77834",
+      "created_by": "ezequiel",
+      "created_at": "2026-05-08T12:37:10Z",
+      "sessions": 1,
+      "memories": 8,
+      "prompts": 0
+    },
+    {
+      "id": "656d5299",
+      "created_by": "zen",
+      "created_at": "2026-05-08T12:53:47Z",
+      "sessions": 1,
+      "memories": 0,
+      "prompts": 2
+    },
+    {
+      "id": "187eea8b",
+      "created_by": "ezequiel",
+      "created_at": "2026-05-08T17:49:37Z",
+      "sessions": 12,
+      "memories": 12,
+      "prompts": 0
+    },
+    {
+      "id": "2053e91e",
+      "created_by": "ezequiel",
+      "created_at": "2026-05-08T21:03:37Z",
+      "sessions": 30,
+      "memories": 69,
+      "prompts": 33
+    },
+    {
+      "id": "1cdc63cb",
+      "created_by": "ezequiel",
+      "created_at": "2026-05-08T21:52:57Z",
+      "sessions": 0,
+      "memories": 3,
+      "prompts": 0
+    },
+    {
+      "id": "22113ac5",
+      "created_by": "zen",
+      "created_at": "2026-05-11T14:27:00Z",
+      "sessions": 1,
+      "memories": 0,
+      "prompts": 4
+    },
+    {
+      "id": "cfc5c481",
+      "created_by": "ezequiel",
+      "created_at": "2026-05-11T15:21:26Z",
+      "sessions": 2,
+      "memories": 0,
+      "prompts": 0
+    },
+    {
+      "id": "1245be3a",
+      "created_by": "mncrm",
+      "created_at": "2026-05-11T22:33:59Z",
+      "sessions": 0,
+      "memories": 2,
+      "prompts": 0
+    },
+    {
+      "id": "3c4c4858",
+      "created_by": "ezequiel",
+      "created_at": "2026-05-12T02:43:56Z",
+      "sessions": 0,
+      "memories": 16,
+      "prompts": 0
+    },
+    {
+      "id": "21e5ebdf",
+      "created_by": "LENOVO",
+      "created_at": "2026-05-12T14:50:55Z",
+      "sessions": 0,
+      "memories": 2,
+      "prompts": 0
+    },
+    {
+      "id": "4c2d3d1f",
+      "created_by": "ezequiel",
+      "created_at": "2026-05-12T20:16:29Z",
+      "sessions": 1,
+      "memories": 13,
+      "prompts": 0
+    },
+    {
+      "id": "6ba3f7b7",
+      "created_by": "LENOVO",
+      "created_at": "2026-05-12T22:24:46Z",
+      "sessions": 0,
+      "memories": 9,
+      "prompts": 0
+    },
+    {
+      "id": "5fd325c4",
+      "created_by": "ezequiel",
+      "created_at": "2026-05-13T01:26:05Z",
+      "sessions": 0,
+      "memories": 10,
+      "prompts": 0
+    },
+    {
+      "id": "64087526",
+      "created_by": "LENOVO",
+      "created_at": "2026-05-13T05:29:38Z",
+      "sessions": 0,
+      "memories": 5,
+      "prompts": 0
+    },
+    {
+      "id": "68d14480",
+      "created_by": "LENOVO",
+      "created_at": "2026-05-13T05:42:21Z",
+      "sessions": 0,
+      "memories": 1,
+      "prompts": 0
+    },
+    {
+      "id": "ae4a4c27",
+      "created_by": "ezequiel",
+      "created_at": "2026-05-13T13:44:49Z",
+      "sessions": 9,
+      "memories": 4,
+      "prompts": 9
+    },
+    {
+      "id": "6b644498",
+      "created_by": "zen",
+      "created_at": "2026-05-13T15:25:26Z",
+      "sessions": 0,
+      "memories": 3,
+      "prompts": 3
     }
   ]
 }

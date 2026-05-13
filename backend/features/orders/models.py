@@ -26,15 +26,18 @@ from backend.shared.models import AppendOnlyBaseModel, BaseModel
 
 class Pedido(BaseModel):
     """
-    Order entity aligned with ERD v5.
+    Order entity aligned with ERD v5 (§3.3).
 
     Key fields:
-    - direccion_entrega_id: FK to the delivery address at order time.
+    - direccion_entrega_id: FK to the delivery address at order time. NULLABLE —
+      NULL means "retiro en local" (in-store pickup). ON DELETE SET NULL preserves
+      the snapshot even if the user later deletes the address (RN-DA06, D1).
     - direccion_snapshot: denormalized text snapshot of the address so that
-      subsequent address changes do not affect this order.
+      subsequent address changes do not affect this order. NULL for in-store pickup.
     - forma_pago_codigo: FK to payment_methods.codigo (VARCHAR semántica).
     - estado_codigo: FK to order_states.codigo (VARCHAR semántica), default PENDIENTE.
-    - costo_envio: shipping cost, can be 0 for in-store pickup.
+    - costo_envio: shipping cost. Decimal("50.00") with address, Decimal("0.00")
+      for in-store pickup (D5, v1 fixed rate).
     """
 
     __tablename__ = "orders"
@@ -45,12 +48,12 @@ class Pedido(BaseModel):
         nullable=False,
         index=True,
     )
-    direccion_entrega_id: Mapped[int] = mapped_column(
+    direccion_entrega_id: Mapped[Optional[int]] = mapped_column(
         Integer,
-        ForeignKey("delivery_addresses.id", ondelete="RESTRICT"),
-        nullable=False,
+        ForeignKey("delivery_addresses.id", ondelete="SET NULL"),
+        nullable=True,
     )
-    direccion_snapshot: Mapped[str] = mapped_column(String(500), nullable=False)
+    direccion_snapshot: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     total: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     costo_envio: Mapped[float] = mapped_column(
         Numeric(10, 2), nullable=False, default=0
@@ -189,6 +192,7 @@ class HistorialEstadoPedido(AppendOnlyBaseModel):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    motivo: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     # Relationship back to order
     pedido: Mapped["Pedido"] = relationship(

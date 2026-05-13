@@ -6,10 +6,11 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+import sqlalchemy as sa
 from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.shared.models import BaseModel
+from backend.shared.models import BaseModel, PivotBaseModel
 from backend.features.catalog.models import Categoria, Ingrediente
 
 
@@ -17,11 +18,11 @@ from backend.features.catalog.models import Categoria, Ingrediente
 # M:N pivot — Product ↔ Category
 # ---------------------------------------------------------------------------
 
-class ProductoCategoria(BaseModel):
+class ProductoCategoria(PivotBaseModel):
     """
     Many-to-many association between products and categories.
 
-    Composite PK (product_id, category_id).
+    Composite PK (product_id, category_id) — no surrogate id (ERD v5, migration 20260428_0001).
     """
 
     __tablename__ = "product_categories"
@@ -47,11 +48,11 @@ class ProductoCategoria(BaseModel):
 # M:N pivot — Product ↔ Ingredient
 # ---------------------------------------------------------------------------
 
-class ProductoIngrediente(BaseModel):
+class ProductoIngrediente(PivotBaseModel):
     """
     Many-to-many association between products and ingredients.
 
-    Composite PK (product_id, ingredient_id).
+    Composite PK (product_id, ingredient_id) — no surrogate id (ERD v5, migration 20260428_0001).
     """
 
     __tablename__ = "product_ingredients"
@@ -68,10 +69,20 @@ class ProductoIngrediente(BaseModel):
         primary_key=True,
         nullable=False,
     )
+    es_removible: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa.false(),
+    )
 
     def __repr__(self) -> str:
         return (
-            f"<ProductoIngrediente(product_id={self.product_id}, ingredient_id={self.ingredient_id})>"
+            f"<ProductoIngrediente("
+            f"product_id={self.product_id}, "
+            f"ingredient_id={self.ingredient_id}, "
+            f"es_removible={self.es_removible}"
+            f")>"
         )
 
 

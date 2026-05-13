@@ -3,7 +3,41 @@
     "allow": [
       "mcp__plugin_engram_engram__mem_search",
       "mcp__plugin_engram_engram__mem_save",
-      "mcp__plugin_engram_engram__mem_session_summary"
+      "mcp__plugin_engram_engram__mem_session_summary",
+      "mcp__plugin_engram_engram__mem_context",
+      "Bash(openspec list *)",
+      "Bash(openspec status *)",
+      "Bash(openspec instructions *)",
+      "Bash(pip list *)",
+      "Bash(pip install *)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest backend/tests/integration/test_categories.py -q --tb=short)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest backend/tests/integration/test_ingredients.py -q --tb=short)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest \"backend/tests/integration/test_ingredients.py::Test404::test_get_by_id_not_found\" -q --tb=short)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest backend/tests/integration/test_products.py -q --tb=short)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest backend/tests/integration/test_user_profile.py -q --tb=short)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest \"backend/tests/integration/test_user_profile.py::test_patch_telefono_to_null\" -q --tb=long)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest \"backend/tests/integration/test_user_profile.py::test_patch_telefono_to_null\" -q --tb=short)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest \"backend/tests/integration/test_user_profile.py::test_patch_telefono_to_null\" -q --tb=short -s)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest backend/tests/integration/test_categories.py::TestUpdate::test_update_nombre_only backend/tests/integration/test_user_profile.py::test_patch_telefono_to_null -q --tb=short)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest backend/tests/integration/test_categories.py backend/tests/integration/test_ingredients.py backend/tests/integration/test_products.py backend/tests/integration/test_user_profile.py -q --tb=short)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest \"backend/tests/integration/test_user_profile.py::test_change_password_then_login_with_new_works\" -q --tb=long)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest \"backend/tests/integration/test_user_profile.py::test_change_password_then_login_with_new_works\" \"backend/tests/integration/test_user_profile.py::test_patch_telefono_to_null\" backend/tests/integration/test_categories.py::TestUpdate::test_update_nombre_only -q --tb=short)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest backend/tests/integration/test_categories.py backend/tests/integration/test_ingredients.py backend/tests/integration/test_products.py backend/tests/integration/test_user_profile.py -q)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest backend/tests/integration/test_delivery_addresses.py -q --tb=short)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest \"backend/tests/integration/test_delivery_addresses.py::test_set_principal_returns_200_with_updated_address\" -q --tb=short)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest backend/tests/integration/test_conftest_overrides.py -q --tb=short)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'refactor\\(uow\\): add context manager protocol and self-creating session \\(backward-compat\\) *)",
+      "Bash(git commit -m 'refactor\\(categories\\): move uow lifecycle from router to service *)",
+      "Bash(git commit -m 'refactor\\(ingredients\\): move uow lifecycle from router to service *)",
+      "Bash(git commit -m 'refactor\\(products\\): move uow lifecycle from router to service and collapse set_categorias double-read *)",
+      "Bash(git commit -m 'refactor\\(addresses\\): move uow lifecycle from router to service *)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest backend/tests/ -q)",
+      "Bash(git commit -m 'refactor\\(uow\\): remove get_uow dependency and legacy session injection *)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "github",
+    "postgres"
+  ]
 }

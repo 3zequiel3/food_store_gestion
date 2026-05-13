@@ -56,3 +56,11 @@ class ConflictError(FoodStoreError):
 
     def __init__(self, detail: str = "Resource conflict") -> None:
         super().__init__(detail, code="conflict")
+
+
+class InvalidStateTransitionError(ConflictError):
+    """FSM transition rejected because the current state doesn't match — maps to HTTP 409."""
+
+    def __init__(self, detail: str = "Invalid state transition") -> None:
+        super().__init__(detail)
+        self.code = "state_transition_conflict"

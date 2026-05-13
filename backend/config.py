@@ -5,6 +5,7 @@ Reads from .env file during development and environment variables in production.
 """
 
 import os
+from pathlib import Path
 from typing import List
 
 from pydantic import Field, field_validator
@@ -25,6 +26,26 @@ class Settings(BaseSettings):
         default="your-super-secret-key-change-in-production",
         description="Secret key for JWT token signing",
     )
+    JWT_ALGORITHM: str = Field(
+        default="HS256",
+        description="Algorithm for JWT signing (HS256 or RS256)",
+    )
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=30,
+        description="Access token expiration time in minutes",
+    )
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
+        default=7,
+        description="Refresh token expiration time in days",
+    )
+
+    # Auth cookies (development defaults; production Secure=true is follow-up)
+    AUTH_COOKIE_ACCESS_NAME: str = Field(default="access_token")
+    AUTH_COOKIE_REFRESH_NAME: str = Field(default="refresh_token")
+    AUTH_COOKIE_ACCESS_PATH: str = Field(default="/api/v1")
+    AUTH_COOKIE_REFRESH_PATH: str = Field(default="/api/v1/auth")
+    AUTH_COOKIE_SAMESITE: str = Field(default="lax")
+    AUTH_COOKIE_SECURE: bool = Field(default=False)
 
     # Server
     API_PORT: int = Field(default=8000, description="API server port")
@@ -32,6 +53,12 @@ class Settings(BaseSettings):
         default="development", description="Environment (development/production)"
     )
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")
+
+    # MercadoPago
+    MP_ACCESS_TOKEN: str = Field(
+        default="TEST-your-mp-access-token-here",
+        description="MercadoPago access token (use TEST- prefix for sandbox)",
+    )
 
     # CORS
     FRONTEND_URL: str = Field(
@@ -41,9 +68,17 @@ class Settings(BaseSettings):
     class Config:
         """Pydantic config."""
 
-        env_file = ".env"
+        env_file = str(Path(__file__).parent / ".env")
         env_file_encoding = "utf-8"
         case_sensitive = True
+        extra = "ignore"  # Tolerate unrelated env vars (e.g. shell exports like DB_USER)
+
+    @field_validator("AUTH_COOKIE_SECURE", mode="before")
+    @classmethod
+    def validate_cookie_secure(cls, v):
+        if str(v).lower() in ("false", "0") and os.getenv("ENVIRONMENT") == "production":
+            raise ValueError("AUTH_COOKIE_SECURE must be true in production!")
+        return v
 
     @field_validator("JWT_SECRET", mode="before")
     @classmethod

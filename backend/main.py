@@ -10,17 +10,56 @@ import time
 from contextlib import asynccontextmanager
 from typing import Callable
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from backend.config import settings
 from backend.logging_config import setup_logging
+from backend.shared.rate_limiter import limiter
+from backend.shared.exceptions import (
+    NotFoundError,
+    ForbiddenError,
+    UnauthorizedError,
+    ConflictError,
+    ValidationError,
+    BusinessRuleError,
+)
+from backend.shared.error_handler import (
+    not_found_handler,
+    forbidden_handler,
+    unauthorized_handler,
+    conflict_handler,
+    validation_error_handler,
+    business_rule_handler,
+    request_validation_handler,
+    http_exception_handler,
+    generic_exception_handler,
+)
 
 
 # Configure logging on startup
 setup_logging()
 logger = logging.getLogger(__name__)
+
+
+# Register all SQLAlchemy models in the metadata BEFORE the app handles
+# any request. SQLAlchemy resolves string-based relationship targets
+# (e.g. relationship("Pedido")) lazily, but every referenced class must
+# already exist in the registry by the time the first mapper configures.
+# Without these imports, queries against any model that has cross-feature
+# relationships (Usuario -> Pedido, Usuario -> DireccionEntrega, etc.)
+# fail at runtime with InvalidRequestError.
+from backend.features.users import models as _user_models  # noqa: F401
+from backend.features.catalog import models as _catalog_models  # noqa: F401
+from backend.features.products import models as _product_models  # noqa: F401
+from backend.features.orders import models as _order_models  # noqa: F401
+from backend.features.payments import models as _payment_models  # noqa: F401
+from backend.features.addresses import models as _address_models  # noqa: F401
+from backend.features.auth import models as _auth_models  # noqa: F401
 
 
 # Feature routers
@@ -29,6 +68,12 @@ from backend.features.users.router import router as users_router
 from backend.features.products.router import router as products_router
 from backend.features.orders.router import router as orders_router
 from backend.features.payments.router import router as payments_router
+from backend.features.addresses.router import router as addresses_router
+from backend.features.categories.router import router as categories_router
+from backend.features.ingredients.router import router as ingredients_router
+from backend.features.catalog.router import router as catalog_router
+from backend.features.admin_users.router import router as admin_users_router
+from backend.features.admin_metrics.router import router as admin_metrics_router
 
 
 @asynccontextmanager
@@ -38,6 +83,14 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Food Store backend starting up...")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Log level: {settings.LOG_LEVEL}")
+
+    from backend.shared.database import Base, get_engine
+    from backend.scripts.seed import run_seed
+
+    engine = get_engine()
+    Base.metadata.create_all(bind=engine)
+    run_seed()
+
     yield
     # Shutdown
     logger.info("🛑 Food Store backend shutting down...")
@@ -50,6 +103,30 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Attach rate limiter to app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Register RFC 7807 exception handlers (D5) — order: specific → generic
+app.add_exception_handler(NotFoundError, not_found_handler)
+app.add_exception_handler(ForbiddenError, forbidden_handler)
+app.add_exception_handler(UnauthorizedError, unauthorized_handler)
+app.add_exception_handler(ConflictError, conflict_handler)
+app.add_exception_handler(ValidationError, validation_error_handler)
+app.add_exception_handler(BusinessRuleError, business_rule_handler)
+app.add_exception_handler(RequestValidationError, request_validation_handler)
+# HTTPException covers both manually raised FastAPI HTTPException AND
+# Starlette's automatic 404/405 responses. Using the class reference here
+# (not an integer status code) ensures ALL HTTPException subclasses are caught.
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(Exception, generic_exception_handler)
+
+# Starlette 404 for unknown routes also comes through as HTTPException,
+# but some Starlette versions route it before add_exception_handler picks it up.
+# Override the default handler explicitly to ensure RFC 7807 for 404/405.
+from starlette.exceptions import HTTPException as StarletteHTTPException
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
 
 # Configure CORS
@@ -118,23 +195,18 @@ async def health_check():
     }
 
 
-# Register feature routers
-app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
-app.include_router(users_router, prefix="/api/users", tags=["users"])
-app.include_router(products_router, prefix="/api/products", tags=["products"])
-app.include_router(orders_router, prefix="/api/orders", tags=["orders"])
-app.include_router(payments_router, prefix="/api/payments", tags=["payments"])
-
-
-# Global exception handler for generic exceptions
-@app.exception_handler(Exception)
-async def generic_exception_handler(request: Request, exc: Exception):
-    """Handle unhandled exceptions globally."""
-    logger.exception("Unhandled exception", exc_info=exc)
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error", "type": "internal_server_error"},
-    )
+# Register feature routers — all under /api/v1/ per spec §5 (Integrador.txt)
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(users_router, prefix="/api/v1/usuarios", tags=["users"])
+app.include_router(products_router, prefix="/api/v1/productos", tags=["products"])
+app.include_router(orders_router, prefix="/api/v1/pedidos", tags=["orders"])
+app.include_router(payments_router, prefix="/api/v1/pagos", tags=["payments"])
+app.include_router(addresses_router, prefix="/api/v1/direcciones", tags=["addresses"])
+app.include_router(categories_router, prefix="/api/v1/categorias", tags=["categories"])
+app.include_router(ingredients_router, prefix="/api/v1/ingredientes", tags=["ingredients"])
+app.include_router(catalog_router, prefix="/api/v1", tags=["catalog"])
+app.include_router(admin_users_router, prefix="/api/v1/admin/usuarios", tags=["admin-users"])
+app.include_router(admin_metrics_router, prefix="/api/v1/admin/metricas", tags=["admin-metrics"])
 
 
 if __name__ == "__main__":

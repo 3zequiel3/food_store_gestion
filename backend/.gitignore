@@ -30,3 +30,6 @@ env/
 *.swo
 *~
 .DS_Store
+.venv/
+venv/
+./venv

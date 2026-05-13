@@ -9,11 +9,14 @@ export default defineProject(
   defineConfig({
     plugins: [react(), tailwindcss()],
     server: {
+      port: 5173,
+      host: true,
       proxy: {
         '/api': {
-          target: 'http://localhost:8000',
+          // Default localhost para dev local; docker-compose lo pisa con
+          // API_PROXY_TARGET=http://backend:8000 (service name de compose).
+          target: process.env.API_PROXY_TARGET ?? 'http://localhost:8000',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ''),
         },
       },
     },

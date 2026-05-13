@@ -105,14 +105,15 @@ async def request_validation_handler(
 
 
 async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Handle FastAPI HTTPException in RFC 7807 format.
+    """Handle FastAPI/Starlette HTTPException in RFC 7807 format.
 
-    This catches Starlette's 404/405 exceptions as well as manually raised
-    HTTPException from user code.
+    This catches Starlette's 404/405 exceptions (starlette.exceptions.HTTPException)
+    as well as manually raised FastAPI HTTPException from user code.
+    FastAPI's HTTPException is a subclass of Starlette's HTTPException.
     """
-    from fastapi import HTTPException  # noqa: PLC0415
+    from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: PLC0415
 
-    if not isinstance(exc, HTTPException):
+    if not isinstance(exc, StarletteHTTPException):
         raise exc  # pragma: no cover — should never happen
 
     # Map common HTTP status codes to RFC 7807 titles

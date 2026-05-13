@@ -1,52 +1,173 @@
 @import "tailwindcss";
 
+/* ============================================================
+   FOOD STORE — DESIGN TOKENS
+   Stack: Tailwind v4 (@theme directive)
+   Mode: dark-first (default). Light mode = add class="light" to <html>.
+   Color format: OKLCH (perceptually uniform, modern, Tailwind v4 native).
+   Doc: docs/frontend-architecture.md §12
+
+   Brand palette (docs/colores.md):
+     #2F2FE4  primary       (azul índigo vibrante — CTAs, ring, brand)
+     #162E93  secondary     (azul medio — accents, secondary surfaces)
+     #1A1953  card           (azul profundo — surfaces elevadas)
+     #080616  background    (casi negro azulado — fondo dark)
+   ============================================================ */
+
 @theme {
-  --color-primary: #3b82f6;
-  --color-primary-dark: #1e40af;
-  --color-primary-light: #60a5fa;
-  --color-primary-lighter: #93c5fd;
-  
-  --color-secondary: #8b5cf6;
-  --color-secondary-dark: #6d28d9;
-  --color-secondary-light: #a78bfa;
-  --color-secondary-lighter: #ddd6fe;
-  
-  --color-accent: #ec4899;
-  --color-accent-dark: #be185d;
-  --color-accent-light: #f472b6;
-  --color-accent-lighter: #fbcfe8;
-  
-  --color-success: #10b981;
-  --color-success-dark: #047857;
-  --color-success-light: #6ee7b7;
-  --color-success-lighter: #d1fae5;
-  
-  --color-warning: #f59e0b;
-  --color-warning-dark: #d97706;
-  --color-warning-light: #fbbf24;
-  --color-warning-lighter: #fef3c7;
-  
-  --color-error: #ef4444;
-  --color-error-dark: #dc2626;
-  --color-error-light: #f87171;
-  --color-error-lighter: #fee2e2;
+  /* ---- Base surface pair ---- */
+  --color-background: oklch(0.08 0.03 274);   /* #080616 */
+  --color-foreground: oklch(0.97 0.012 270);
+
+  /* ---- Elevated surfaces ---- */
+  --color-card: oklch(0.22 0.10 273);          /* #1A1953 */
+  --color-card-foreground: oklch(0.97 0.012 270);
+  --color-popover: oklch(0.22 0.10 273);
+  --color-popover-foreground: oklch(0.97 0.012 270);
+
+  /* ---- Chrome (shell surfaces: TopNavbar + Sidebar) ----
+     Más oscuro que card, distinguible del background por un escalón sutil. */
+  --color-chrome: oklch(0.12 0.06 274);
+  --color-chrome-foreground: oklch(0.97 0.012 270);
+
+  /* ---- Brand (vibrant indigo — CTAs, focus, links) ---- */
+  --color-primary: oklch(0.48 0.27 270);       /* #2F2FE4 */
+  --color-primary-foreground: oklch(0.99 0.005 270);
+
+  /* ---- Neutral / accent surfaces ---- */
+  --color-secondary: oklch(0.32 0.18 268);     /* #162E93 */
+  --color-secondary-foreground: oklch(0.97 0.012 270);
+  --color-muted: oklch(0.22 0.10 273);          /* same family as card */
+  --color-muted-foreground: oklch(0.70 0.04 275);
+  --color-accent: oklch(0.32 0.18 268);        /* same as secondary */
+  --color-accent-foreground: oklch(0.97 0.012 270);
+
+  /* ---- Semantic states (kept hue-distinct from brand for legibility) ---- */
+  --color-destructive: oklch(0.60 0.22 27);
+  --color-destructive-foreground: oklch(0.985 0.005 60);
+  --color-success: oklch(0.65 0.18 145);
+  --color-success-foreground: oklch(0.145 0.012 60);
+  --color-warning: oklch(0.75 0.15 85);
+  --color-warning-foreground: oklch(0.145 0.012 60);
+
+  /* ---- Utility colors ---- */
+  --color-border: oklch(0.28 0.10 272);
+  --color-input: oklch(0.28 0.10 272);
+  --color-ring: oklch(0.48 0.27 270);          /* = primary */
+
+  /* ---- Typography ---- */
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* ---- Border radius ---- */
+  --radius-sm: 0.25rem;
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+
+  /* ---- Shadows (tuned for dark — softer, less harsh than light defaults) ---- */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.35);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.45), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.55), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.55), 0 8px 10px -6px rgb(0 0 0 / 0.5);
 }
 
+/* ============================================================
+   LIGHT MODE OVERRIDE
+   Activated when <html class="light">. Same token names, light values
+   that keep the indigo brand consistent across modes.
+   ============================================================ */
+
+:root.light {
+  --color-background: oklch(0.99 0.005 275);
+  --color-foreground: oklch(0.15 0.08 273);    /* derived from #1A1953 */
+
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.15 0.08 273);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.15 0.08 273);
+
+  --color-chrome: oklch(0.96 0.015 275);
+  --color-chrome-foreground: oklch(0.15 0.08 273);
+
+  --color-primary: oklch(0.48 0.27 270);       /* same #2F2FE4 — brand carries */
+  --color-primary-foreground: oklch(0.99 0.005 270);
+
+  --color-secondary: oklch(0.93 0.025 275);
+  --color-secondary-foreground: oklch(0.22 0.10 273);
+  --color-muted: oklch(0.93 0.025 275);
+  --color-muted-foreground: oklch(0.45 0.05 273);
+  --color-accent: oklch(0.93 0.025 275);
+  --color-accent-foreground: oklch(0.22 0.10 273);
+
+  --color-destructive: oklch(0.55 0.22 27);
+  --color-destructive-foreground: oklch(0.985 0.005 60);
+  --color-success: oklch(0.55 0.18 145);
+  --color-success-foreground: oklch(0.985 0.005 60);
+  --color-warning: oklch(0.70 0.15 85);
+  --color-warning-foreground: oklch(0.145 0.012 60);
+
+  --color-border: oklch(0.88 0.02 275);
+  --color-input: oklch(0.88 0.02 275);
+  --color-ring: oklch(0.48 0.27 270);
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+/* ============================================================
+   BASE RESETS AND GLOBAL STYLES
+   ============================================================ */
+
 @layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  html.light {
+    color-scheme: light;
+  }
+
   body {
-    @apply font-sans text-gray-900 bg-white dark:text-gray-100 dark:bg-gray-900;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    @apply font-sans font-semibold text-gray-900 dark:text-white;
+  /* Accessible focus rings using the ring token */
+  *:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
   }
 
-  a {
-    @apply text-primary hover:text-primary-dark dark:text-primary-light dark:hover:text-primary-lighter transition-colors;
+  /* Scrollbar styling — subtle, themed */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-background);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-muted-foreground);
   }
 }

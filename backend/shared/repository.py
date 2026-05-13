@@ -2,11 +2,11 @@
 Base repository class with CRUD operations.
 
 Provides standard data access patterns for all repositories.
-Includes soft delete support (queries exclude deleted_at IS NOT NULL by default).
+Includes soft delete support (queries exclude eliminado_en IS NOT NULL by default).
 """
 
 import logging
-from typing import Any, Generic, List, Optional, Type, TypeVar
+from typing import Any, Generic, List, Optional, Type, TypeVar, Union
 from uuid import UUID
 
 from sqlalchemy import and_, select
@@ -15,13 +15,16 @@ from sqlalchemy.orm import Session
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
+# ID type can be int (BIGSERIAL) or UUID
+IDType = Union[int, UUID]
+
 
 class BaseRepository(Generic[T]):
     """
     Base repository for data access.
 
     Provides CRUD operations: create, read, update, delete, list.
-    Supports soft delete (deleted_at field).
+    Supports soft delete (eliminado_en field).
     """
 
     def __init__(self, session: Session, model: Type[T]):
@@ -34,7 +37,7 @@ class BaseRepository(Generic[T]):
         """
         self.session = session
         self.model = model
-        self._has_deleted_at = hasattr(model, "deleted_at")
+        self._has_eliminado_en = hasattr(model, "eliminado_en")
 
     def _get_base_query(self):
         """
@@ -43,8 +46,8 @@ class BaseRepository(Generic[T]):
         Returns queries that exclude soft-deleted records by default.
         """
         query = select(self.model)
-        if self._has_deleted_at:
-            query = query.where(self.model.deleted_at.is_(None))
+        if self._has_eliminado_en:
+            query = query.where(self.model.eliminado_en.is_(None))
         return query
 
     def create(self, **kwargs) -> T:
@@ -63,7 +66,7 @@ class BaseRepository(Generic[T]):
         logger.debug(f"Created {self.model.__name__}: {instance.id}")
         return instance
 
-    def read(self, id: UUID) -> Optional[T]:
+    def read(self, id: IDType) -> Optional[T]:
         """
         Read an entity by ID.
 
@@ -78,7 +81,7 @@ class BaseRepository(Generic[T]):
         logger.debug(f"Read {self.model.__name__}: {id}")
         return instance
 
-    def update(self, id: UUID, **kwargs) -> Optional[T]:
+    def update(self, id: IDType, **kwargs) -> Optional[T]:
         """
         Update an entity.
 
@@ -94,16 +97,27 @@ class BaseRepository(Generic[T]):
             return None
 
         for key, value in kwargs.items():
-            if hasattr(instance, key) and key not in ("id", "created_at"):
+            if hasattr(instance, key) and key not in ("id", "creado_en"):
                 setattr(instance, key, value)
 
         self.session.flush()
+        # Refresh the FULL instance (no `attribute_names`) so server-generated
+        # columns like `actualizado_en` (onupdate=func.now()) are populated AND
+        # no scalar attribute is left in an "expired" state. Passing a subset
+        # via `attribute_names=[...]` would refresh only those and mark every
+        # other column as expired — causing a DetachedInstanceError later when
+        # the UoW closes the session and Pydantic tries to read those columns
+        # for serialization. Guarded by hasattr to skip the SELECT for models
+        # without `actualizado_en` (which usually means the model is not meant
+        # to be UPDATEd through this generic path).
+        if hasattr(self.model, "actualizado_en"):
+            self.session.refresh(instance)
         logger.debug(f"Updated {self.model.__name__}: {id}")
         return instance
 
-    def delete(self, id: UUID) -> bool:
+    def delete(self, id: IDType) -> bool:
         """
-        Soft delete an entity (sets deleted_at timestamp).
+        Soft delete an entity (sets eliminado_en timestamp).
 
         Args:
             id: Entity ID
@@ -115,10 +129,10 @@ class BaseRepository(Generic[T]):
         if not instance:
             return False
 
-        if self._has_deleted_at:
-            from datetime import datetime
+        if self._has_eliminado_en:
+            from datetime import datetime, timezone
 
-            instance.deleted_at = datetime.utcnow()
+            instance.eliminado_en = datetime.now(timezone.utc)
             self.session.flush()
             logger.debug(f"Soft deleted {self.model.__name__}: {id}")
         else:
@@ -129,7 +143,7 @@ class BaseRepository(Generic[T]):
 
         return True
 
-    def hard_delete(self, id: UUID) -> bool:
+    def hard_delete(self, id: IDType) -> bool:
         """
         Permanently delete an entity (hard delete).
 
@@ -176,7 +190,7 @@ class BaseRepository(Generic[T]):
         from sqlalchemy import func
 
         query = select(func.count(self.model.id))
-        if self._has_deleted_at:
-            query = query.where(self.model.deleted_at.is_(None))
+        if self._has_eliminado_en:
+            query = query.where(self.model.eliminado_en.is_(None))
         count = self.session.execute(query).scalar() or 0
         return count

@@ -34,6 +34,7 @@ class DireccionEntrega(BaseModel):
     )
     calle: Mapped[str] = mapped_column(String(255), nullable=False)
     numero: Mapped[str] = mapped_column(String(20), nullable=False)
+    piso_depto: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     ciudad: Mapped[str] = mapped_column(String(100), nullable=False)
     codigo_postal: Mapped[str] = mapped_column(String(20), nullable=False)
     referencia: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
