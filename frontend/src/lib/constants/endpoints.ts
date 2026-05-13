@@ -73,6 +73,10 @@ export const ENDPOINTS = {
     delete: (id: number) => `/ingredientes/${id}`,
   },
 
+  paymentMethods: {
+    list: '/formas-pago',
+  },
+
   adminUsuarios: {
     list: '/admin/usuarios',
     update: (id: number) => `/admin/usuarios/${id}`,

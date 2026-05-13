@@ -71,6 +71,7 @@ from backend.features.payments.router import router as payments_router
 from backend.features.addresses.router import router as addresses_router
 from backend.features.categories.router import router as categories_router
 from backend.features.ingredients.router import router as ingredients_router
+from backend.features.catalog.router import router as catalog_router
 from backend.features.admin_users.router import router as admin_users_router
 from backend.features.admin_metrics.router import router as admin_metrics_router
 
@@ -203,6 +204,7 @@ app.include_router(payments_router, prefix="/api/v1/pagos", tags=["payments"])
 app.include_router(addresses_router, prefix="/api/v1/direcciones", tags=["addresses"])
 app.include_router(categories_router, prefix="/api/v1/categorias", tags=["categories"])
 app.include_router(ingredients_router, prefix="/api/v1/ingredientes", tags=["ingredients"])
+app.include_router(catalog_router, prefix="/api/v1", tags=["catalog"])
 app.include_router(admin_users_router, prefix="/api/v1/admin/usuarios", tags=["admin-users"])
 app.include_router(admin_metrics_router, prefix="/api/v1/admin/metricas", tags=["admin-metrics"])
 

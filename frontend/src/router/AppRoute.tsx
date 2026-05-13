@@ -16,8 +16,8 @@ import { CatalogPage } from '../pages/client/CatalogPage';
 import { ProductDetailPage } from '../pages/client/ProductDetailPage';
 import { ProfilePage } from '../pages/client/ProfilePage';
 import { AddressesPage } from '../pages/client/AddressesPage';
-import { MisPedidosPage } from '../pages/client/MisPedidosPage';
-import { PedidosAdminPage } from '../pages/admin/PedidosAdminPage';
+import { CheckoutPage } from '../features/checkout/components/CheckoutPage';
+import { OrderConfirmationPage } from '../features/orders/components/OrderConfirmationPage';
 
 /**
  * Redirige la raíz `/` según el rol del usuario:
@@ -112,12 +112,10 @@ export default function AppRoute() {
                 path="pedidos"
                 element={<MisPedidosPage />}
               />
+              <Route path="pedidos/:id/confirmacion" element={<OrderConfirmationPage />} />
               <Route path="direcciones" element={<AddressesPage />} />
               <Route path="perfil" element={<ProfilePage />} />
-              <Route
-                path="checkout"
-                element={<PlaceholderPage title="Checkout" description="Finalización del pedido — llega en #26." />}
-              />
+              <Route path="checkout" element={<CheckoutPage />} />
             </Route>
           </Route>
         </Route>

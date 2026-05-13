@@ -40,7 +40,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         const hasIssues = result.stockIssues.length > 0 || result.priceChanges.length > 0;
         if (!hasIssues) {
           onClose();
-          navigate('/cliente/checkout');
+          navigate('/cliente/checkout', { state: { validated: true } });
         } else {
           setValidationResult(result);
         }

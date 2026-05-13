@@ -251,19 +251,21 @@ A partir de acá la API está congelada y todos los changes son frontend-only.
 - **Razón**: 100% client-side. No hay backend para esto.
 - **Duración estimada**: 2-3 horas
 
-### 25. **checkout-validation-frontend**
+### 25. **checkout-validation-frontend** ✅
 - **Funcionalidad**: Validación pre-checkout (stock, disponibilidad), detección de cambios de precio, modal de confirmación, notificaciones al cliente
 - **Historias**: US-069, US-070
 - **Dependencias**: shopping-cart-zustand, products-backend ✅
 - **Razón**: Validar ANTES de intentar crear el pedido. Mejor UX.
 - **Duración estimada**: 2-3 horas
+- **Estado**: Completado — 16/16 tasks, archivado 2026-05-13
 
-### 26. **order-creation-frontend-checkout**
+### 26. **order-creation-frontend-checkout** ✅
 - **Funcionalidad**: Componentes de checkout (selección de dirección, confirmación de items con snapshots, resumen de total), flujo post-creación, confirmación visual
 - **Historias**: US-035, US-071
-- **Dependencias**: order-creation-backend ✅, checkout-validation-frontend, delivery-addresses-frontend
+- **Dependencias**: order-creation-backend ✅, checkout-validation-frontend ✅, delivery-addresses-frontend ✅
 - **Razón**: UI para que el cliente confirme y cree el pedido.
 - **Duración estimada**: 3-4 horas
+- **Estado**: Completado — 24/24 tasks, archivado 2026-05-13
 
 ---
 
@@ -378,7 +380,7 @@ admin-dashboard-frontend (admin-metrics-backend ✅)
 | A | **6** | admin-users-backend ✅, admin-catalog-permissions ✅, admin-metrics-backend | 5-8h | 🔄 En progreso |
 | B | **7** | products-frontend-catalog | 4-5h | Pendiente |
 | B | **8** | user-profile-frontend, delivery-addresses-frontend | 4-5h | Pendiente |
-| B | **9** | shopping-cart-zustand, checkout-validation-frontend, order-creation-frontend-checkout | 7-10h | Pendiente |
+| B | **9** | shopping-cart-zustand ✅, checkout-validation-frontend ✅, order-creation-frontend-checkout ✅ | 7-10h | ✅ Archivado |
 | B | **10** | payment-mercadopago-frontend | 3-4h | Pendiente |
 | B | **11** | order-visualization-frontend | 4-5h | Pendiente |
 | B | **12** | admin-users-frontend, admin-dashboard-frontend | 5-7h | Pendiente |

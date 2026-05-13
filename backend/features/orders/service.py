@@ -24,8 +24,6 @@ from typing import Optional
 
 from sqlalchemy.exc import OperationalError
 
-from decimal import Decimal
-
 from backend.features.addresses.repository import AddressRepository
 from backend.features.orders.models import Pedido
 from backend.features.orders.repository import OrderRepository
