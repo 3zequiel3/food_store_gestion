@@ -30,6 +30,18 @@ interface FormErrors {
 }
 
 type ImageMode = 'file' | 'url';
+const MAX_IMAGE_SIZE_MB = 2;
+const MAX_IMAGE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+
+/** Returns true if valid, false + toast if rejected */
+function validateImageFile(file: File): boolean {
+  if (file.size > MAX_IMAGE_BYTES) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+    toast.error(`"${file.name}" pesa ${sizeMB} MB (máximo ${MAX_IMAGE_SIZE_MB} MB)`);
+    return false;
+  }
+  return true;
+}
 
 export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
   const isEdit = !!producto;
@@ -162,6 +174,8 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
 
   // Handle file selection/add to pending (create mode) or upload immediately (edit mode)
   const handleFileAdd = useCallback((file: File) => {
+    if (!validateImageFile(file)) return;
+
     if (isEdit) {
       // Edit mode: upload via backend (handles storage + DB registration)
       setUploading(true);
