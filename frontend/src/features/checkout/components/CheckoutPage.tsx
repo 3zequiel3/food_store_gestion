@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,6 +21,19 @@ export function CheckoutPage() {
   const [notas, setNotas] = useState('');
 
   const createOrderMutation = useCreateOrder();
+
+  // Delivery mode: true when an address is selected (not local pickup)
+  const isDelivery = selectedAddressId !== null;
+
+  // Reset payment selection if user had EFECTIVO and switches to delivery
+  useEffect(() => {
+    if (isDelivery && selectedPaymentMethod === 'EFECTIVO') {
+      setSelectedPaymentMethod(null);
+      toast.info('Efectivo no disponible para envíos', {
+        description: 'Seleccioná otra forma de pago.',
+      });
+    }
+  }, [isDelivery, selectedPaymentMethod]);
 
   if (items.length === 0) {
     return (
@@ -113,6 +126,7 @@ export function CheckoutPage() {
             <PaymentMethodSelector
               selectedPaymentMethod={selectedPaymentMethod}
               onSelect={setSelectedPaymentMethod}
+              isDelivery={isDelivery}
             />
           </div>
         </div>
