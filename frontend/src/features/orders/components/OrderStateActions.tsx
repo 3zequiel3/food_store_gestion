@@ -11,6 +11,11 @@ interface Transition {
 
 function getTransitions(estado: EstadoCodigo): Transition[] {
   switch (estado) {
+    case 'PENDIENTE':
+      return [
+        { nuevo_estado: 'CONFIRMADO', label: 'Confirmar', variant: 'primary', requiresMotivo: false },
+        { nuevo_estado: 'CANCELADO', label: 'Rechazar', variant: 'danger', requiresMotivo: true },
+      ];
     case 'CONFIRMADO':
       return [
         { nuevo_estado: 'EN_PREPARACION', label: 'Iniciar preparación', variant: 'primary', requiresMotivo: false },
