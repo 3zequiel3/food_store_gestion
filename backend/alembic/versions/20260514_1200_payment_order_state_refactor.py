@@ -15,11 +15,12 @@ import sqlalchemy as sa
 
 
 # ---------------------------------------------------------------------------
-# Revision identifiers
+# Revision identifiers — this is the only migration (all prior schema
+# was created via create_all() before Alembic was set up).
 # ---------------------------------------------------------------------------
 
 revision: str = "payment_order_state_refactor"
-down_revision: Union[str, None] = "move_es_removible_to_ingredients"
+down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

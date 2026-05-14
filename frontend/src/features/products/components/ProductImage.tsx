@@ -29,7 +29,7 @@ export function ProductImage({
       src={imageSrc}
       alt={alt}
       loading={loading}
-      referrerPolicy="no-referrer"
+      crossOrigin="anonymous"
       onError={() => setFailedSrc(imageSrc)}
       className={className}
     />

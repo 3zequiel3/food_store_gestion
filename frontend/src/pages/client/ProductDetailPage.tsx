@@ -207,6 +207,7 @@ export function ProductDetailPage() {
                   <img
                     src={resolveImageUrl(img.url)}
                     alt={`Thumbnail ${idx + 1}`}
+                    crossOrigin="anonymous"
                     className="w-full h-full object-cover"
                   />
                 </button>
