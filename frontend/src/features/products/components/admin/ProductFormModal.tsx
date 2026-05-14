@@ -68,12 +68,12 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
   // Form errors
   const [errors, setErrors] = useState<FormErrors>({});
 
-  const createMutation = useCreateProduct(() => {
+  const createMutation = useCreateProduct((createdProduct) => {
     // After product is created, upload any pending files then close
     const files = pendingFilesRef.current;
-    if (files.length > 0 && createMutation.data) {
-      const newProductId = createMutation.data.id;
-      uploadPendingFiles(newProductId, files).finally(() => {
+    if (files.length > 0) {
+      console.log('[Create] Producto creado, subiendo', files.length, 'imagen(es)');
+      uploadPendingFiles(createdProduct.id, files).finally(() => {
         onClose();
       });
     } else {

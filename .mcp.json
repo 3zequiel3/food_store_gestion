@@ -11,6 +11,10 @@
       "env": {
         "POSTGRES_URL": "${POSTGRES_URL:-postgresql://food_user:food_password@localhost:5433/food_store}"
       }
+    },
+    "railway": {
+      "type": "remote",
+      "url": "https://mcp.railway.com"
     }
   }
 }
