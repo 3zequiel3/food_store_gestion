@@ -7,8 +7,7 @@ import type { IngredienteAsignado } from '../../../ingredientes/types/ingredient
 import { CategoryLeafSelector } from '../../../categorias/components/CategoryLeafSelector';
 import { IngredientAssignSelector } from '../../../ingredientes/components/IngredientAssignSelector';
 import {
-  uploadProductImageDirect,
-  registerProductImage,
+  uploadProductImage,
   addProductImageUrl,
   deleteProductImage,
   setProductImagePrimary,
@@ -133,11 +132,9 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     setUploading(true);
     for (const file of files) {
       try {
-        console.log('[Upload] Subiendo a S3:', file.name);
-        const key = await uploadProductImageDirect(productId, file);
-        console.log('[Upload] S3 OK. Registrando en DB:', key);
-        await registerProductImage(productId, key);
-        console.log('[Upload] Registro en DB OK');
+        console.log('[Upload] Subiendo imagen:', file.name);
+        await uploadProductImage(productId, file);
+        console.log('[Upload] OK:', file.name);
         toast.success(`"${file.name}" subida`);
       } catch (err: any) {
         console.error('[Upload] Error fatal:', err);
@@ -166,16 +163,12 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
   // Handle file selection/add to pending (create mode) or upload immediately (edit mode)
   const handleFileAdd = useCallback((file: File) => {
     if (isEdit) {
-      // Edit mode: upload directly to S3 via presigned POST
+      // Edit mode: upload via backend (handles storage + DB registration)
       setUploading(true);
-      console.log('[Upload] Edit mode. Subiendo a S3:', file.name);
-      uploadProductImageDirect(producto!.id, file)
-        .then((key) => {
-          console.log('[Upload] S3 OK. Registrando en DB:', key);
-          return registerProductImage(producto!.id, key);
-        })
+      console.log('[Upload] Edit mode. Subiendo:', file.name);
+      uploadProductImage(producto!.id, file)
         .then(() => {
-          console.log('[Upload] Registro en DB OK');
+          console.log('[Upload] OK:', file.name);
           toast.success('Imagen subida');
           // Refresh images from server
           return getProduct(producto!.id);
