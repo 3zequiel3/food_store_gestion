@@ -1,5 +1,5 @@
 """
-FastAPI application entry point for Food Store  
+FastAPI application entry point for Food Store
 
 This module initializes the FastAPI application with all middleware,
 CORS configuration, and feature routers.
@@ -86,11 +86,11 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Log level: {settings.LOG_LEVEL}")
 
-    from shared.database import Base, get_engine
+    from shared.database import get_engine
     from scripts.seed import run_seed
 
     engine = get_engine()
-    Base.metadata.create_all(bind=engine)
+    # Schema managed by Alembic — create_all removed to avoid conflicts
     run_seed()
 
     yield
@@ -128,6 +128,7 @@ app.add_exception_handler(Exception, generic_exception_handler)
 # but some Starlette versions route it before add_exception_handler picks it up.
 # Override the default handler explicitly to ensure RFC 7807 for 404/405.
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
 
@@ -210,10 +211,16 @@ app.include_router(orders_router, prefix="/api/v1/pedidos", tags=["orders"])
 app.include_router(payments_router, prefix="/api/v1/pagos", tags=["payments"])
 app.include_router(addresses_router, prefix="/api/v1/direcciones", tags=["addresses"])
 app.include_router(categories_router, prefix="/api/v1/categorias", tags=["categories"])
-app.include_router(ingredients_router, prefix="/api/v1/ingredientes", tags=["ingredients"])
+app.include_router(
+    ingredients_router, prefix="/api/v1/ingredientes", tags=["ingredients"]
+)
 app.include_router(catalog_router, prefix="/api/v1", tags=["catalog"])
-app.include_router(admin_users_router, prefix="/api/v1/admin/usuarios", tags=["admin-users"])
-app.include_router(admin_metrics_router, prefix="/api/v1/admin/metricas", tags=["admin-metrics"])
+app.include_router(
+    admin_users_router, prefix="/api/v1/admin/usuarios", tags=["admin-users"]
+)
+app.include_router(
+    admin_metrics_router, prefix="/api/v1/admin/metricas", tags=["admin-metrics"]
+)
 
 
 if __name__ == "__main__":

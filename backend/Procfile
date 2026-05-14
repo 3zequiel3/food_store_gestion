@@ -1,1 +1,1 @@
-web: alembic upgrade head && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+web: python bootstrap_alembic.py && alembic upgrade head && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
