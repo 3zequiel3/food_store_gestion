@@ -29,7 +29,6 @@ vi.mock('axios', () => ({
 }));
 
 import { useProduct } from '../../../features/products/hooks/useProduct';
-import { useParams } from 'react-router-dom';
 
 function createMockDetail(overrides?: Partial<ProductoDetail>): ProductoDetail {
   return {

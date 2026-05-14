@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ProductFormModal } from '../components/admin/ProductFormModal';
-import type { ProductoRead } from '../../types/products.types';
+import type { ProductoRead } from '../types/products.types';
 
 // Use vi.hoisted to ensure mock functions are available before vi.mock runs
 const mocks = vi.hoisted(() => ({
