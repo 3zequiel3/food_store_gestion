@@ -11,7 +11,7 @@ export async function getIngredientes(page = 1, limit = 20): Promise<PaginatedIn
 
 export async function getTodosIngredientes(): Promise<IngredienteRead[]> {
   const response = await apiClient.get<PaginatedIngredientes>(ENDPOINTS.ingredientes.list, {
-    params: { page: 1, limit: 200 },
+    params: { page: 1, limit: 100 },
   });
   return response.data.items;
 }

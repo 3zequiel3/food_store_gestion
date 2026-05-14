@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function IngredientAssignSelector({ value, onChange }: Props) {
-  const { data: todos = [], isLoading } = useTodosIngredientes();
+  const { data: todos = [], isLoading, isError } = useTodosIngredientes();
   const [search, setSearch] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -70,6 +70,8 @@ export function IngredientAssignSelector({ value, onChange }: Props) {
           <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
             {isLoading ? (
               <p className="text-sm text-gray-500 p-3">Cargando…</p>
+            ) : isError ? (
+              <p className="text-sm text-red-400 p-3">Error al cargar ingredientes</p>
             ) : filtered.length === 0 ? (
               <p className="text-sm text-gray-400 p-3">
                 {search ? 'Sin resultados' : 'Todos los ingredientes ya fueron asignados'}
