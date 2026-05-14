@@ -196,9 +196,11 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
   // Handle drag and drop
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      handleFileAdd(file);
+    const files = e.dataTransfer.files;
+    for (const file of Array.from(files)) {
+      if (file.type.startsWith('image/')) {
+        handleFileAdd(file);
+      }
     }
   }, [handleFileAdd]);
 
@@ -208,9 +210,13 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
 
   // Handle file input
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleFileAdd(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      for (const file of Array.from(files)) {
+        if (file.type.startsWith('image/')) {
+          handleFileAdd(file);
+        }
+      }
     }
     // Reset input so same file can be selected again
     e.target.value = '';
@@ -507,6 +513,7 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
                     id="image-file-input"
                     type="file"
                     accept="image/*"
+                    multiple
                     className="hidden"
                     onChange={handleFileInput}
                   />
