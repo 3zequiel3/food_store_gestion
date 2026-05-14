@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, ShoppingCart, Check, Tag } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, ShoppingCart, Check, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useProduct } from '../../features/products/hooks/useProduct';
+import { ProductImage } from '../../features/products/components/ProductImage';
 import { useCartStore } from '../../features/cart/stores/cartStore';
 import { NotFound } from '../errors/NotFound';
 import { isAxiosError } from 'axios';
+import { resolveImageUrl } from '../../lib/images';
+import type { ImagenRead } from '../../features/products/types/products.types';
 
 /**
  * ProductDetailPage — página de detalle de un producto.
@@ -15,6 +18,7 @@ import { isAxiosError } from 'axios';
  * 6.3: Selector de cantidad + botón "Agregar al carrito".
  * 6.4: Link "← Volver al catálogo" con useNavigate(-1) o fallback.
  * 6.5: Error 404 → NotFound.
+ * 8.1: Image carousel with thumbnails for products with multiple images.
  */
 export function ProductDetailPage() {
   // 6.1 — Obtener id del router
@@ -26,6 +30,9 @@ export function ProductDetailPage() {
   const [cantidad, setCantidad] = useState(1);
   const [added, setAdded] = useState(false);
   const [excluidos, setExcluidos] = useState<Set<number>>(new Set());
+
+  // 8.1 — Carousel state
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   function toggleExcluido(id: number) {
     setExcluidos((prev) => {
@@ -65,6 +72,21 @@ export function ProductDetailPage() {
 
   const sinStock = !producto.disponible || producto.stock_cantidad === 0;
 
+  // 8.1 — Get sorted images and determine active image
+  const sortedImages = [...(producto.imagenes ?? [])].sort((a, b) => a.orden - b.orden);
+  const hasMultipleImages = sortedImages.length > 1;
+  const hasImages = sortedImages.length > 0;
+
+  // Determine which image to show: primary first, then by orden
+  function getInitialImageIndex(images: ImagenRead[]): number {
+    if (images.length === 0) return -1;
+    const primaryIdx = images.findIndex((img) => img.es_primaria);
+    return primaryIdx >= 0 ? primaryIdx : 0;
+  }
+
+  // Reset active index when product changes
+  const initialImageIdx = getInitialImageIndex(sortedImages);
+
   // 6.3 — Agregar al carrito
   function handleAgregar() {
     if (!producto || sinStock) return;
@@ -97,6 +119,22 @@ export function ProductDetailPage() {
     minimumFractionDigits: 2,
   }).format(producto.precio);
 
+  // 8.1 — Carousel navigation
+  function goToImage(index: number) {
+    setActiveImageIndex(index);
+  }
+
+  function goNext() {
+    setActiveImageIndex((prev) => (prev + 1) % sortedImages.length);
+  }
+
+  function goPrev() {
+    setActiveImageIndex((prev) => (prev - 1 + sortedImages.length) % sortedImages.length);
+  }
+
+  // Current display image
+  const displayImage = hasImages ? sortedImages[activeImageIndex >= 0 ? activeImageIndex : initialImageIdx] : null;
+
   return (
     <div className="max-w-4xl mx-auto w-full p-4 sm:p-6">
       {/* 6.4 — Volver */}
@@ -110,16 +148,70 @@ export function ProductDetailPage() {
       </button>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Imagen grande */}
-        <div className="aspect-square w-full rounded-xl bg-muted overflow-hidden flex items-center justify-center">
-          {producto.imagen_url ? (
-            <img
-              src={producto.imagen_url}
-              alt={producto.nombre}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <span className="text-muted-foreground/30 text-6xl">🍽</span>
+        {/* 8.1 — Image area (carousel or single image) */}
+        <div className="flex flex-col gap-3">
+          <div className="relative aspect-square w-full rounded-xl bg-muted overflow-hidden flex items-center justify-center">
+            {hasImages && displayImage ? (
+              <>
+                <div data-testid="main-image" className="w-full h-full">
+                  <ProductImage
+                    src={displayImage.url}
+                    alt={producto.nombre}
+                    className="w-full h-full object-cover"
+                    loading="eager"
+                    placeholder={<span className="text-muted-foreground/30 text-6xl">🍽</span>}
+                  />
+                </div>
+                {/* Carousel navigation arrows (only when multiple images) */}
+                {hasMultipleImages && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={goPrev}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                      aria-label="Imagen anterior"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={goNext}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                      aria-label="Imagen siguiente"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
+              </>
+            ) : (
+              <span data-testid="image-placeholder" className="text-muted-foreground/30 text-6xl">🍽</span>
+            )}
+          </div>
+
+          {/* 8.1 — Thumbnail strip (only when multiple images) */}
+          {hasMultipleImages && (
+            <div data-testid="thumbnail-strip" className="flex gap-2 overflow-x-auto">
+              {sortedImages.map((img, idx) => (
+                <button
+                  key={img.id}
+                  data-testid="thumbnail-item"
+                  type="button"
+                  onClick={() => goToImage(idx)}
+                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                    idx === activeImageIndex
+                      ? 'border-primary ring-2 ring-primary/20'
+                      : 'border-border hover:border-primary/40'
+                  }`}
+                >
+                  <img
+                    src={resolveImageUrl(img.url)}
+                    alt={`Thumbnail ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
           )}
         </div>
 

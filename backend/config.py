@@ -60,6 +60,30 @@ class Settings(BaseSettings):
         description="MercadoPago access token (use TEST- prefix for sandbox)",
     )
 
+    # File storage
+    STORAGE: str = Field(
+        default="local",
+        description="Storage backend for uploads: local or s3",
+    )
+    STORAGE_LOCAL_DIR: str = Field(
+        default=str(Path(__file__).parent / "uploads"),
+        description="Local upload directory. Defaults to backend/uploads",
+    )
+    STORAGE_PUBLIC_BASE_URL: str = Field(
+        default="http://localhost:8000",
+        description="Public base URL used for local upload URLs",
+    )
+    STORAGE_MAX_UPLOAD_MB: int = Field(default=5, description="Max upload size in MB")
+    S3_ENDPOINT_URL: str | None = Field(default=None)
+    S3_REGION: str = Field(default="auto")
+    S3_BUCKET_NAME: str | None = Field(default=None)
+    S3_ACCESS_KEY_ID: str | None = Field(default=None)
+    S3_SECRET_ACCESS_KEY: str | None = Field(default=None)
+    S3_PUBLIC_BASE_URL: str | None = Field(
+        default=None,
+        description="Optional public CDN/base URL for S3 object URLs",
+    )
+
     # CORS
     FRONTEND_URL: str = Field(
         default="http://localhost:5173", description="Frontend application URL for CORS"
@@ -72,6 +96,14 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = True
         extra = "ignore"  # Tolerate unrelated env vars (e.g. shell exports like DB_USER)
+
+    @field_validator("STORAGE", mode="before")
+    @classmethod
+    def validate_storage(cls, v):
+        value = str(v or "local").lower()
+        if value not in {"local", "s3"}:
+            raise ValueError("STORAGE must be 'local' or 's3'")
+        return value
 
     @field_validator("AUTH_COOKIE_SECURE", mode="before")
     @classmethod

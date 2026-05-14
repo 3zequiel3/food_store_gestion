@@ -6,6 +6,7 @@ import { useValidateCart } from '../../features/checkout/hooks/useValidateCart';
 import { CartValidationModal } from '../../features/checkout/components/CartValidationModal';
 import { Button } from '../ui/Button';
 import type { ValidationResult } from '../../features/checkout/types/validation.types';
+import { ProductImage } from '../../features/products/components/ProductImage';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -113,17 +114,16 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                   >
                     <div className="flex gap-4">
                       <div className="h-24 w-24 flex-shrink-0 rounded-xl bg-gray-50 overflow-hidden">
-                        {item.imagen_url ? (
-                          <img
-                            src={item.imagen_url}
-                            alt={item.nombre}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <ShoppingCart className="h-8 w-8 text-gray-200" strokeWidth={1} />
-                          </div>
-                        )}
+                        <ProductImage
+                          src={item.imagen_url}
+                          alt={item.nombre}
+                          className="h-full w-full object-cover"
+                          placeholder={
+                            <div className="flex h-full w-full items-center justify-center">
+                              <ShoppingCart className="h-8 w-8 text-gray-200" strokeWidth={1} />
+                            </div>
+                          }
+                        />
                       </div>
 
                       <div className="flex-1 min-w-0 flex flex-col">

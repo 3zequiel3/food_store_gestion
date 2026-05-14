@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import {
-  Package,
+  Utensils,
   ClipboardList,
   Users,
   BarChart3,
-  FolderTree,
-  Carrot,
   ShoppingBag,
   ListOrdered,
   MapPin,
@@ -32,12 +30,13 @@ interface NavItem {
 
 const ADMIN_NAV: NavItem[] = [
   {
-    label: 'Productos',
+    label: 'Comidas',
     path: '/admin/productos',
-    icon: <Package className="h-5 w-5" />,
+    icon: <Utensils className="h-5 w-5" />,
     subItems: [
-      { label: 'Listado', path: '/admin/productos' },
-      { label: 'Crear', path: '/admin/productos/nuevo' },
+      { label: 'Productos', path: '/admin/productos' },
+      { label: 'Categorías', path: '/admin/categorias' },
+      { label: 'Ingredientes', path: '/admin/ingredientes' },
     ],
   },
   {
@@ -54,16 +53,6 @@ const ADMIN_NAV: NavItem[] = [
     label: 'Métricas',
     path: '/admin/metricas',
     icon: <BarChart3 className="h-5 w-5" />,
-  },
-  {
-    label: 'Categorías',
-    path: '/admin/categorias',
-    icon: <FolderTree className="h-5 w-5" />,
-  },
-  {
-    label: 'Ingredientes',
-    path: '/admin/ingredientes',
-    icon: <Carrot className="h-5 w-5" />,
   },
 ];
 
@@ -97,11 +86,13 @@ interface SidebarItemProps {
 
 function SidebarItem({ item, isExpanded }: SidebarItemProps) {
   const location = useLocation();
-  const isActive = location.pathname.startsWith(item.path);
+  const hasSubItems = item.subItems && item.subItems.length > 0;
+
+  const isActive = hasSubItems
+    ? item.subItems!.some((sub) => location.pathname.startsWith(sub.path))
+    : location.pathname.startsWith(item.path);
 
   const [subMenuOpen, setSubMenuOpen] = useState(isActive);
-
-  const hasSubItems = item.subItems && item.subItems.length > 0;
 
   const showSubMenu = isExpanded && hasSubItems && subMenuOpen;
 
