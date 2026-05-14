@@ -133,12 +133,20 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     setUploading(true);
     for (const file of files) {
       try {
+        console.log('[Upload] Subiendo a S3:', file.name);
         const key = await uploadProductImageDirect(productId, file);
+        console.log('[Upload] S3 OK. Registrando en DB:', key);
         await registerProductImage(productId, key);
+        console.log('[Upload] Registro en DB OK');
         toast.success(`"${file.name}" subida`);
-      } catch (err) {
-        console.error(err);
-        toast.error(`Error al subir ${file.name}`);
+      } catch (err: any) {
+        console.error('[Upload] Error fatal:', err);
+        const status = err.response?.status;
+        if (status === 401) {
+          toast.error('Sesión expirada. Logueate de nuevo para subir imágenes.');
+        } else {
+          toast.error(`Error al subir ${file.name}: ${err.message || 'Desconocido'}`);
+        }
       }
     }
     // Refresh images from server after uploads
@@ -146,8 +154,9 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
       try {
         const detail = await getProduct(productId);
         setImagenes(detail.imagenes ?? []);
+        console.log('[Upload] Imágenes refrescadas:', detail.imagenes?.length);
       } catch {
-        // Non-critical — images were uploaded even if refresh failed
+        // Non-critical
       }
     }
     setPendingFiles([]);
@@ -159,9 +168,14 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     if (isEdit) {
       // Edit mode: upload directly to S3 via presigned POST
       setUploading(true);
+      console.log('[Upload] Edit mode. Subiendo a S3:', file.name);
       uploadProductImageDirect(producto!.id, file)
-        .then((key) => registerProductImage(producto!.id, key))
+        .then((key) => {
+          console.log('[Upload] S3 OK. Registrando en DB:', key);
+          return registerProductImage(producto!.id, key);
+        })
         .then(() => {
+          console.log('[Upload] Registro en DB OK');
           toast.success('Imagen subida');
           // Refresh images from server
           return getProduct(producto!.id);
@@ -169,9 +183,14 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
         .then((detail) => {
           setImagenes(detail.imagenes ?? []);
         })
-        .catch((err) => {
-          console.error(err);
-          toast.error('Error al subir la imagen');
+        .catch((err: any) => {
+          console.error('[Upload] Error en edición:', err);
+          const status = err.response?.status;
+          if (status === 401) {
+            toast.error('Sesión expirada. Logueate de nuevo.');
+          } else {
+            toast.error('Error al subir la imagen');
+          }
         })
         .finally(() => setUploading(false));
     } else {
