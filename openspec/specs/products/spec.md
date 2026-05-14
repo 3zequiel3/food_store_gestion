@@ -59,10 +59,12 @@ The Pydantic schemas SHALL declare `precio` as `Decimal` (NOT `float`) with `max
 - **THEN** the response is 422 (Pydantic constraint `decimal_places=2`)
 
 ### Requirement: Create product endpoint
-The system SHALL expose `POST /api/v1/productos` protected by `require_role("ADMIN", "STOCK")` that accepts `ProductoCreate({nombre: str, descripcion: str | None, precio: Decimal, stock_cantidad: int = 0, disponible: bool = True, imagen_url: str | None, categoria_ids: list[int] | None = None})`. On success it SHALL return 201 with `ProductoRead`. The `nombre` field SHALL be validated `min_length=1, max_length=255`; `imagen_url` validated `max_length=500`. If `categoria_ids` is provided, the service SHALL validate that every id exists in the `categories` table (active rows only) before creating any associations; on failure SHALL raise `BusinessRuleError`. Additionally, if any id in `categoria_ids` references a category that has at least one non-deleted child (i.e. is NOT a leaf), the service SHALL raise `BusinessRuleError` (422) with a detail message listing the offending category name and the names of its active children, and SHALL NOT create the product. If `categoria_ids` is provided and the resulting set has zero active leaf categories (empty list or every id was already invalid), the post-mutation auto-disable hook SHALL set `disponible=false` on the newly created product. (US-015, US-016, RN-CA04, RN-CA05, RN-CA06)
+The system SHALL expose `POST /api/v1/productos` protected by `require_role("ADMIN", "STOCK")` that accepts `ProductoCreate({nombre: str, descripcion: str | None, precio: Decimal, stock_cantidad: int = 0, disponible: bool = True, imagen_url: str | None, categoria_ids: list[int] = Field(min_length=1), ingrediente_ids: list[_IngredienteAsignar] | None = None})`. On success it SHALL return 201 with `ProductoRead`. The `nombre` field SHALL be validated `min_length=1, max_length=255`; `imagen_url` validated `max_length=500`. The service SHALL validate that every id in `categoria_ids` exists in the `categories` table (active rows only) before creating any associations; on failure SHALL raise `BusinessRuleError`. Additionally, if any id in `categoria_ids` references a category that has at least one non-deleted child (i.e. is NOT a leaf), the service SHALL raise `BusinessRuleError` (422) with a detail message listing the offending category name and the names of its active children, and SHALL NOT create the product. If `ingrediente_ids` is provided, the service SHALL validate each `ingrediente_id` exists as an active ingredient; on failure SHALL raise `BusinessRuleError` and roll back the entire creation. (US-015, US-016, US-017, RN-CA04, RN-CA05, RN-CA06)
+
+> **CHANGE (product-creation-complete)**: `categoria_ids` changed from optional (`list[int] | None = None`) to required (`list[int] = Field(min_length=1)`). `ingrediente_ids` field added to `ProductoCreate`. Empty/missing `categoria_ids` now rejects with 422 instead of creating product without categories.
 
 #### Scenario: Successful product creation as ADMIN
-- **WHEN** a user with role `ADMIN` posts `{"nombre": "Hamburguesa Clásica", "precio": 12.50, "stock_cantidad": 30}`
+- **WHEN** a user with role `ADMIN` posts `{"nombre": "Hamburguesa Clásica", "precio": 12.50, "stock_cantidad": 30, "categoria_ids": [6]}`
 - **THEN** the response is 201 with body containing `id`, `nombre: "Hamburguesa Clásica"`, `precio: 12.50`, `stock_cantidad: 30`, `disponible: true`
 
 #### Scenario: Successful product creation as STOCK with leaf categorias
@@ -70,13 +72,13 @@ The system SHALL expose `POST /api/v1/productos` protected by `require_role("ADM
 - **WHEN** a user with role `STOCK` posts `{"nombre": "Pizza", "precio": 18.00, "categoria_ids": [1, 2]}`
 - **THEN** the response is 201 AND rows exist in `product_categories` with `(product_id=<new>, category_id=1)` and `(product_id=<new>, category_id=2)` AND `disponible: true`
 
-#### Scenario: Empty categoria_ids list creates product with no categories and auto-disables it
+#### Scenario: Empty categoria_ids list rejected
 - **WHEN** a payload with `categoria_ids: []` is posted
-- **THEN** the response is 201 AND no rows exist in `product_categories` for that product AND `disponible: false` (auto-disable hook)
+- **THEN** the response is 422 (`BusinessRuleError`) with message referencing "al menos una categoría"
 
-#### Scenario: categoria_ids omitted leaves product without categories and disponible respects payload
-- **WHEN** a payload omits the `categoria_ids` key entirely with `disponible: true`
-- **THEN** the response is 201 AND no rows exist in `product_categories` for that product AND `disponible: true` (the auto-disable hook only runs after explicit category-set operations, not when categories are simply not provided)
+#### Scenario: categoria_ids missing rejected
+- **WHEN** a payload omits the `categoria_ids` key entirely
+- **THEN** the response is 422 (Pydantic validation — required field)
 
 #### Scenario: categoria_ids with non-existent id rejected
 - **GIVEN** there is no active category with id 99999
@@ -223,12 +225,14 @@ The `sin_categoria` filter (boolean) SHALL, when `true`, restrict the result to 
 - **THEN** the response is 200 (no auth required)
 
 ### Requirement: Get product detail endpoint
-The system SHALL expose `GET /api/v1/productos/{id}` (public) that returns `ProductoDetail` with the product fields plus `categorias: list[CategoriaRead]` and `ingredientes: list[IngredienteAsociadoRead]` (each ingredient includes `es_removible`). The endpoint SHALL return 404 for soft-deleted or non-existent products. Categories and ingredients listed SHALL be active (`eliminado_en IS NULL` on both pivot row and target row). (US-019, RN-CA08)
+The system SHALL expose `GET /api/v1/productos/{id}` (public) that returns `ProductoDetail` with the product fields plus `categorias: list[CategoriaRead]`, `ingredientes: list[IngredienteAsociadoRead]` (each ingredient includes `es_removible`), and `imagenes: list[ImagenRead]` ordered by `orden` ascending, then `id` ascending. The endpoint SHALL return 404 for soft-deleted or non-existent products. Categories and ingredients listed SHALL be active (`eliminado_en IS NULL` on both pivot row and target row). Soft-deleted images SHALL be excluded.
 
-#### Scenario: Returns full detail with associations
-- **GIVEN** product P with id 5, associated to categories [1,2] and ingredients [{id: 10, es_removible: true}, {id: 11, es_removible: false}]; ingredient 10 has `es_alergeno=true`, 11 has `es_alergeno=false`
+> **CHANGE (product-creation-complete)**: Added `imagenes` list to ProductoDetail response. (US-019, RN-CA08)
+
+#### Scenario: Returns full detail with associations and images
+- **GIVEN** product P with id 5, associated to categories [1,2], ingredients [{id: 10, es_removible: true}, {id: 11, es_removible: false}], and images [A(primary, orden=0), B(orden=1)]; ingredient 10 has `es_alergeno=true`, 11 has `es_alergeno=false`
 - **WHEN** `GET /api/v1/productos/5` is called
-- **THEN** the response is 200 with body containing `categorias: [{id:1,...},{id:2,...}]` AND `ingredientes` containing the two entries with the correct `es_removible` and `es_alergeno` flags
+- **THEN** the response is 200 with body containing `categorias: [{id:1,...},{id:2,...}]` AND `ingredientes` containing the two entries with the correct `es_removible` and `es_alergeno` flags AND `imagenes` with correct ordering
 
 #### Scenario: Non-existent product returns 404
 - **WHEN** `GET /api/v1/productos/99999` is called
@@ -249,7 +253,9 @@ The system SHALL expose `GET /api/v1/productos/{id}` (public) that returns `Prod
 - **THEN** the response is 200 (when product is active)
 
 ### Requirement: Update product endpoint
-The system SHALL expose `PUT /api/v1/productos/{id}` protected by `require_role("ADMIN", "STOCK")` that accepts `ProductoUpdate` (all fields optional: `nombre`, `descripcion`, `precio`, `stock_cantidad`, `disponible`, `imagen_url`). The service SHALL apply the partial update via `model_dump(exclude_unset=True)` to preserve fields the client did not send. The payload SHALL NOT accept `categoria_ids` (categories are managed via the dedicated `PUT /{id}/categorias` endpoint). On success it SHALL return 200 with `ProductoRead`. (US-020, RN-CA04, RN-CA05)
+The system SHALL expose `PUT /api/v1/productos/{id}` protected by `require_role("ADMIN", "STOCK")` that accepts `ProductoUpdate` (all fields optional: `nombre`, `descripcion`, `precio`, `stock_cantidad`, `disponible`, `imagen_url`). The service SHALL apply the partial update via `model_dump(exclude_unset=True)` to preserve fields the client did not send. The payload SHALL NOT accept `categoria_ids` (categories are managed via the dedicated `PUT /{id}/categorias` endpoint). On success it SHALL return 200 with `ProductoRead` which now includes `imagenes: list[ImagenRead]`.
+
+> **CHANGE (product-creation-complete)**: `ProductoRead` response now includes `imagenes` list. (US-020, RN-CA04, RN-CA05)
 
 #### Scenario: Successful name update preserves other fields
 - **GIVEN** product 5 with `precio=12.50, stock_cantidad=20, disponible=true`
@@ -601,3 +607,124 @@ The system SHALL never expose a hard-delete endpoint for products or for pivot a
 - **GIVEN** an active pivot row for (product 5, ingredient 10)
 - **WHEN** the disassociation endpoint succeeds
 - **THEN** the row count of `product_ingredients` (including soft-deleted) is unchanged
+
+---
+
+> **ADDED in product-creation-complete** — The following requirements were added to support product image management.
+
+### Requirement: ProductoImagen model for multiple product images
+The system SHALL introduce a new `ProductoImagen` model persisted in the `product_images` table with columns: `id BIGSERIAL PRIMARY KEY`, `producto_id INTEGER NOT NULL` (FK to `products.id` with ON DELETE CASCADE, indexed), `url VARCHAR(500) NOT NULL`, `orden INTEGER NOT NULL DEFAULT 0`, `es_primaria BOOLEAN NOT NULL DEFAULT false`, plus standard `creado_en`, `actualizado_en`, `eliminado_en` columns from `BaseModel`. The `Producto` model SHALL have a relationship `imagenes: Mapped[List[ProductoImagen]]` with `back_populates="producto"`. Soft-deleted images (`eliminado_en IS NOT NULL`) SHALL be excluded from all listing and detail responses. (US-015, ERD §3.3)
+
+#### Scenario: ProductoImagen has correct schema
+- **WHEN** the `product_images` table is introspected after migration
+- **THEN** it has columns `id`, `producto_id`, `url`, `orden`, `es_primaria`, `creado_en`, `actualizado_en`, `eliminado_en`
+- **AND** `producto_id` has a foreign key to `products.id` with `ON DELETE CASCADE`
+- **AND** `producto_id` is indexed
+
+#### Scenario: Producto model has imagenes relationship
+- **WHEN** the `Producto` class is introspected
+- **THEN** it has an attribute `imagenes` that is a `relationship` to `ProductoImagen`
+
+#### Scenario: Soft-deleted images are excluded
+- **GIVEN** product 5 has 3 images, one with `eliminado_en` set
+- **WHEN** `list_imagenes(5)` is called
+- **THEN** the result contains only 2 images
+
+### Requirement: Alembic migration creates product_images and backfills
+The system SHALL include an Alembic migration that: (1) creates the `product_images` table, (2) backfills existing `imagen_url` values by inserting a `ProductoImagen` row for each product where `imagen_url IS NOT NULL` and `eliminado_en IS NULL`, with `es_primaria=true`, `orden=0`. The migration `down_revision` SHALL point to the latest existing migration. (ERD §3.3)
+
+#### Scenario: Migration creates table and backfills
+- **WHEN** `alembic upgrade head` is executed
+- **THEN** the `product_images` table exists
+- **AND** every product with a non-null `imagen_url` has a corresponding row in `product_images` with `es_primaria=true`
+
+#### Scenario: Downgrade drops table
+- **WHEN** `alembic downgrade -1` is executed
+- **THEN** the `product_images` table no longer exists
+
+### Requirement: ImagenRead output schema
+The system SHALL provide an `ImagenRead` Pydantic schema with fields: `id: int`, `url: str`, `orden: int`, `es_primaria: bool`. This schema SHALL be used in `ProductoRead.imagenes` and in image CRUD endpoint responses.
+
+#### Scenario: ImagenRead serializes correctly
+- **WHEN** a `ProductoImagen` row is validated through `ImagenRead`
+- **THEN** the output contains `id`, `url`, `orden`, `es_primaria`
+
+### Requirement: ProductoRead includes imagenes list
+The `ProductoRead` schema SHALL include `imagenes: list[ImagenRead] = []`. The `imagen_url` field SHALL be preserved for backward compatibility during the transition period. When serializing from a `Producto` model, `imagenes` SHALL be populated from the `producto.imagenes` relationship (filtered to active rows only). (US-019)
+
+#### Scenario: ProductoRead has imagenes list
+- **WHEN** `GET /api/v1/productos` is called
+- **THEN** each item in `items` has an `imagenes` array (may be empty)
+
+#### Scenario: imagen_url preserved for backward compat
+- **WHEN** `GET /api/v1/productos` is called
+- **THEN** each item still has `imagen_url` (may be null)
+
+### Requirement: Upload image endpoint (file)
+The system SHALL expose `POST /api/v1/productos/{id}/imagenes` protected by `require_role("ADMIN", "STOCK")` that accepts a multipart file upload. The service SHALL: (1) validate the product exists, (2) call `StorageService.save_product_image()` to save the file, (3) create a `ProductoImagen` row with `orden = max_existing_orden + 1` and `es_primaria = True` if no other primary image exists for this product, (4) return 201 with `ImagenRead`. (US-015)
+
+#### Scenario: Upload image as first image
+- **GIVEN** product 5 has no images
+- **WHEN** POST `/api/v1/productos/5/imagenes` with a valid image file
+- **THEN** the response is 201 with `es_primaria: true`, `orden: 0`
+
+#### Scenario: Upload image when primary already exists
+- **GIVEN** product 5 already has a primary image
+- **WHEN** POST with another valid image file
+- **THEN** the response is 201 with `es_primaria: false`, `orden: 1`
+
+#### Scenario: Upload invalid file type rejected
+- **WHEN** POST with a PDF file
+- **THEN** the response is 422 (`BusinessRuleError`) with message about valid image types
+
+### Requirement: Add image by URL endpoint
+The system SHALL expose `POST /api/v1/productos/{id}/imagenes/url` protected by `require_role("ADMIN", "STOCK")` that accepts `{"url": str}` (max 500 chars). The service SHALL validate the URL format, create a `ProductoImagen` row with the URL, and return 201 with `ImagenRead`. (US-015)
+
+#### Scenario: Add image by URL
+- **WHEN** POST `/api/v1/productos/5/imagenes/url` with `{"url": "https://example.com/img.jpg"}`
+- **THEN** the response is 201 with the provided URL
+
+#### Scenario: Invalid URL rejected
+- **WHEN** POST with `{"url": "not-a-url"}`
+- **THEN** the response is 422
+
+### Requirement: Delete image endpoint
+The system SHALL expose `DELETE /api/v1/productos/{id}/imagenes/{img_id}` protected by `require_role("ADMIN", "STOCK")` that soft-deletes the image row. If the deleted image was primary, the service SHALL set the next image (by orden) as primary. Returns 204 on success, 404 if not found or already deleted. (US-015)
+
+#### Scenario: Delete non-primary image
+- **GIVEN** product 5 has images [primary, non-primary]
+- **WHEN** DELETE the non-primary image
+- **THEN** the response is 204 AND the primary image remains primary
+
+#### Scenario: Delete primary image reassigns
+- **GIVEN** product 5 has images [primary(A), secondary(B)]
+- **WHEN** DELETE image A (primary)
+- **THEN** the response is 204 AND image B becomes primary
+
+#### Scenario: Delete last image
+- **GIVEN** product 5 has only one image
+- **WHEN** DELETE that image
+- **THEN** the response is 204 AND product has no images
+
+### Requirement: Set image order endpoint
+The system SHALL expose `PATCH /api/v1/productos/{id}/imagenes/{img_id}/orden` protected by `require_role("ADMIN", "STOCK")` that accepts `{"orden": int}`. The service SHALL update the image's `orden` value. Returns 200 with `ImagenRead`. (US-015)
+
+#### Scenario: Change image order
+- **WHEN** PATCH with `{"orden": 5}`
+- **THEN** the response is 200 with `orden: 5`
+
+### Requirement: Set primary image endpoint
+The system SHALL expose `PATCH /api/v1/productos/{id}/imagenes/{img_id}/primaria` protected by `require_role("ADMIN", "STOCK")`. The service SHALL set `es_primaria = True` on the target image and `es_primaria = False` on all other images for the same product, within a single transaction. Returns 200 with `ImagenRead`. (US-015)
+
+#### Scenario: Set new primary image
+- **GIVEN** product 5 has images [A(primary), B, C]
+- **WHEN** PATCH `/api/v1/productos/5/imagenes/B/primaria`
+- **THEN** the response is 200 AND image B has `es_primaria: true` AND image A has `es_primaria: false`
+
+### Requirement: Existing single-image upload creates ProductoImagen
+The existing `POST /api/v1/productos/{id}/imagen` endpoint SHALL be updated to ALSO create a `ProductoImagen` row in addition to updating the product's `imagen_url` field. This ensures backward compatibility while populating the new table. If the product already has images, the new row is added with `orden = max + 1`. If no images exist, it is created as primary. (US-015)
+
+#### Scenario: Legacy upload creates ProductoImagen row
+- **GIVEN** product 5 has no images
+- **WHEN** POST `/api/v1/productos/5/imagen` with a file (legacy endpoint)
+- **THEN** the product's `imagen_url` is updated AND a `ProductoImagen` row is created with `es_primaria: true`
