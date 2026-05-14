@@ -233,6 +233,7 @@ class ProductRepository(BaseRepository[Producto]):
             .options(
                 selectinload(Producto.categorias),
                 selectinload(Producto.ingredientes),
+                selectinload(Producto.imagenes),
             )
         )
         return self.session.execute(query).scalar_one_or_none()

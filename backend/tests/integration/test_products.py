@@ -124,6 +124,7 @@ def client_user(test_db_session: Session, sample_roles, sample_user):
 def _create_product(
     client: TestClient,
     headers: dict,
+    test_db_session: Session = None,
     **overrides,
 ) -> dict:
     """POST /api/v1/productos with sensible defaults and assert 201."""
@@ -133,6 +134,10 @@ def _create_product(
         "stock_cantidad": 20,
         "disponible": True,
     }
+    # If no categoria_ids provided and test_db_session available, create one
+    if "categoria_ids" not in overrides and test_db_session is not None:
+        cat = _create_categoria_direct(test_db_session, f"Cat-{uuid.uuid4().hex[:4]}")
+        payload["categoria_ids"] = [cat["id"]]
     payload.update(overrides)
     resp = client.post("/api/v1/productos", json=payload, headers=headers)
     assert resp.status_code == 201, f"Failed to create product: {resp.json()}"
@@ -356,7 +361,7 @@ class TestGetById:
     ):
         """Create → GET by id → 200 with categorias and ingredientes arrays."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         resp = client.get(f"/api/v1/productos/{prod_id}")
@@ -378,7 +383,7 @@ class TestGetById:
     ):
         """Soft-delete a product → GET → 404."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         client.delete(f"/api/v1/productos/{prod_id}", headers=headers)
@@ -415,7 +420,7 @@ class TestUpdate:
     def test_update_precio_only(self, client: TestClient, sample_roles, admin_user):
         """PUT with only precio → 200."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         resp = client.put(
@@ -431,7 +436,7 @@ class TestUpdate:
     ):
         """PUT with precio=0 → 422."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         resp = client.put(
             f"/api/v1/productos/{prod['id']}",
             json={"precio": "0"},
@@ -444,7 +449,7 @@ class TestUpdate:
     ):
         """PUT with stock_cantidad=-1 → 422."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         resp = client.put(
             f"/api/v1/productos/{prod['id']}",
             json={"stock_cantidad": -1},
@@ -469,7 +474,7 @@ class TestUpdate:
     ):
         """Soft-delete → PUT → 404."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
         client.delete(f"/api/v1/productos/{prod_id}", headers=headers)
 
@@ -536,12 +541,10 @@ class TestPatchDisponibilidad:
 class TestPatchStock:
     """PATCH /api/v1/productos/{id}/stock."""
 
-    def test_patch_stock_set_value(
-        self, client: TestClient, sample_roles, admin_user
-    ):
+    def test_patch_stock_set_value(self, client: TestClient, sample_roles, admin_user):
         """PATCH stock=50 → 200, exact value returned."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         resp = client.patch(
@@ -571,7 +574,7 @@ class TestPatchStock:
     ):
         """PATCH stock=-1 → 422."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         resp = client.patch(
             f"/api/v1/productos/{prod['id']}/stock",
             json={"stock_cantidad": -1},
@@ -597,7 +600,7 @@ class TestDelete:
     ):
         """DELETE → 204, row persists with eliminado_en NOT NULL."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         resp = client.delete(f"/api/v1/productos/{prod_id}", headers=headers)
@@ -615,7 +618,7 @@ class TestDelete:
     ):
         """DELETE twice → second returns 404."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         client.delete(f"/api/v1/productos/{prod_id}", headers=headers)
@@ -640,18 +643,13 @@ class TestDelete:
         """DELETE product with category association → pivot row untouched."""
         headers = _admin_headers(client)
         cat = _create_categoria_direct(test_db_session, "Bebidas")
-        prod = _create_product(
-            client, headers, categoria_ids=[cat["id"]]
-        )
+        prod = _create_product(client, headers, categoria_ids=[cat["id"]])
         prod_id = prod["id"]
 
         client.delete(f"/api/v1/productos/{prod_id}", headers=headers)
 
         count = test_db_session.execute(
-            text(
-                "SELECT COUNT(*) FROM product_categories "
-                "WHERE product_id = :pid"
-            ),
+            text("SELECT COUNT(*) FROM product_categories WHERE product_id = :pid"),
             {"pid": prod_id},
         ).scalar()
         assert count == 1  # row still there, not deleted
@@ -690,7 +688,7 @@ class TestRBAC:
     ):
         """PUT without token → 401."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         resp = client.put(
             f"/api/v1/productos/{prod['id']}",
             json={"nombre": "X"},
@@ -715,7 +713,7 @@ class TestRBAC:
     ):
         """PATCH disponibilidad without token → 401."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         resp = client.patch(
             f"/api/v1/productos/{prod['id']}/disponibilidad",
             json={"disponible": False},
@@ -740,7 +738,7 @@ class TestRBAC:
     ):
         """PATCH stock without token → 401."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         resp = client.patch(
             f"/api/v1/productos/{prod['id']}/stock",
             json={"stock_cantidad": 5},
@@ -765,7 +763,7 @@ class TestRBAC:
     ):
         """DELETE without token → 401."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         resp = client.delete(f"/api/v1/productos/{prod['id']}")
         assert resp.status_code == 401
 
@@ -786,12 +784,10 @@ class TestRBAC:
         resp = client.get("/api/v1/productos")
         assert resp.status_code == 200
 
-    def test_get_by_id_is_public(
-        self, client: TestClient, sample_roles, admin_user
-    ):
+    def test_get_by_id_is_public(self, client: TestClient, sample_roles, admin_user):
         """GET /{id} without token → 200."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         resp = client.get(f"/api/v1/productos/{prod['id']}")
         assert resp.status_code == 200
 
@@ -800,7 +796,7 @@ class TestRBAC:
     ):
         """GET /{id}/ingredientes without token → 200."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         resp = client.get(f"/api/v1/productos/{prod['id']}/ingredientes")
         assert resp.status_code == 200
 
@@ -809,7 +805,7 @@ class TestRBAC:
     ):
         """PUT /categorias without token → 401."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         resp = client.put(
             f"/api/v1/productos/{prod['id']}/categorias",
             json={"categoria_ids": []},
@@ -834,7 +830,7 @@ class TestRBAC:
     ):
         """POST /ingredientes without token → 401."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         resp = client.post(
             f"/api/v1/productos/{prod['id']}/ingredientes",
             json={"ingrediente_id": 1},
@@ -859,10 +855,8 @@ class TestRBAC:
     ):
         """DELETE /ingredientes/{id} without token → 401."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
-        resp = client.delete(
-            f"/api/v1/productos/{prod['id']}/ingredientes/1"
-        )
+        prod = _create_product(client, headers, test_db_session)
+        resp = client.delete(f"/api/v1/productos/{prod['id']}/ingredientes/1")
         assert resp.status_code == 401
 
     def test_delete_ingrediente_as_client_returns_403(
@@ -926,7 +920,7 @@ class TestCatalogFilters:
         cat = _create_categoria_direct(test_db_session, "Pizzas")
 
         for _ in range(2):
-            _create_product(client, headers)
+            _create_product(client, headers, test_db_session)
         _create_product(client, headers, categoria_ids=[cat["id"]])
 
         resp = client.get(f"/api/v1/productos?categoria_id={cat['id']}")
@@ -964,7 +958,7 @@ class TestCatalogFilters:
     ):
         """GET ?search=zzzzzz → 0 items."""
         headers = _admin_headers(client)
-        _create_product(client, headers)
+        _create_product(client, headers, test_db_session)
 
         resp = client.get("/api/v1/productos?search=zzzzzz")
         assert resp.status_code == 200
@@ -1028,7 +1022,7 @@ class TestCatalogFilters:
     ):
         """GET without excluir_alergenos param → does not filter allergens."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         resp = client.get("/api/v1/productos")
         assert resp.status_code == 200
         ids = [p["id"] for p in resp.json()["items"]]
@@ -1084,7 +1078,7 @@ class TestCatalogFilters:
     ):
         """Create 3, delete 1 → GET → total=2."""
         headers = _admin_headers(client)
-        prods = [_create_product(client, headers) for _ in range(3)]
+        prods = [_create_product(client, headers, test_db_session) for _ in range(3)]
         client.delete(f"/api/v1/productos/{prods[0]['id']}", headers=headers)
 
         resp = client.get("/api/v1/productos")
@@ -1116,9 +1110,7 @@ class TestPagination:
         assert data["limit"] == 20
         assert len(data["items"]) == 20
 
-    def test_list_pagination_page_2(
-        self, client: TestClient, sample_roles, admin_user
-    ):
+    def test_list_pagination_page_2(self, client: TestClient, sample_roles, admin_user):
         """Create 25, GET ?page=2 → 5 items."""
         headers = _admin_headers(client)
         for i in range(25):
@@ -1130,9 +1122,7 @@ class TestPagination:
         assert len(data["items"]) == 5
         assert data["page"] == 2
 
-    def test_list_pagination_limit(
-        self, client: TestClient, sample_roles, admin_user
-    ):
+    def test_list_pagination_limit(self, client: TestClient, sample_roles, admin_user):
         """GET ?limit=5 → 5 items."""
         headers = _admin_headers(client)
         for i in range(10):
@@ -1178,9 +1168,7 @@ class TestCategorias:
         cat2 = _create_categoria_direct(test_db_session, "B")
         cat3 = _create_categoria_direct(test_db_session, "C")
 
-        prod = _create_product(
-            client, headers, categoria_ids=[cat1["id"], cat2["id"]]
-        )
+        prod = _create_product(client, headers, categoria_ids=[cat1["id"], cat2["id"]])
         prod_id = prod["id"]
 
         resp = client.put(
@@ -1343,7 +1331,7 @@ class TestIngredientes:
         """POST with es_removible=true → 201 with correct flag."""
         headers = _admin_headers(client)
         ing = _create_ingrediente_direct(test_db_session, "Tomate-h")
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
 
         resp = client.post(
             f"/api/v1/productos/{prod['id']}/ingredientes",
@@ -1365,7 +1353,7 @@ class TestIngredientes:
         """POST without es_removible → 201 with es_removible=false."""
         headers = _admin_headers(client)
         ing = _create_ingrediente_direct(test_db_session, "Lechuga-d")
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
 
         resp = client.post(
             f"/api/v1/productos/{prod['id']}/ingredientes",
@@ -1385,7 +1373,7 @@ class TestIngredientes:
         """POST same ingredient twice → second returns 409."""
         headers = _admin_headers(client)
         ing = _create_ingrediente_direct(test_db_session, "Dup-ing")
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
 
         client.post(
             f"/api/v1/productos/{prod['id']}/ingredientes",
@@ -1404,7 +1392,7 @@ class TestIngredientes:
     ):
         """POST with non-existent ingredient → 422."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
 
         resp = client.post(
             f"/api/v1/productos/{prod['id']}/ingredientes",
@@ -1423,7 +1411,7 @@ class TestIngredientes:
         """Add, remove, add again with different flag → 201 + updated flag."""
         headers = _admin_headers(client)
         ing = _create_ingrediente_direct(test_db_session, "Reactivable")
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         # Add
@@ -1466,7 +1454,7 @@ class TestIngredientes:
         """DELETE → 204, pivot row has eliminado_en NOT NULL."""
         headers = _admin_headers(client)
         ing = _create_ingrediente_direct(test_db_session, "Del-ing")
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         client.post(
@@ -1500,7 +1488,7 @@ class TestIngredientes:
         """DELETE soft-deleted pivot → 404."""
         headers = _admin_headers(client)
         ing = _create_ingrediente_direct(test_db_session, "AlrDel")
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         client.post(
@@ -1528,7 +1516,7 @@ class TestIngredientes:
         """DELETE non-associated ingredient → 404."""
         headers = _admin_headers(client)
         ing = _create_ingrediente_direct(test_db_session, "NotAssoc")
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
 
         resp = client.delete(
             f"/api/v1/productos/{prod['id']}/ingredientes/{ing['id']}",
@@ -1546,7 +1534,7 @@ class TestIngredientes:
         """DELETE association → ingredient row in `ingredients` is intact."""
         headers = _admin_headers(client)
         ing = _create_ingrediente_direct(test_db_session, "Intact-ing")
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         client.post(
@@ -1560,9 +1548,7 @@ class TestIngredientes:
         )
 
         row = test_db_session.execute(
-            text(
-                "SELECT eliminado_en FROM ingredients WHERE id = :iid"
-            ),
+            text("SELECT eliminado_en FROM ingredients WHERE id = :iid"),
             {"iid": ing["id"]},
         ).fetchone()
         assert row[0] is None  # ingredient itself not soft-deleted
@@ -1578,7 +1564,7 @@ class TestIngredientes:
         headers = _admin_headers(client)
         ing1 = _create_ingrediente_direct(test_db_session, "Flag-True")
         ing2 = _create_ingrediente_direct(test_db_session, "Flag-False")
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         client.post(
@@ -1608,7 +1594,7 @@ class TestIngredientes:
         """Soft-delete pivot → GET /ingredientes excludes it."""
         headers = _admin_headers(client)
         ing = _create_ingrediente_direct(test_db_session, "SoftPivot")
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         client.post(
@@ -1635,7 +1621,7 @@ class TestIngredientes:
         """Soft-delete the ingredient itself → GET /ingredientes excludes it."""
         headers = _admin_headers(client)
         ing = _create_ingrediente_direct(test_db_session, "SoftIng")
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         client.post(
@@ -1646,7 +1632,9 @@ class TestIngredientes:
 
         # Soft-delete the ingredient directly via SQL
         test_db_session.execute(
-            text("UPDATE ingredients SET eliminado_en = CURRENT_TIMESTAMP WHERE id = :iid"),
+            text(
+                "UPDATE ingredients SET eliminado_en = CURRENT_TIMESTAMP WHERE id = :iid"
+            ),
             {"iid": ing["id"]},
         )
         test_db_session.commit()
@@ -1660,7 +1648,7 @@ class TestIngredientes:
     ):
         """GET /ingredientes with no associations → 200 + []."""
         headers = _admin_headers(client)
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
 
         resp = client.get(f"/api/v1/productos/{prod['id']}/ingredientes")
         assert resp.status_code == 200
@@ -1682,9 +1670,7 @@ class TestIngredientes:
 class TestRouting:
     """Endpoint routing checks."""
 
-    def test_endpoint_responds_at_productos_es(
-        self, client: TestClient, sample_roles
-    ):
+    def test_endpoint_responds_at_productos_es(self, client: TestClient, sample_roles):
         """GET /api/v1/productos → 200."""
         resp = client.get("/api/v1/productos")
         assert resp.status_code == 200
@@ -1750,7 +1736,7 @@ class TestPrecisionAndMigration:
         from features.catalog.models import Ingrediente
         from features.products.models import ProductoIngrediente
 
-        prod = _create_product(client, headers)
+        prod = _create_product(client, headers, test_db_session)
         ing = Ingrediente(nombre="DefRemovible", es_alergeno=False)
         test_db_session.add(ing)
         test_db_session.flush()

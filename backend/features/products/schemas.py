@@ -41,9 +41,8 @@ class ProductoCreate(BaseModel):
     stock_cantidad: int = Field(0, ge=0)
     disponible: bool = True
     imagen_url: str | None = Field(None, max_length=500)
-    # Optional: if provided, replaces the full category set on creation.
-    # Pass [] to create with no categories; omit (None) to skip the M:N op.
-    categoria_ids: list[int] | None = None
+    categoria_ids: list[int] = Field(..., min_length=1)
+    ingrediente_ids: list[dict] | None = None
 
 
 class ProductoUpdate(BaseModel):
@@ -87,6 +86,18 @@ class SetCategorias(BaseModel):
     categoria_ids: list[int]
 
 
+class ImagenUrl(BaseModel):
+    """Payload for adding an image by URL."""
+
+    url: str = Field(..., max_length=500)
+
+
+class ImagenOrden(BaseModel):
+    """Payload for updating image order."""
+
+    orden: int
+
+
 # ---------------------------------------------------------------------------
 # Output schemas
 # ---------------------------------------------------------------------------
@@ -117,6 +128,7 @@ class ProductoRead(BaseModel):
     imagen_url: str | None
     creado_en: datetime
     actualizado_en: datetime
+    imagenes: list[ImagenRead] = []
 
 
 class CategoriaRead(BaseModel):
