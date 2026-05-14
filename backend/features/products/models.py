@@ -1,5 +1,5 @@
 """
-Product domain models: Producto, ProductoCategoria, ProductoIngrediente.
+Product domain models: Producto, ProductoCategoria, ProductoIngrediente, ProductoImagen.
 """
 
 from __future__ import annotations
@@ -7,7 +7,15 @@ from __future__ import annotations
 from typing import List, Optional
 
 import sqlalchemy as sa
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.models import BaseModel, PivotBaseModel
@@ -17,6 +25,7 @@ from features.catalog.models import Categoria, Ingrediente
 # ---------------------------------------------------------------------------
 # M:N pivot — Product ↔ Category
 # ---------------------------------------------------------------------------
+
 
 class ProductoCategoria(PivotBaseModel):
     """
@@ -47,6 +56,7 @@ class ProductoCategoria(PivotBaseModel):
 # ---------------------------------------------------------------------------
 # M:N pivot — Product ↔ Ingredient
 # ---------------------------------------------------------------------------
+
 
 class ProductoIngrediente(PivotBaseModel):
     """
@@ -90,6 +100,7 @@ class ProductoIngrediente(PivotBaseModel):
 # Producto
 # ---------------------------------------------------------------------------
 
+
 class Producto(BaseModel):
     """
     Product entity aligned with ERD v5.
@@ -113,7 +124,9 @@ class Producto(BaseModel):
     descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     precio: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     stock_cantidad: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    disponible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    disponible: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False, index=True
+    )
     imagen_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     # M:N relationships via pivot tables
@@ -129,6 +142,46 @@ class Producto(BaseModel):
         viewonly=False,
         lazy="select",
     )
+    imagenes: Mapped[List[ProductoImagen]] = relationship(
+        "ProductoImagen",
+        back_populates="producto",
+        lazy="select",
+    )
 
     def __repr__(self) -> str:
         return f"<Producto(id={self.id}, nombre={self.nombre!r}, precio={self.precio})>"
+
+
+# ---------------------------------------------------------------------------
+# ProductoImagen — multiple images per product
+# ---------------------------------------------------------------------------
+
+
+class ProductoImagen(BaseModel):
+    """
+    Product image entity.
+
+    A product can have multiple images. The `es_primaria` flag indicates
+    the "hero" image. `orden` controls display order (lower = first).
+    Soft-deleted images are excluded from listings.
+    """
+
+    __tablename__ = "product_images"
+
+    producto_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("products.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    orden: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    es_primaria: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    producto: Mapped["Producto"] = relationship("Producto", back_populates="imagenes")
+
+    def __repr__(self) -> str:
+        return (
+            f"<ProductoImagen(id={self.id}, producto_id={self.producto_id}, "
+            f"url={self.url!r}, es_primaria={self.es_primaria})>"
+        )

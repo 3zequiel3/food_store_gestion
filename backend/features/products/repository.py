@@ -24,6 +24,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import and_, exists, func, literal, select
+import sqlalchemy as sa
 from sqlalchemy.orm import Session, selectinload
 
 from features.catalog.models import Categoria, Ingrediente
@@ -31,6 +32,7 @@ from features.products.models import (
     Producto,
     ProductoCategoria,
     ProductoIngrediente,
+    ProductoImagen,
 )
 from shared.exceptions import ConflictError
 from shared.repository import BaseRepository
@@ -158,9 +160,7 @@ class ProductRepository(BaseRepository[Producto]):
             stripped = search.strip()
             if stripped:
                 pattern = f"%{stripped}%"
-                base = base.where(
-                    func.lower(Producto.nombre).like(func.lower(pattern))
-                )
+                base = base.where(func.lower(Producto.nombre).like(func.lower(pattern)))
 
         # 3. Availability filter
         if disponible is not None:
@@ -186,26 +186,20 @@ class ProductRepository(BaseRepository[Producto]):
         # 5. Allergen exclusion by specific IDs (D2) — NOT EXISTS subquery
         if excluir_alergeno_ids:
             pi2 = ProductoIngrediente.__table__.alias("pi2")
-            ban_subq = (
-                select(pi2.c.product_id)
-                .where(
-                    pi2.c.product_id == Producto.id,
-                    pi2.c.eliminado_en.is_(None),
-                    pi2.c.es_removible.is_(False),
-                    pi2.c.ingredient_id.in_(excluir_alergeno_ids),
-                )
+            ban_subq = select(pi2.c.product_id).where(
+                pi2.c.product_id == Producto.id,
+                pi2.c.eliminado_en.is_(None),
+                pi2.c.es_removible.is_(False),
+                pi2.c.ingredient_id.in_(excluir_alergeno_ids),
             )
             base = base.where(~exists(ban_subq))
 
         # 6. Sin-categoria filter (D5) — NOT EXISTS on product_categories
         if sin_categoria:
             pc = ProductoCategoria.__table__.alias("pc_sc")
-            no_cat_subq = (
-                select(pc.c.product_id)
-                .where(
-                    pc.c.product_id == Producto.id,
-                    pc.c.eliminado_en.is_(None),
-                )
+            no_cat_subq = select(pc.c.product_id).where(
+                pc.c.product_id == Producto.id,
+                pc.c.eliminado_en.is_(None),
             )
             base = base.where(~exists(no_cat_subq))
 
@@ -214,9 +208,7 @@ class ProductRepository(BaseRepository[Producto]):
         total: int = self.session.execute(count_query).scalar() or 0
 
         # Items query
-        items_query = (
-            base.order_by(Producto.nombre).offset(skip).limit(limit)
-        )
+        items_query = base.order_by(Producto.nombre).offset(skip).limit(limit)
         items = list(self.session.execute(items_query).scalars().all())
 
         return items, total
@@ -247,9 +239,7 @@ class ProductRepository(BaseRepository[Producto]):
 
     # ── Ingredient associations with es_removible flag ────────────────────
 
-    def list_ingredientes(
-        self, producto_id: int
-    ) -> list[tuple[Ingrediente, bool]]:
+    def list_ingredientes(self, producto_id: int) -> list[tuple[Ingrediente, bool]]:
         """Return (Ingrediente, es_removible) pairs for a product.
 
         Filters both pivot and ingredient soft-deletes.
@@ -293,12 +283,9 @@ class ProductRepository(BaseRepository[Producto]):
         cat_inner = cat.alias("child")
 
         # Subquery: categories associated with the product via active pivot rows
-        assoc_subq = (
-            select(ProductoCategoria.category_id)
-            .where(
-                ProductoCategoria.product_id == product_id,
-                ProductoCategoria.eliminado_en.is_(None),
-            )
+        assoc_subq = select(ProductoCategoria.category_id).where(
+            ProductoCategoria.product_id == product_id,
+            ProductoCategoria.eliminado_en.is_(None),
         )
 
         # Count categories in the set that have zero active children
@@ -323,9 +310,7 @@ class ProductRepository(BaseRepository[Producto]):
 
     # ── M:N category bulk replace ─────────────────────────────────────────
 
-    def replace_categorias(
-        self, producto_id: int, categoria_ids: list[int]
-    ) -> None:
+    def replace_categorias(self, producto_id: int, categoria_ids: list[int]) -> None:
         """Replace all category associations for a product atomically.
 
         Algorithm:
@@ -379,9 +364,7 @@ class ProductRepository(BaseRepository[Producto]):
                 # Already active → no-op
             else:
                 # New association
-                new_row = ProductoCategoria(
-                    product_id=producto_id, category_id=cat_id
-                )
+                new_row = ProductoCategoria(product_id=producto_id, category_id=cat_id)
                 self.session.add(new_row)
 
         self.session.flush()
@@ -440,9 +423,7 @@ class ProductRepository(BaseRepository[Producto]):
 
     # ── M:N ingredient remove (soft delete on pivot) ─────────────────────
 
-    def remove_ingrediente(
-        self, producto_id: int, ingrediente_id: int
-    ) -> bool:
+    def remove_ingrediente(self, producto_id: int, ingrediente_id: int) -> bool:
         """Soft-delete an active ingredient association.
 
         Args:
@@ -467,3 +448,91 @@ class ProductRepository(BaseRepository[Producto]):
         row.eliminado_en = datetime.now(timezone.utc)
         self.session.flush()
         return True
+
+    # ── Image management ──────────────────────────────────────────────────
+
+    def list_imagenes(self, producto_id: int) -> list[ProductoImagen]:
+        """Return active images for a product ordered by orden, then id.
+
+        Args:
+            producto_id: Product primary key.
+
+        Returns:
+            List of active ProductoImagen ordered by orden ASC, id ASC.
+        """
+        query = (
+            select(ProductoImagen)
+            .where(
+                ProductoImagen.producto_id == producto_id,
+                ProductoImagen.eliminado_en.is_(None),
+            )
+            .order_by(ProductoImagen.orden, ProductoImagen.id)
+        )
+        return list(self.session.execute(query).scalars().all())
+
+    def add_imagen(self, producto_id: int, url: str) -> ProductoImagen:
+        """Create a new image row for a product.
+
+        Args:
+            producto_id: Product primary key.
+            url: Image URL.
+
+        Returns:
+            The created ProductoImagen.
+        """
+        img = ProductoImagen(producto_id=producto_id, url=url)
+        self.session.add(img)
+        self.session.flush()
+        return img
+
+    def delete_imagen(self, imagen_id: int) -> bool:
+        """Soft-delete an image row.
+
+        Args:
+            imagen_id: Image primary key.
+
+        Returns:
+            True if deleted, False if not found or already deleted.
+        """
+        row: ProductoImagen | None = self.session.execute(
+            select(ProductoImagen).where(
+                ProductoImagen.id == imagen_id,
+                ProductoImagen.eliminado_en.is_(None),
+            )
+        ).scalar_one_or_none()
+
+        if row is None:
+            return False
+
+        row.eliminado_en = datetime.now(timezone.utc)
+        self.session.flush()
+        return True
+
+    def set_all_non_primaria(self, producto_id: int) -> None:
+        """Set es_primaria=False on all active images for a product.
+
+        Args:
+            producto_id: Product primary key.
+        """
+        self.session.execute(
+            sa.update(ProductoImagen)
+            .where(
+                ProductoImagen.producto_id == producto_id,
+                ProductoImagen.eliminado_en.is_(None),
+            )
+            .values(es_primaria=False)
+        )
+        self.session.flush()
+
+    def set_primaria(self, imagen_id: int) -> None:
+        """Set es_primaria=True on a specific image.
+
+        Args:
+            imagen_id: Image primary key.
+        """
+        self.session.execute(
+            sa.update(ProductoImagen)
+            .where(ProductoImagen.id == imagen_id)
+            .values(es_primaria=True)
+        )
+        self.session.flush()

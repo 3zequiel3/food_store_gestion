@@ -92,6 +92,17 @@ class SetCategorias(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class ImagenRead(BaseModel):
+    """Image representation for product images."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    url: str
+    orden: int
+    es_primaria: bool
+
+
 class ProductoRead(BaseModel):
     """Flat product representation — used in list and mutation responses."""
 
@@ -138,6 +149,7 @@ class ProductoDetail(ProductoRead):
 
     categorias: list[CategoriaRead]
     ingredientes: list[IngredienteAsociadoRead]
+    imagenes: list[ImagenRead] = []
 
 
 class PaginatedProductos(BaseModel):
