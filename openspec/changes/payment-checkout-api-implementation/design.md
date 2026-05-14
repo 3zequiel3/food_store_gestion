@@ -4,291 +4,226 @@
 
 ### 1. Checkout API Migration
 
-Extend the existing `PaymentService` with a parallel `crear_pago_api()` method that calls `sdk.payment().create()` instead of `sdk.preference().create()`. The router inspects `PagoCreate` for the new fields (`card_token`, `payment_method_id`, `installments`) and branches: if present → API flow; if absent → legacy Pro flow (backward compat). A new `MetodoPagoUsuario` SQLModel stores saved cards linked to `mp_customer_id`. On the frontend, `@mercadopago/sdk-js` Secure Fields render iframes for card data; on submit the SDK produces a token that the backend consumes.
+Extend `PaymentService` with `crear_pago_api()` that calls `sdk.payment().create()` instead of `sdk.preference().create()`. Router branches on `card_token` presence: present → API flow; absent → legacy Pro flow. New `MetodoPagoUsuario` table stores saved cards. Frontend uses `@mercadopago/sdk-js` Secure Fields for PCI-compliant card tokenization.
 
-### 2. Order State Transitions (FSM Enforcement)
+### 2. Payment Method Rename: MERCADOPAGO → TARJETA
 
-The FSM already exists in `backend/features/orders/state_machine.py` with `ALLOWED_TRANSITIONS` and `TRANSITION_ROLES`. What's missing is:
-- A public API endpoint to trigger transitions (`POST /pedidos/{id}/transicionar`)
-- Frontend UI that shows only valid next states per the FSM + user role
-- The webhook handler already calls `transicionar_estado(actor_id=None)` to do PENDIENTE→CONFIRMADO (SISTEMA actor)
+Current `payment_methods` table has `MERCADOPAGO` as the online payment method. Since we're migrating to Checkout API (direct card processing), rename to `TARJETA`:
 
-The endpoint will:
-1. Lookup order by ID
-2. Call `validate_transition(current_state, target_state, user_role)` from `state_machine.py`
-3. Execute the transition via the service
-4. Append to `HistorialEstadoPedido` (already exists)
-5. Return the new state + full history
-
-Frontend:
-- Admin orders page: Show state timeline + buttons for valid transitions (role-gated)
-- Client orders page: Show read-only timeline + "Cancelar" button only when PENDIENTE→CANCELADO is valid
-
-### 3. Modal Visual Fix
-
-The "grey gradient" issue is caused by `bg-glass backdrop-blur-xl` on modal surfaces. `bg-glass` is a semi-transparent custom property that blends with the background, creating a dark/grey appearance. The fix: replace `bg-glass backdrop-blur-xl border border-glass-border` → `bg-white border border-gray-200` on:
-- `AddressModal` (delivery addresses)
-- `OrderDetailModal` (order detail)
-- `PasswordModal` (user profile)
-
-Keep the backdrop overlay (`bg-black/60 backdrop-blur-sm`) — that's the dimmed background behind the modal, not the modal surface itself.
-
-### 4. Local Webhook Tunnel (ngrok)
-
-MercadoPago webhooks require HTTPS. For local development:
-- ngrok creates a public HTTPS tunnel → `localhost:8000`
-- Script `scripts/dev-tunnel.sh` starts ngrok, captures the HTTPS URL
-- Set `MP_WEBHOOK_URL` in `.env` to the ngrok URL
-- Configure the ngrok URL in the MP dashboard as the webhook endpoint
-- MP sends POST → ngrok → `http://localhost:8000/api/v1/pagos/webhook/mercadopago`
-
-### 5. Procfile Verification
-
-The Procfile already has:
+**Alembic data migration**:
+```python
+def upgrade():
+    op.execute("UPDATE payment_methods SET codigo = 'TARJETA', descripcion = 'Pago con tarjeta (MercadoPago)' WHERE codigo = 'MERCADOPAGO'")
+    # Update any orders referencing the old code
+    op.execute("UPDATE orders SET forma_pago_codigo = 'TARJETA' WHERE forma_pago_codigo = 'MERCADOPAGO'")
+    # Update any payment records
+    op.execute("UPDATE payments SET forma_pago_codigo = 'TARJETA' WHERE forma_pago_codigo = 'MERCADOPAGO'")
 ```
-release: alembic upgrade head
-web: python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+
+### 3. Order State Machine — New Flow
+
+**New states added to `order_states`**:
+- `CANCELADO_ADMIN` — Pedido cancelado por el administrador (requires `motivo`)
+- `CANCELADO_CLIENTE` — Pedido cancelado por el cliente (requires `motivo`, blocked from EN_PREPARACION+)
+
+**Data migration**: Existing `CANCELADO` orders need to be split:
+- If `cambiado_por_id IS NULL` in the cancellation history record → `CANCELADO_ADMIN`
+- If `cambiado_por_id IS NOT NULL` → `CANCELADO_CLIENTE`
+
+**Updated FSM transitions**:
+
 ```
-This is confirmed correct. The `release:` step runs migrations before the web dyno starts. No changes needed — just documentation in the design.
+PENDIENTE       → {CONFIRMADO (webhook only), CANCELADO_ADMIN (admin+motivo), CANCELADO_CLIENTE (client)}
+CONFIRMADO      → {EN_PREPARACION (pedidos/admin), CANCELADO_ADMIN (admin+motivo)}
+EN_PREPARACION  → {EN_CAMINO (pedidos/admin, delivery only), CANCELADO_ADMIN (admin only+motivo)}
+EN_CAMINO       → {ENTREGADO (pedidos/admin)}
+ENTREGADO       → {}  (terminal)
+CANCELADO_ADMIN → {}  (terminal)
+CANCELADO_CLIENTE → {} (terminal)
+```
 
-## Architecture Decisions
+**Updated RBAC**:
 
-### Decision: Branching strategy in router
+| Transition | Allowed Roles | Motivo Required |
+|------------|---------------|-----------------|
+| PENDIENTE → CANCELADO_CLIENTE | CLIENT | No (optional) |
+| PENDIENTE → CANCELADO_ADMIN | ADMIN, PEDIDOS | Yes |
+| CONFIRMADO → EN_PREPARACION | PEDIDOS, ADMIN | No |
+| CONFIRMADO → CANCELADO_ADMIN | PEDIDOS, ADMIN | Yes |
+| EN_PREPARACION → EN_CAMINO | PEDIDOS, ADMIN | No (delivery only) |
+| EN_PREPARACION → CANCELADO_ADMIN | ADMIN only | Yes (RN-RB08) |
+| EN_CAMINO → ENTREGADO | PEDIDOS, ADMIN | No |
 
-| Option | Tradeoff | Decision |
-|--------|----------|----------|
-| Separate endpoint `POST /pagos/api` | Clean separation but doubles route surface, breaks existing client contract | ❌ |
-| Single endpoint, branch by field presence | Minimal API surface change, backward compatible, one router method grows | ✅ |
+**Key rules**:
+- `PENDIENTE → CONFIRMADO` is webhook-only (payment approved). Admin cannot manually confirm.
+- `EN_PREPARACION → EN_CAMINO` only valid if `direccion_entrega_id IS NOT NULL` (delivery order).
+- Client cancel from `EN_PREPARACION+` → blocked with message: "Tu pedido ya está en preparación y no puede ser cancelado. Contactanos si necesitás ayuda."
+- `motivo` is stored in `HistorialEstadoPedido.motivo` (already exists, String(500)).
+- `CANCELADO_ADMIN` transitions require `motivo` (enforced in service).
 
-**Choice**: Single endpoint with conditional branching. `PagoCreate` gains optional fields. When `card_token` is present, call `crear_pago_api()`; otherwise fall back to `crear_preferencia()`.
+### 4. Delivery + Payment Validation
 
-### Decision: Where to store idempotency key
+**Business rule**: Delivery orders (`direccion_entrega_id IS NOT NULL`) only accept `TARJETA` or `TRANSFERENCIA`. Pickup orders accept all methods.
 
-| Option | Tradeoff | Decision |
-|--------|----------|----------|
-| Client-generated UUID4 sent in body | Client controls key, simple backend | ✅ |
-| Backend-generated from `pedido_id` + timestamp | No client dependency, but retry within same second could collide | ❌ |
-| DB column `idempotency_key` on `Pago` | Audit trail, but adds migration for existing table | ❌ (defer) |
+**Backend enforcement** (in `OrderService.crear_pedido()`):
+```python
+is_delivery = payload.direccion_id is not None
+if is_delivery and payload.forma_pago_codigo == "EFECTIVO":
+    raise ValidationError("El pago en efectivo no está disponible para envíos. Elegí tarjeta o transferencia.")
+```
 
-**Choice**: Client generates UUID4 `idempotency_key`, sends in request body. Backend passes it as `X-Idempotency-Key` header to `RequestOptions`. No DB storage this iteration — MP de-duplicates server-side.
+**Frontend enforcement** (in `PaymentMethodSelector`):
+```tsx
+const isDelivery = selectedAddressId !== null;
+const filteredMethods = isDelivery
+  ? methods.filter(m => m.codigo !== "EFECTIVO")
+  : methods;
+```
 
-### Decision: Saved cards storage model
+### 5. Order State Transition API
 
-| Option | Tradeoff | Decision |
-|--------|----------|----------|
-| New table `metodo_pago_usuario` | Clean separation, own CRUD, flexible schema | ✅ |
-| Columns on existing `usuario` table | Simpler but pollutes user model, hard to have multiple cards | ❌ |
-| JSON field on `usuario` | No migration, but no relational integrity, hard to query | ❌ |
+**Endpoint**: `POST /api/v1/pedidos/{pedido_id}/transicionar`
 
-**Choice**: New `metodo_pago_usuario` table with FK to `usuario`.
+**Request**:
+```json
+{
+  "estado_codigo_destino": "CANCELADO_ADMIN",
+  "motivo": "Cliente solicitó cancelación por error en dirección"
+}
+```
 
-### Decision: Order state transition endpoint
+**Validation**:
+1. Order exists and belongs to user (or admin/pedidos access)
+2. FSM allows `current → destino`
+3. RBAC allows user role for this transition
+4. If `CANCELADO_ADMIN` → `motivo` required (400 if missing)
+5. If `EN_CAMINO` → verify order is delivery (`direccion_entrega_id IS NOT NULL`)
 
-| Option | Tradeoff | Decision |
-|--------|----------|----------|
-| PATCH /pedidos/{id} with `estado_codigo` | Simple but conflates general update with state transition | ❌ |
-| POST /pedidos/{id}/transicionar | Explicit action, clear intent, audit-friendly | ✅ |
-| Separate state machine service | Clean architecture but overkill for this scope | ❌ |
+**Response**:
+```json
+{
+  "pedido_id": 1,
+  "estado_anterior": "CONFIRMADO",
+  "estado_nuevo": "EN_PREPARACION",
+  "historial": [...]
+}
+```
 
-**Choice**: `POST /api/v1/pedidos/{id}/transicionar` with body `{ "estado_codigo_destino": "CONFIRMADO" }`. The endpoint validates via FSM + RBAC, executes via existing `transicionar_estado()` service method.
+### 6. Modal Visual Fix
 
-### Decision: Frontend card tokenization approach
+Replace `bg-glass backdrop-blur-xl border border-glass-border` → `bg-white border border-gray-200 shadow-xl` on:
+- `AddressModal`
+- `OrderDetailModal`
+- `PasswordModal`
 
-| Option | Tradeoff | Decision |
-|--------|----------|----------|
-| MP.js Secure Fields (iframes) | PCI SAQ-A compliant, card data never hits our server | ✅ |
-| Custom form + manual tokenization | Full control but PCI scope expands to SAQ-D | ❌ |
-| Redirect to MP hosted form | Simplest but kills inline UX (current problem) | ❌ |
+Keep backdrop overlay unchanged (`bg-black/60 backdrop-blur-sm`).
 
-**Choice**: MP.js Secure Fields.
+### 7. Local Webhook Tunnel (ngrok)
 
-### Decision: Modal surface styling
+Script `scripts/dev-tunnel.sh`:
+```bash
+#!/usr/bin/env bash
+echo "Starting ngrok tunnel to localhost:8000..."
+ngrok http 8000 &
+sleep 3
+NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+echo "Webhook URL: ${NGROK_URL}/api/v1/pagos/webhook/mercadopago"
+echo "Set this URL in your MercadoPago dashboard → Integrations → Webhooks"
+```
 
-| Option | Tradeoff | Decision |
-|--------|----------|----------|
-| `bg-glass backdrop-blur-xl` (current) | Frosted glass, but creates grey/dark appearance | ❌ |
-| `bg-white` (opaque) | Clean, readable, consistent with CartValidationModal | ✅ |
-| `bg-card` (Tailwind custom) | Theme-aware but needs to be verified as opaque | ⚠️ (use bg-white for certainty) |
-
-**Choice**: `bg-white border border-gray-200` for all modal surfaces. Keep backdrop dimming on the overlay.
-
-## Data Flow — Checkout API
+## Data Flow — Checkout API + Order Confirmation
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│ FRONTEND                                                            │
+│ FRONTEND (PaymentPage)                                              │
 │                                                                     │
-│  PaymentPage                                                        │
-│    ├─ GET /metodos-pago → saved cards list                          │
-│    ├─ [Saved Card selected] → use mp_card_id + new token            │
-│    └─ [New Card] → SecureCardForm (MP.js iframes)                   │
-│          └─ mp.createCardToken({cardNumber, expMonth, expYear, cvv})│
-│              └─ card_token (one-time token)                         │
-│                                                                     │
-│  POST /api/v1/pagos {                                               │
-│    pedido_id, monto, card_token, payment_method_id,                 │
-│    installments, idempotency_key                                    │
-│  }                                                                  │
+│  1. User selects payment method + delivery mode                     │
+│  2. If TARJETA → SecureCardForm tokenizes card                      │
+│  3. POST /api/v1/pagos {pedido_id, monto, card_token, ...}          │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ BACKEND (PaymentService)                                            │
+│ BACKEND (PaymentService.crear_pago_api())                           │
 │                                                                     │
-│  1. Validate PagoCreate fields                                      │
-│  2. Build payment_data = {                                          │
-│       transaction_amount, token, description, installments,         │
-│       payment_method_id, external_reference                         │
-│     }                                                               │
-│  3. request_options = RequestOptions(                                │
-│       x_idempotency_key = body.idempotency_key                      │
-│     )                                                               │
-│  4. sdk.payment().create(payment_data, request_options)              │
-│  5. Map MP response → PagoResponse                                  │
-│  6. If status == 'approved' → trigger pedido CONFIRMADO transition  │
-│     via OrderService.transicionar_estado(actor_id=None)             │
-│  7. Return {mp_status, mp_id, status_detail}                        │
+│  1. Build payment_data + request_options (idempotency key)          │
+│  2. sdk.payment().create(payment_data, request_options)             │
+│  3. If status == 'approved':                                        │
+│     a. Record Pago in payments table                                │
+│     b. Call OrderService.transicionar_estado(                       │
+│          pedido_id, "CONFIRMADO", actor_id=None) → PENDIENTE→CONF.  │
+│  4. Return {mp_status, mp_id, status_detail}                        │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ MercadoPago API                                                     │
-│  - Validates card token (one-time use)                              │
-│  - Processes payment                                                │
-│  - Returns synchronous status (approved/rejected/pending)           │
-│  - Sends webhook notification (async backup)                        │
+│ ORDER STATE: PENDIENTE → CONFIRMADO (via webhook/payment approval)  │
+│ Next: Admin clicks "Confirmar/Preparar" → CONFIRMADO → EN_PREPARACION │
+│ Order is now: PAID + CONFIRMED = Ready for kitchen                  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Data Flow — Order State Transitions
+## Data Flow — Client Cancel Flow
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ FRONTEND (Admin Orders Page)                        │
-│                                                     │
-│  OrderTimeline shows:                               │
-│    PENDIENTE ✓                                      │
-│    ┌─────────────┐                                  │
-│    │ Confirmar   │ ← Button (PEDIDOS/ADMIN only)    │
-│    └─────────────┘                                  │
-│                                                     │
-│  onClick → POST /api/v1/pedidos/{id}/transicionar   │
-│    { estado_codigo_destino: "CONFIRMADO" }          │
-└────────────────────────┬────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────┐
-│ BACKEND (Orders Router → Service → FSM)             │
-│                                                     │
-│  1. GET /pedidos/{id} → find order                  │
-│  2. GET current user role                           │
-│  3. validate_transition("PENDIENTE", "CONFIRMADO",  │
-│     user_role) → checks FSM + RBAC                  │
-│  4. If valid → update order.estado_codigo           │
-│  5. Append HistorialEstadoPedido record             │
-│  6. Return new state + full history                 │
-│                                                     │
-│  If invalid → 400 (FSM) or 403 (RBAC)               │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│ FRONTEND (Client Orders Page)                                       │
+│                                                                     │
+│  If order.estado_codigo == "PENDIENTE":                              │
+│    → Show "Cancelar pedido" button                                  │
+│    → On click: confirm dialog → POST transicionar (CANCELADO_CLIENTE)│
+│                                                                     │
+│  If order.estado_codigo >= "EN_PREPARACION":                         │
+│    → Show "Cancelar pedido" button as DISABLED                      │
+│    → Tooltip: "Tu pedido ya está en preparación y no puede          │
+│                ser cancelado. Contactanos si necesitás ayuda."      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## File Changes
 
 | File | Action | Description |
 |------|--------|-------------|
-| `backend/features/payments/schemas.py` | Modify | Add `card_token`, `payment_method_id`, `installments`, `idempotency_key` to `PagoCreate` |
-| `backend/features/payments/models.py` | Modify | Add `MetodoPagoUsuario` SQLModel table |
-| `backend/features/payments/service.py` | Modify | Add `crear_pago_api()`, saved cards CRUD methods |
-| `backend/features/payments/router.py` | Modify | Branch logic in `crear_pago()`; add `GET/POST/DELETE /metodos-pago` routes |
-| `backend/features/payments/repository.py` | Modify | Add CRUD operations for `MetodoPagoUsuario` |
+| `backend/features/orders/state_machine.py` | Modify | New FSM transitions + RBAC for CANCELADO_ADMIN, CANCELADO_CLIENTE |
+| `backend/features/orders/service.py` | Modify | Delivery+payment validation, motivo enforcement |
 | `backend/features/orders/router.py` | Modify | Add `POST /pedidos/{id}/transicionar` endpoint |
-| `backend/alembic/versions/` | Create | Migration for `metodo_pago_usuario` table |
-| `frontend/package.json` | Modify | Add `@mercadopago/sdk-js` dependency |
-| `frontend/src/features/payments/components/SecureCardForm.tsx` | Create | MP.js Secure Fields card form |
-| `frontend/src/features/payments/components/SavedCardsList.tsx` | Create | Display saved cards with select/delete |
-| `frontend/src/features/payments/services/payments.service.ts` | Modify | Add `createPayment()`, `getSavedCards()`, `saveCard()`, `deleteCard()` |
-| `frontend/src/features/payments/types/payments.types.ts` | Modify | Add `PaymentCreateRequest`, `SavedCard` types |
-| `frontend/src/features/payments/hooks/useInitPayment.ts` | Modify | Switch from preference creation to API payment |
-| `frontend/src/features/orders/components/OrderDetailModal.tsx` | Modify | Fix modal surface: `bg-white` instead of `bg-glass`, add state timeline |
-| `frontend/src/features/delivery-addresses/components/AddressModal.tsx` | Modify | Fix modal surface: `bg-white` instead of `bg-glass` |
-| `frontend/src/features/user-profile/components/PasswordModal.tsx` | Modify | Fix modal surface: `bg-white` instead of `bg-glass` |
-| `scripts/dev-tunnel.sh` | Create | ngrok tunnel startup script |
+| `backend/features/orders/schemas.py` | Modify | Add `motivo` field in transition request |
+| `backend/features/payments/schemas.py` | Modify | Add `card_token`, `payment_method_id`, `installments`, `idempotency_key` |
+| `backend/features/payments/models.py` | Modify | Add `MetodoPagoUsuario` table |
+| `backend/features/payments/service.py` | Modify | Add `crear_pago_api()`, saved cards CRUD |
+| `backend/features/payments/router.py` | Modify | Branch API/Pro flow, add `/metodos-pago` routes |
+| `backend/features/payments/repository.py` | Modify | Add CRUD for `MetodoPagoUsuario` |
+| `backend/alembic/versions/` | Create | Migration: rename MERCADOPAGO→TARJETA, add new order states, create metodo_pago_usuario table |
+| `frontend/src/features/payments/` | Modify | SecureCardForm, saved cards, inline payment |
+| `frontend/src/features/checkout/` | Modify | Delivery mode selector, payment filtering by mode |
+| `frontend/src/features/orders/` | Modify | Timeline, cancel flow, modal visual fix |
+| `frontend/src/features/delivery-addresses/` | Modify | AddressModal visual fix |
+| `frontend/src/features/user-profile/` | Modify | PasswordModal visual fix |
+| `scripts/dev-tunnel.sh` | Create | ngrok tunnel script |
 | `docs/webhook-testing.md` | Create | Local webhook testing guide |
-
-## Interfaces / Contracts
-
-### Backend — `PagoCreate` schema (extended)
-
-```python
-class PagoCreate(BaseSchema):
-    pedido_id: int
-    monto: float
-    # Checkout API fields (optional — presence triggers API flow)
-    card_token: str | None = None
-    payment_method_id: str | None = None
-    installments: int | None = 1
-    idempotency_key: str | None = None
-```
-
-### Backend — `MetodoPagoUsuario` model
-
-```python
-class MetodoPagoUsuario(SQLModel, table=True):
-    __tablename__ = "metodo_pago_usuario"
-    id: int = Field(primary_key=True)
-    usuario_id: int = Field(foreign_key="usuario.id")
-    mp_customer_id: str
-    mp_card_id: str
-    last_four: str
-    expiration_month: int
-    expiration_year: int
-    payment_method_id: str
-    card_brand: str
-    created_at: datetime = Field(default_factory=utcnow)
-```
-
-### Backend — Order state transition endpoint
-
-```python
-# POST /api/v1/pedidos/{pedido_id}/transicionar
-class TransicionarRequest(BaseSchema):
-    estado_codigo_destino: str  # e.g. "CONFIRMADO"
-
-class TransicionarResponse(BaseSchema):
-    pedido_id: int
-    estado_anterior: str
-    estado_nuevo: str
-    historial: list[HistorialEstadoRead]
-```
-
-### Frontend — `SecureCardForm` contract
-
-```typescript
-interface SecureCardFormProps {
-  onSubmit: (token: string, paymentMethodId: string) => void;
-  onError: (error: string) => void;
-  isLoading?: boolean;
-}
-```
 
 ## Testing Strategy
 
 | Layer | What to Test | Approach |
 |-------|-------------|----------|
-| Unit | `crear_pago_api()` with mocked SDK | Mock `sdk.payment().create()`, verify data mapping, idempotency header |
-| Unit | `PagoCreate` schema validation | Test optional fields: with card_token → API path, without → Pro path |
-| Unit | `MetodoPagoUsuario` CRUD | In-memory SQLite, test save/list/delete |
+| Unit | `crear_pago_api()` with mocked SDK | Mock `sdk.payment().create()`, verify data mapping |
 | Unit | FSM `validate_transition()` | Test all valid/invalid transitions + RBAC |
+| Unit | Delivery + payment validation | Delivery+EFECTIVO → 400, Pickup+EFECTIVO → 200 |
+| Unit | `PagoCreate` schema validation | card_token present → API path, absent → Pro path |
 | Integration | `POST /api/v1/pagos` with card_token | TestClient + mocked MP SDK |
 | Integration | `POST /pedidos/{id}/transicionar` | TestClient, verify FSM blocks invalid transitions |
-| Integration | Webhook still works | Send webhook payload, verify order state transition |
-| E2E | Full checkout with Secure Fields | Playwright: fill card form → submit → verify approval |
-| Manual | ngrok tunnel + MP webhook | Start tunnel, trigger sandbox payment, verify webhook received |
+| Integration | Client cancel blocked from EN_PREPARACION | TestClient, verify 403/400 response |
+| Integration | Webhook → order CONFIRMADO transition | Send webhook payload, verify state change |
+| E2E | Full checkout: delivery + TARJETA → payment → confirmation | Playwright flow |
+| E2E | Pickup + EFECTIVO → order created successfully | Playwright flow |
+| Manual | ngrok tunnel + MP webhook | Start tunnel, trigger sandbox payment, verify webhook |
 
 ## Migration / Rollout
 
-1. **Alembic migration**: `metodo_pago_usuario` table.
-2. **Feature flag**: None needed — new fields are optional in `PagoCreate`.
-3. **Rollout order**: Backend first (deploy with new fields accepted but unused), then frontend (enable Secure Fields).
-4. **Rollback**: Revert router to always call `crear_preferencia()`. Drop table via `alembic downgrade`.
-5. **Procfile**: Already correct — `release: alembic upgrade head` runs on every Railway deploy.
+1. **Alembic migration** (single migration file with 3 operations):
+   - a. Rename `MERCADOPAGO` → `TARJETA` in `payment_methods` + cascade to orders/payments
+   - b. Add `CANCELADO_ADMIN`, `CANCELADO_CLIENTE` to `order_states`; migrate existing `CANCELADO` orders
+   - c. Create `metodo_pago_usuario` table
+2. **Feature flag**: None needed — new fields are optional.
+3. **Rollout order**: Backend first, then frontend.
+4. **Procfile**: Already correct — `release: alembic upgrade head` runs on Railway deploy.
