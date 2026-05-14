@@ -59,6 +59,7 @@ services:
       backend:
         condition: service_healthy
     environment:
+      CI: "true"
       # vite.config.ts lee esto para apuntar el proxy /api al backend del compose.
       API_PROXY_TARGET: ${API_PROXY_TARGET:-http://backend:8000}
     volumes:
