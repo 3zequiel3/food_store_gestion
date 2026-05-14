@@ -8,9 +8,15 @@
 export interface CategoriaRead {
   id: number;
   nombre: string;
-  /** Slug único de la categoría */
-  slug: string;
-  parent_id: number | null;
+  padre_id: number | null;
+}
+
+/** Imagen de producto (lectura) */
+export interface ImagenRead {
+  id: number;
+  url: string;
+  orden: number;
+  es_primaria: boolean;
 }
 
 /** Ingrediente asociado a un producto (lectura) */
@@ -33,12 +39,14 @@ export interface ProductoRead {
   disponible: boolean;
   stock_cantidad: number;
   categoria_id: number | null;
+  imagenes: ImagenRead[];
 }
 
 /** Producto completo para la página de detalle */
 export interface ProductoDetail extends ProductoRead {
   categorias: CategoriaRead[];
   ingredientes: IngredienteAsociadoRead[];
+  imagenes: ImagenRead[];
 }
 
 /** Respuesta paginada de la lista de productos */
@@ -71,7 +79,8 @@ export interface ProductoCreate {
   stock_cantidad?: number;
   disponible?: boolean;
   imagen_url?: string | null;
-  categoria_ids?: number[];
+  categoria_ids: number[];
+  ingrediente_ids?: { ingrediente_id: number; es_removible: boolean }[];
 }
 
 /** Payload para editar un producto — todos los campos opcionales (admin) */
