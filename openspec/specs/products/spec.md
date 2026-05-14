@@ -19,25 +19,20 @@ The system SHALL persist products in the existing `products` table (created in m
 - **WHEN** `backend.features.products.repository` is imported
 - **THEN** it imports `Producto` from `backend.features.products.models` and does NOT declare a new SQLAlchemy class with `__tablename__ = "products"`
 
-### Requirement: ProductoIngrediente pivot has es_removible flag
-The system SHALL extend the existing pivot table `product_ingredients` (created in migration `20260428_0001`, lines 376-406) with a new column `es_removible BOOLEAN NOT NULL DEFAULT false` via a dedicated Alembic migration (`add_es_removible_to_product_ingredients`). The ORM class `ProductoIngrediente` in `backend/features/products/models.py` SHALL declare the column as `Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa.false())` so that SQLAlchemy and the database stay aligned. The migration SHALL set `down_revision = '77bcb99d97db'`. (RN-CA07, ERD §3.2)
+### Requirement: ProductoIngrediente pivot (es_removible moved to Ingrediente)
+The system SHALL remove the `es_removible` column from the `product_ingredients` pivot table via an Alembic migration. The attribute moves to the `Ingrediente` model (see `ingredients` spec). The `ProductoIngrediente` ORM class SHALL no longer declare `es_removible`. (Previously: `es_removible` was a column on `product_ingredients` with `BOOLEAN NOT NULL DEFAULT false`)
 
-#### Scenario: Migration adds es_removible column
-- **WHEN** `alembic upgrade head` is executed against a fresh database
-- **THEN** the `product_ingredients` table contains the column `es_removible boolean NOT NULL DEFAULT false`
-
-#### Scenario: Existing rows get default false on upgrade
-- **GIVEN** the table `product_ingredients` had rows before the new migration
+#### Scenario: Migration removes es_removible from product_ingredients
 - **WHEN** `alembic upgrade head` is executed
-- **THEN** those rows have `es_removible = false` (no NOT NULL violation)
+- **THEN** the `product_ingredients` table no longer contains the column `es_removible`
 
-#### Scenario: Downgrade removes the column
-- **WHEN** `alembic downgrade -1` is executed
-- **THEN** the column `es_removible` no longer exists in `product_ingredients`
+#### Scenario: Migration adds es_removible to ingredients (cross-ref)
+- **WHEN** `alembic upgrade head` is executed
+- **THEN** the `ingredients` table contains `es_removible BOOLEAN NOT NULL DEFAULT false`
 
-#### Scenario: ORM model declares es_removible
+#### Scenario: ORM model no longer declares es_removible
 - **WHEN** the class `ProductoIngrediente` is introspected
-- **THEN** it has an attribute `es_removible: Mapped[bool]` and the SQLAlchemy column has `nullable=False`, `default=False`, and `server_default=sa.false()`
+- **THEN** it does NOT have an attribute `es_removible`
 
 ### Requirement: Decimal precision for precio in API schemas
 The Pydantic schemas SHALL declare `precio` as `Decimal` (NOT `float`) with `max_digits=10, decimal_places=2` and configure `model_config = {"from_attributes": True}` on read schemas. This preserves NUMERIC(10,2) precision across the JSON boundary even though the SQLAlchemy ORM attribute is type-hinted `Mapped[float]` (a documented smell that is NOT modified in this change). (RN-CA04)
@@ -118,9 +113,9 @@ The `search` filter SHALL be case-insensitive substring match on `nombre`.
 
 The `categoria_id` filter SHALL match products associated (via active `product_categories` rows) to the given category OR any of its active descendant categories, resolved via a recursive Common Table Expression that starts from the given id and walks down through `categories.padre_id`. Both anchor and recursive parts of the CTE SHALL filter `categories.eliminado_en IS NULL`.
 
-The `excluir_alergenos` filter (boolean) SHALL exclude products that have at least one non-removable allergenic ingredient (active `product_ingredients` row joined with `ingredients.es_alergeno = true` and `pi.es_removible = false`).
+The `excluir_alergenos` filter (boolean) SHALL exclude products that have at least one non-removable allergenic ingredient (active `product_ingredients` row joined with `ingredients.es_alergeno = true` and `ingredients.es_removible = false`).
 
-The `excluir_alergeno_ids` filter (list of ingredient ids) SHALL exclude products that have at least one active `product_ingredients` row whose `ingredient_id` is in the list AND whose `es_removible = false`, regardless of the ingredient's `es_alergeno` flag. When the list is empty (default), the filter is a no-op.
+The `excluir_alergeno_ids` filter (list of ingredient ids) SHALL exclude products that have at least one active `product_ingredients` row whose `ingredient_id` is in the list AND whose `ingredients.es_removible = false`, regardless of the ingredient's `es_alergeno` flag. When the list is empty (default), the filter is a no-op.
 
 When both `excluir_alergenos=true` and `excluir_alergeno_ids=[...]` are provided, both filters SHALL be applied with AND semantics (a product is included only if it passes both exclusion criteria).
 
@@ -167,12 +162,12 @@ The `sin_categoria` filter (boolean) SHALL, when `true`, restrict the result to 
 - **THEN** the response has only the 2 unavailable products
 
 #### Scenario: excluir_alergenos hides products with non-removable allergens
-- **GIVEN** product P1 has ingredient I (es_alergeno=true) with `es_removible=false`; product P2 has ingredient I with `es_removible=true`; product P3 has no allergens
+- **GIVEN** product P1 has ingredient I (Ingrediente.es_alergeno=true, Ingrediente.es_removible=false); product P2 has ingredient I (Ingrediente.es_removible=true); product P3 has no allergens
 - **WHEN** `GET /api/v1/productos?excluir_alergenos=true` is called
 - **THEN** the response includes P2 and P3, excludes P1
 
-#### Scenario: excluir_alergeno_ids hides products that contain a banned ingredient as non-removable
-- **GIVEN** ingredient id 50 ("maní"), ingredient id 51 ("gluten"); product P1 has ingredient 50 with `es_removible=false`; product P2 has ingredient 50 with `es_removible=true`; product P3 has only ingredient 51 (es_removible=false); product P4 has neither
+#### Scenario: excluir_alergeno_ids uses Ingrediente.es_removible
+- **GIVEN** ingredient id 50 has `es_removible=false` on `Ingrediente`; product P1 has ingredient 50; product P2 has ingredient 50 but ingredient has `es_removible=true`; product P3 has neither
 - **WHEN** `GET /api/v1/productos?excluir_alergeno_ids=50` is called
 - **THEN** the response includes P2, P3, P4, excludes P1
 
@@ -186,7 +181,7 @@ The `sin_categoria` filter (boolean) SHALL, when `true`, restrict the result to 
 - **THEN** the response is 200 and the filter behaves as if no exclusion list was provided
 
 #### Scenario: excluir_alergenos and excluir_alergeno_ids combined with AND
-- **GIVEN** product P1 has only a non-flagged ingredient 50 (es_alergeno=false) non-removable; product P2 has flagged ingredient 60 (es_alergeno=true) non-removable; product P3 has both 50 (es_removible=false) and 60 (es_removible=false)
+- **GIVEN** product P1 has only ingredient 50 (Ingrediente.es_alergeno=false, Ingrediente.es_removible=false); product P2 has ingredient 60 (Ingrediente.es_alergeno=true, Ingrediente.es_removible=false); product P3 has both 50 (es_removible=false) and 60 (es_removible=false)
 - **WHEN** `GET /api/v1/productos?excluir_alergenos=true&excluir_alergeno_ids=50` is called
 - **THEN** the response excludes P2 (boolean filter) and excludes P1 and P3 (list filter on id 50); only products that pass BOTH are returned
 
@@ -399,12 +394,12 @@ The system SHALL expose `PUT /api/v1/productos/{id}/categorias` protected by `re
 - **THEN** the response is 403
 
 ### Requirement: List ingredientes of product endpoint
-The system SHALL expose `GET /api/v1/productos/{id}/ingredientes` (public) that returns `list[IngredienteAsociadoRead]` where each item contains `id`, `nombre`, `es_alergeno` (from the `ingredients` table) and `es_removible` (from the `product_ingredients` pivot row). Only active pivot rows AND active ingredients SHALL be returned. (US-017, RN-CA07)
+The system SHALL expose `GET /api/v1/productos/{id}/ingredientes` (public) that returns `list[IngredienteAsociadoRead]` where each item contains `id`, `nombre`, `es_alergeno` (from the `ingredients` table) and `es_removible` (from `Ingrediente.es_removible` — no longer from the pivot row). Only active pivot rows AND active ingredients SHALL be returned. (US-017, RN-CA07)
 
-#### Scenario: Returns associated ingredients with flags
-- **GIVEN** product 5 has ingredients [{id: 10, es_alergeno: true, es_removible: false}, {id: 11, es_alergeno: false, es_removible: true}]
+#### Scenario: Returns associated ingredients with es_removible from Ingrediente
+- **GIVEN** product 5 has ingredients [10 (Ingrediente.es_removible=true), 11 (Ingrediente.es_removible=false)]
 - **WHEN** `GET /api/v1/productos/5/ingredientes` is called
-- **THEN** the response is 200 with body `[{id: 10, nombre: ..., es_alergeno: true, es_removible: false}, {id: 11, nombre: ..., es_alergeno: false, es_removible: true}]`
+- **THEN** the response is 200 with body `[{id:10, es_removible:true}, {id:11, es_removible:false}]`
 
 #### Scenario: Soft-deleted association excluded
 - **GIVEN** product 5 has pivot rows (id 10 active, id 11 with `eliminado_en` set)
@@ -430,26 +425,22 @@ The system SHALL expose `GET /api/v1/productos/{id}/ingredientes` (public) that 
 - **THEN** the response is 200
 
 ### Requirement: Add ingrediente association endpoint
-The system SHALL expose `POST /api/v1/productos/{id}/ingredientes` protected by `require_role("ADMIN", "STOCK")` that accepts `AsociarIngrediente({ingrediente_id: int, es_removible: bool = False})` and creates one row in `product_ingredients` with the given `es_removible` flag. The service SHALL validate the product exists (404 on miss) and the ingrediente exists as active (422 with `BusinessRuleError` on miss). If an active pivot row already exists for that pair → 409 (`ConflictError`). If a soft-deleted pivot row exists → reactivate it (`eliminado_en = NULL`) and update its `es_removible` to the new value. On success it SHALL return 201 with `IngredienteAsociadoRead`. (US-017, RN-CA07)
+The system SHALL expose `POST /api/v1/productos/{id}/ingredientes` protected by `require_role("ADMIN", "STOCK")` that accepts `AsociarIngrediente({ingrediente_id: int})` (WITHOUT `es_removible`). The pivot row stores only the FK relationship — `es_removible` is sourced from `Ingrediente.es_removible`. The service SHALL validate the product exists (404 on miss) and the ingrediente exists as active (422 with `BusinessRuleError` on miss). If an active pivot row already exists for that pair → 409 (`ConflictError`). If a soft-deleted pivot row exists → reactivate it (`eliminado_en = NULL`). On success it SHALL return 201 with `IngredienteAsociadoRead`. (US-017, RN-CA07)
 
-#### Scenario: Successful association
+#### Scenario: Successful association without es_removible
 - **GIVEN** product 5 active and ingredient 10 active, no pivot row exists
-- **WHEN** POST `/api/v1/productos/5/ingredientes` with `{"ingrediente_id": 10, "es_removible": true}`
-- **THEN** the response is 201 with body containing `id: 10, es_removible: true` AND a new active row exists in `product_ingredients`
-
-#### Scenario: Default es_removible is false
-- **WHEN** POST with `{"ingrediente_id": 10}` (no `es_removible` key)
-- **THEN** the response is 201 with `es_removible: false`
+- **WHEN** POST `/api/v1/productos/5/ingredientes` with `{"ingrediente_id": 10}`
+- **THEN** the response is 201 with body containing `id: 10, es_removible` matching `Ingrediente.es_removible`
 
 #### Scenario: Duplicate active association rejected
 - **GIVEN** an active pivot row exists for (product 5, ingredient 10)
 - **WHEN** POST `/api/v1/productos/5/ingredientes` with `{"ingrediente_id": 10}`
 - **THEN** the response is 409 (`ConflictError`)
 
-#### Scenario: Soft-deleted association is reactivated with new flag
-- **GIVEN** a soft-deleted pivot row exists for (product 5, ingredient 10) with previous `es_removible: false`
-- **WHEN** POST `/api/v1/productos/5/ingredientes` with `{"ingrediente_id": 10, "es_removible": true}`
-- **THEN** the response is 201 AND the same pivot row now has `eliminado_en IS NULL` AND `es_removible: true` (no duplicate row inserted)
+#### Scenario: Soft-deleted association is reactivated
+- **GIVEN** a soft-deleted pivot row exists for (product 5, ingredient 10)
+- **WHEN** POST `/api/v1/productos/5/ingredientes` with `{"ingrediente_id": 10}`
+- **THEN** the response is 201 AND the same pivot row now has `eliminado_en IS NULL` (no duplicate row inserted)
 
 #### Scenario: Non-existent product returns 404
 - **WHEN** POST `/api/v1/productos/99999/ingredientes` is called

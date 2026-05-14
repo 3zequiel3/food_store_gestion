@@ -5,7 +5,7 @@ Define the `ingredients` capability for the Food Store backend. Ingredients are 
 ## Requirements
 
 ### Requirement: Ingrediente entity model
-The system SHALL persist ingredients in the existing `ingredients` table (created in migration `20260428_0001_initial_schema`, lines 285-308) with columns `id BIGSERIAL`, `nombre VARCHAR(255) NOT NULL UNIQUE` (constraint `uq_ingredients_nombre`), `es_alergeno BOOLEAN NOT NULL DEFAULT false`, plus the standard `creado_en/actualizado_en/eliminado_en TIMESTAMPTZ` columns from `BaseModel`. The ORM class `Ingrediente` defined in `backend/features/catalog/models.py` (lines 137-151) SHALL be the single source of truth — the new `ingredients` module MUST import it, not redefine it. (RN-CA07, RN-CA09)
+The system SHALL persist ingredients in the existing `ingredients` table (created in migration `20260428_0001_initial_schema`, lines 285-308) with columns `id BIGSERIAL`, `nombre VARCHAR(255) NOT NULL UNIQUE` (constraint `uq_ingredients_nombre`), `es_alergeno BOOLEAN NOT NULL DEFAULT false`, `es_removible BOOLEAN NOT NULL DEFAULT false`, plus the standard `creado_en/actualizado_en/eliminado_en TIMESTAMPTZ` columns from `BaseModel`. The ORM class `Ingrediente` defined in `backend/features/catalog/models.py` (lines 137-151) SHALL be the single source of truth — the new `ingredients` module MUST import it, not redefine it. (RN-CA07, RN-CA09)
 
 #### Scenario: Ingrediente has UNIQUE constraint on nombre
 - **WHEN** the `ingredients` table schema is introspected
@@ -15,20 +15,32 @@ The system SHALL persist ingredients in the existing `ingredients` table (create
 - **WHEN** the `ingredients` table schema is introspected
 - **THEN** column `es_alergeno` exists as `BOOLEAN NOT NULL DEFAULT false`
 
+#### Scenario: Ingrediente has es_removible boolean column
+- **WHEN** the `ingredients` table schema is introspected
+- **THEN** column `es_removible` exists as `BOOLEAN NOT NULL DEFAULT false`
+
 #### Scenario: Ingrediente ORM is reused, not redefined
 - **WHEN** `backend.features.ingredients.repository` is imported
 - **THEN** it imports `Ingrediente` from `backend.features.catalog.models` and does NOT declare a new SQLAlchemy class with `__tablename__ = "ingredients"`
 
 #### Scenario: Ingrediente inherits soft-delete from BaseModel
 - **WHEN** an `Ingrediente` instance is loaded from the database
-- **THEN** it exposes attributes `id`, `nombre`, `es_alergeno`, `creado_en`, `actualizado_en`, `eliminado_en` and `eliminado_en` is `None` for active rows
+- **THEN** it exposes attributes `id`, `nombre`, `es_alergeno`, `es_removible`, `creado_en`, `actualizado_en`, `eliminado_en` and `eliminado_en` is `None` for active rows
 
 ### Requirement: Create ingredient endpoint
-The system SHALL expose `POST /api/v1/ingredientes` protected by `require_role("ADMIN", "STOCK")` that accepts `IngredienteCreate({nombre: str, es_alergeno: bool = False})`. On success it SHALL return 201 with `IngredienteRead`. The `nombre` field SHALL be validated with `min_length=1, max_length=255`. (US-011)
+The system SHALL expose `POST /api/v1/ingredientes` protected by `require_role("ADMIN", "STOCK")` that accepts `IngredienteCreate({nombre: str, es_alergeno: bool = False, es_removible: bool = False})`. On success it SHALL return 201 with `IngredienteRead`. The `nombre` field SHALL be validated with `min_length=1, max_length=255`. (US-011)
+
+#### Scenario: Successful ingredient creation with es_removible
+- **WHEN** a user with role `ADMIN` posts `{"nombre": "Tomate", "es_removible": true}`
+- **THEN** the response is 201 with `es_removible: true`
+
+#### Scenario: es_removible defaults to false when omitted
+- **WHEN** a user with role `ADMIN` posts `{"nombre": "Lechuga"}`
+- **THEN** the response is 201 with `es_removible: false`
 
 #### Scenario: Successful ingredient creation as ADMIN
 - **WHEN** a user with role `ADMIN` posts `{"nombre": "Tomate", "es_alergeno": false}`
-- **THEN** the response is 201 with body `{"id": <int>, "nombre": "Tomate", "es_alergeno": false, "creado_en": <iso>, "actualizado_en": <iso>}` and a row exists in `ingredients`
+- **THEN** the response is 201 with body containing `id`, `nombre`, `es_alergeno`, `es_removible`, `creado_en`, `actualizado_en`
 
 #### Scenario: Successful ingredient creation as STOCK with es_alergeno true
 - **WHEN** a user with role `STOCK` posts `{"nombre": "Mani", "es_alergeno": true}`
@@ -68,7 +80,7 @@ The system SHALL reject creating or updating an ingredient whose `nombre` matche
 - **THEN** the response is 409 (RFC 7807) with detail indicating the name is reserved
 
 ### Requirement: List ingredients endpoint with pagination and filter
-The system SHALL expose `GET /api/v1/ingredientes` (public, no authentication required) that returns a paginated list of non-deleted ingredients wrapped in `PaginatedIngredientes({items: list[IngredienteRead], total: int, page: int, limit: int})`. The endpoint SHALL accept query params `page: int >= 1` (default 1), `limit: int in [1, 100]` (default 20), and `es_alergeno: bool | None` (default None = no filter). When `es_alergeno` is `true`, the endpoint SHALL return only ingredients whose `es_alergeno = true`. When `es_alergeno` is `false`, the endpoint SHALL return only ingredients whose `es_alergeno = false`. When `es_alergeno` is omitted or null, the filter SHALL be a no-op (no filter on the column). Soft-deleted ingredients (`eliminado_en IS NOT NULL`) SHALL be excluded. (US-012, RN-CA09, RN-CA07)
+The system SHALL expose `GET /api/v1/ingredientes` (public, no authentication required) that returns a paginated list of non-deleted ingredients wrapped in `PaginatedIngredientes({items: list[IngredienteRead], total: int, page: int, limit: int})`. The endpoint SHALL accept query params `page: int >= 1` (default 1), `limit: int in [1, 100]` (default 20), `es_alergeno: bool | None` (default None = no filter), and `es_removible: bool | None` (default None = no filter). When `es_alergeno` is `true`, the endpoint SHALL return only ingredients whose `es_alergeno = true`. When `es_alergeno` is `false`, the endpoint SHALL return only ingredients whose `es_alergeno = false`. When `es_alergeno` is omitted or null, the filter SHALL be a no-op (no filter on the column). When `es_removible` is provided, the endpoint SHALL filter by that value with the same semantics. Soft-deleted ingredients (`eliminado_en IS NOT NULL`) SHALL be excluded. (US-012, RN-CA09, RN-CA07)
 
 #### Scenario: Default pagination returns first 20 items
 - **GIVEN** 25 non-deleted ingredients exist
@@ -89,6 +101,16 @@ The system SHALL expose `GET /api/v1/ingredientes` (public, no authentication re
 - **GIVEN** 3 ingredients with `es_alergeno=true` and 7 with `es_alergeno=false`
 - **WHEN** `GET /api/v1/ingredientes?es_alergeno=false` is called
 - **THEN** the response is 200 with `items.length == 7`, `total == 7`, every item has `es_alergeno: false`
+
+#### Scenario: Filter es_removible=true returns only removable ingredients
+- **GIVEN** 3 ingredients with `es_removible=true` and 7 with `es_removible=false`
+- **WHEN** `GET /api/v1/ingredientes?es_removible=true` is called
+- **THEN** the response is 200 with `items.length == 3`, every item has `es_removible: true`
+
+#### Scenario: Filter es_removible=false returns only non-removable
+- **GIVEN** 3 ingredients with `es_removible=true` and 7 with `es_removible=false`
+- **WHEN** `GET /api/v1/ingredientes?es_removible=false` is called
+- **THEN** the response is 200 with `items.length == 7`
 
 #### Scenario: Empty catalog returns empty items
 - **GIVEN** the `ingredients` table has no non-deleted rows
@@ -144,12 +166,17 @@ The system SHALL expose `GET /api/v1/ingredientes/{id}` (public, no authenticati
 - **THEN** the response is 200 (no auth required)
 
 ### Requirement: Update ingredient endpoint
-The system SHALL expose `PUT /api/v1/ingredientes/{id}` protected by `require_role("ADMIN", "STOCK")` that accepts `IngredienteUpdate({nombre: str | None, es_alergeno: bool | None})` (partial update). On success it SHALL return 200 with `IngredienteRead`. The service SHALL use `payload.model_dump(exclude_unset=True)` to distinguish "field not sent" from "field explicitly null/false" — this is critical for `es_alergeno` to avoid silent overwrites when the client only intends to update `nombre`. (US-013)
+The system SHALL expose `PUT /api/v1/ingredientes/{id}` protected by `require_role("ADMIN", "STOCK")` that accepts `IngredienteUpdate({nombre: str | None, es_alergeno: bool | None, es_removible: bool | None})` (partial update). On success it SHALL return 200 with `IngredienteRead`. The service SHALL use `payload.model_dump(exclude_unset=True)` to distinguish "field not sent" from "field explicitly null/false" — this is critical for `es_alergeno` and `es_removible` to avoid silent overwrites when the client only intends to update `nombre`. (US-013)
 
-#### Scenario: Successful nombre-only update
-- **GIVEN** ingredient `id=5, nombre="Tomate", es_alergeno=false`
+#### Scenario: Successful es_removible-only update
+- **GIVEN** ingredient `id=5, es_removible=false`
+- **WHEN** PUT `/api/v1/ingredientes/5` with `{"es_removible": true}`
+- **THEN** the response is 200 with `es_removible: true`, other fields preserved
+
+#### Scenario: Successful nombre-only update preserves es_removible
+- **GIVEN** ingredient `id=5, nombre="Tomate", es_removible=true`
 - **WHEN** a user with role `ADMIN` PUTs `/api/v1/ingredientes/5` with `{"nombre": "Tomate Cherry"}`
-- **THEN** the response is 200 with `nombre: "Tomate Cherry", es_alergeno: false` (es_alergeno preserved)
+- **THEN** the response is 200 with `nombre: "Tomate Cherry", es_removible: true`
 
 #### Scenario: Successful es_alergeno-only update
 - **GIVEN** ingredient `id=5, nombre="Mani", es_alergeno=false`
