@@ -33,8 +33,11 @@ WEBHOOK_URL = "/api/v1/pagos/webhook/mercadopago"
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
-def sample_pedido(test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido):
+def sample_pedido(
+    test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido
+):
     """A Pedido in PENDIENTE state belonging to sample_user."""
     from features.orders.models import Pedido
 
@@ -101,11 +104,24 @@ def sample_pago(test_db_session: Session, sample_pedido):
     return pago
 
 
-def _mock_sdk(init_point="https://mp.com/init", payment_status="approved", external_reference=None):
+def _mock_sdk(
+    init_point="https://mp.com/init",
+    payment_status="approved",
+    external_reference=None,
+    payment_id="mp_pay_001",
+):
     """Build a MagicMock that mimics the MercadoPago SDK."""
     sdk = MagicMock()
     sdk.preference.return_value.create.return_value = {
         "response": {"init_point": init_point, "id": "pref_123"}
+    }
+    sdk.payment.return_value.create.return_value = {
+        "response": {
+            "status": payment_status,
+            "id": payment_id,
+            "status_detail": "accredited",
+            "external_reference": external_reference or "",
+        }
     }
     sdk.payment.return_value.get.return_value = {
         "response": {
@@ -117,28 +133,36 @@ def _mock_sdk(init_point="https://mp.com/init", payment_status="approved", exter
 
 
 # ---------------------------------------------------------------------------
-# POST /api/v1/pagos — crear preferencia
+# POST /api/v1/pagos — Checkout API (direct card charge)
 # ---------------------------------------------------------------------------
 
-class TestCrearPago:
 
-    def test_7_2_pago_valido_retorna_201_con_init_point(
+class TestCrearPago:
+    def test_7_2_pago_valido_retorna_201_con_mp_status(
         self, client: TestClient, auth_headers: dict, sample_pedido
     ):
-        """Happy path: valid PENDIENTE order → 201 + PagoRead with init_point."""
-        mock_sdk = _mock_sdk(init_point="https://mp.com/checkout/xyz")
+        """Happy path: valid PENDIENTE order → 201 + mp_status=approved."""
+        mock_sdk = _mock_sdk(payment_status="approved", payment_id="mp_pay_001")
         with patch(
             "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
-            response = client.post(BASE_URL + "/", json={"pedido_id": sample_pedido.id}, headers=auth_headers)
+            response = client.post(
+                BASE_URL + "/",
+                json={
+                    "pedido_id": sample_pedido.id,
+                    "card_token": "tok_test_123",
+                    "payment_method_id": "visa",
+                    "installments": 1,
+                    "idempotency_key": "550e8400-e29b-41d4-a716-446655440000",
+                },
+                headers=auth_headers,
+            )
 
         assert response.status_code == 201
         body = response.json()
-        assert body["pedido_id"] == sample_pedido.id
-        assert body["mp_status"] == "pending"
-        assert body["init_point"] == "https://mp.com/checkout/xyz"
-        assert "idempotency_key" in body
+        assert body["mp_status"] == "approved"
+        assert body["mp_id"] == "mp_pay_001"
 
     def test_7_3_pedido_de_otro_usuario_retorna_403(
         self, client: TestClient, otro_auth_headers: dict, sample_pedido
@@ -149,13 +173,28 @@ class TestCrearPago:
             "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
-            response = client.post(BASE_URL + "/", json={"pedido_id": sample_pedido.id}, headers=otro_auth_headers)
+            response = client.post(
+                BASE_URL + "/",
+                json={
+                    "pedido_id": sample_pedido.id,
+                    "card_token": "tok_test_123",
+                    "payment_method_id": "visa",
+                    "installments": 1,
+                    "idempotency_key": "550e8400-e29b-41d4-a716-446655440001",
+                },
+                headers=otro_auth_headers,
+            )
 
         assert response.status_code == 403
 
     def test_7_4_pedido_confirmado_retorna_409(
-        self, client: TestClient, auth_headers: dict, test_db_session: Session,
-        sample_user, sample_formas_pago, sample_estados_pedido
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_db_session: Session,
+        sample_user,
+        sample_formas_pago,
+        sample_estados_pedido,
     ):
         """Order not in PENDIENTE state → 409."""
         from features.orders.models import Pedido
@@ -176,7 +215,17 @@ class TestCrearPago:
             "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
-            response = client.post(BASE_URL + "/", json={"pedido_id": pedido.id}, headers=auth_headers)
+            response = client.post(
+                BASE_URL + "/",
+                json={
+                    "pedido_id": pedido.id,
+                    "card_token": "tok_test_123",
+                    "payment_method_id": "visa",
+                    "installments": 1,
+                    "idempotency_key": "550e8400-e29b-41d4-a716-446655440002",
+                },
+                headers=auth_headers,
+            )
 
         assert response.status_code == 409
 
@@ -189,15 +238,28 @@ class TestCrearPago:
             "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
-            response = client.post(BASE_URL + "/", json={"pedido_id": sample_pedido.id}, headers=auth_headers)
+            response = client.post(
+                BASE_URL + "/",
+                json={
+                    "pedido_id": sample_pedido.id,
+                    "card_token": "tok_test_123",
+                    "payment_method_id": "visa",
+                    "installments": 1,
+                    "idempotency_key": "550e8400-e29b-41d4-a716-446655440003",
+                },
+                headers=auth_headers,
+            )
 
         assert response.status_code == 409
 
     def test_7_6_reintento_tras_pago_rechazado_crea_nuevo_pago(
-        self, client: TestClient, auth_headers: dict, sample_pedido,
-        test_db_session: Session
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        sample_pedido,
+        test_db_session: Session,
     ):
-        """Rejected previous payment → new attempt creates a new Pago with different key."""
+        """Rejected previous payment → new attempt creates a new Pago."""
         from features.payments.models import Pago
         import uuid
 
@@ -211,28 +273,36 @@ class TestCrearPago:
         test_db_session.add(pago_rechazado)
         test_db_session.commit()
 
-        mock_sdk = _mock_sdk(init_point="https://mp.com/retry")
+        mock_sdk = _mock_sdk(payment_status="approved", payment_id="mp_pay_retry")
         with patch(
             "features.payments.service.PaymentService._get_sdk",
             return_value=mock_sdk,
         ):
-            response = client.post(BASE_URL + "/", json={"pedido_id": sample_pedido.id}, headers=auth_headers)
+            response = client.post(
+                BASE_URL + "/",
+                json={
+                    "pedido_id": sample_pedido.id,
+                    "card_token": "tok_test_123",
+                    "payment_method_id": "visa",
+                    "installments": 1,
+                    "idempotency_key": "550e8400-e29b-41d4-a716-446655440004",
+                },
+                headers=auth_headers,
+            )
 
         assert response.status_code == 201
         body = response.json()
-        assert body["idempotency_key"] != str(pago_rechazado.idempotency_key)
-        assert body["init_point"] == "https://mp.com/retry"
+        assert body["mp_status"] == "approved"
 
 
 # ---------------------------------------------------------------------------
 # POST /api/v1/pagos/webhook/mercadopago
 # ---------------------------------------------------------------------------
 
-class TestWebhook:
 
+class TestWebhook:
     def test_7_7_webhook_approved_confirma_pedido(
-        self, client: TestClient, test_db_session: Session,
-        sample_pedido, sample_pago
+        self, client: TestClient, test_db_session: Session, sample_pedido, sample_pago
     ):
         """Format 1 webhook approved → 200 + order moves to CONFIRMADO + history entry added."""
         from features.orders.models import HistorialEstadoPedido
@@ -257,6 +327,7 @@ class TestWebhook:
 
         from features.payments.models import Pago
         from sqlalchemy import select as sa_select
+
         pago = test_db_session.execute(
             sa_select(Pago).where(Pago.id == sample_pago.id)
         ).scalar_one()
@@ -264,6 +335,7 @@ class TestWebhook:
         assert pago.mp_payment_id == "mp_pay_001"
 
         from features.orders.models import Pedido
+
         pedido = test_db_session.execute(
             sa_select(Pedido).where(Pedido.id == sample_pedido.id)
         ).scalar_one()
@@ -280,8 +352,7 @@ class TestWebhook:
         assert historial.cambiado_por_id is None
 
     def test_7_8_webhook_rejected_pedido_sigue_pendiente(
-        self, client: TestClient, test_db_session: Session,
-        sample_pedido, sample_pago
+        self, client: TestClient, test_db_session: Session, sample_pedido, sample_pago
     ):
         """Format 1 webhook rejected → 200 + order remains PENDIENTE + pago.mp_status=rejected."""
         from features.payments.models import Pago
@@ -310,14 +381,14 @@ class TestWebhook:
         assert pago.mp_status == "rejected"
 
         from features.orders.models import Pedido
+
         pedido = test_db_session.execute(
             sa_select(Pedido).where(Pedido.id == sample_pedido.id)
         ).scalar_one()
         assert pedido.estado_codigo == "PENDIENTE"
 
     def test_7_9_webhook_duplicado_no_duplica_historial(
-        self, client: TestClient, test_db_session: Session,
-        sample_pedido, sample_pago
+        self, client: TestClient, test_db_session: Session, sample_pedido, sample_pago
     ):
         """Duplicate webhook for already-approved payment → 200, no extra history row."""
         from features.payments.models import Pago
@@ -350,17 +421,20 @@ class TestWebhook:
 
         test_db_session.expire_all()
 
-        historial_count = test_db_session.execute(
-            sa_select(HistorialEstadoPedido).where(
-                HistorialEstadoPedido.pedido_id == sample_pedido.id,
-                HistorialEstadoPedido.estado_nuevo_codigo == "CONFIRMADO",
+        historial_count = (
+            test_db_session.execute(
+                sa_select(HistorialEstadoPedido).where(
+                    HistorialEstadoPedido.pedido_id == sample_pedido.id,
+                    HistorialEstadoPedido.estado_nuevo_codigo == "CONFIRMADO",
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(historial_count) == 0  # No CONFIRMADO entry was added
 
     def test_webhook_format2_old_ipn_body_confirma_pedido(
-        self, client: TestClient, test_db_session: Session,
-        sample_pedido, sample_pago
+        self, client: TestClient, test_db_session: Session, sample_pedido, sample_pago
     ):
         """Format 2 (old IPN body with resource URL) → 200 + order moves to CONFIRMADO."""
         from features.orders.models import Pedido
@@ -398,8 +472,7 @@ class TestWebhook:
         assert pedido.estado_codigo == "CONFIRMADO"
 
     def test_webhook_format3_classic_ipn_query_params_confirma_pedido(
-        self, client: TestClient, test_db_session: Session,
-        sample_pedido, sample_pago
+        self, client: TestClient, test_db_session: Session, sample_pedido, sample_pago
     ):
         """Format 3 (classic IPN via query params, empty body) → 200 + order moves to CONFIRMADO."""
         from features.orders.models import Pedido
@@ -433,8 +506,7 @@ class TestWebhook:
         assert pedido.estado_codigo == "CONFIRMADO"
 
     def test_webhook_payload_irreconocible_retorna_200_sin_efecto(
-        self, client: TestClient, test_db_session: Session,
-        sample_pedido, sample_pago
+        self, client: TestClient, test_db_session: Session, sample_pedido, sample_pago
     ):
         """Unrecognised webhook payload → 200 with no side effects (silent discard)."""
         from features.payments.models import Pago
@@ -458,8 +530,8 @@ class TestWebhook:
 # GET /api/v1/pagos/pedido/{pedido_id}
 # ---------------------------------------------------------------------------
 
-class TestObtenerPagoPedido:
 
+class TestObtenerPagoPedido:
     def test_7_10_pago_existente_retorna_200(
         self, client: TestClient, auth_headers: dict, sample_pedido, sample_pago
     ):

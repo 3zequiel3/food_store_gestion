@@ -2,7 +2,7 @@
 Payments router — registered in main.py under /api/v1/pagos.
 
 Endpoints:
-  POST /api/v1/pagos                      — create MP preference for a PENDIENTE order
+  POST /api/v1/pagos                      — create MP payment (Checkout API)
   POST /api/v1/pagos/webhook/mercadopago  — IPN handler (no auth — MP calls this)
   GET  /api/v1/pagos/pedido/{pedido_id}   — latest payment status for an order
 
@@ -48,24 +48,25 @@ def _extract_mp_payment_id(
     return None
 
 
-@router.post("/", status_code=201, response_model=PagoRead)
+@router.post("/", status_code=201)
 def crear_pago(
     body: PagoCreate,
     current_user: Usuario = Depends(require_role("CLIENT")),
-) -> PagoRead:
+) -> dict:
     """
-    Initiate a MercadoPago payment for an order.
+    Process a direct card charge via MercadoPago Checkout API.
 
-    Creates a preference in MP and registers a Pago record.
-    Returns PagoRead with init_point (checkout URL).
+    Returns dict with mp_status, mp_id, status_detail.
     """
-    pago, init_point = PaymentService().crear_preferencia(
+    result = PaymentService().crear_pago_api(
         user_id=current_user.id,
         pedido_id=body.pedido_id,
+        card_token=body.card_token,
+        payment_method_id=body.payment_method_id,
+        installments=body.installments,
+        idempotency_key=body.idempotency_key,
     )
-    data = PagoRead.model_validate(pago)
-    data.init_point = init_point
-    return data
+    return result
 
 
 @router.post("/webhook/mercadopago", status_code=200)

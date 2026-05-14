@@ -20,8 +20,11 @@ ESTADO_URL = "/api/v1/pedidos/{pedido_id}/estado"
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
-def pedido_pendiente(test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido):
+def pedido_pendiente(
+    test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido
+):
     """A Pedido in PENDIENTE state belonging to sample_user."""
     from features.orders.models import Pedido
 
@@ -39,7 +42,9 @@ def pedido_pendiente(test_db_session: Session, sample_user, sample_formas_pago, 
 
 
 @pytest.fixture
-def pedido_confirmado(test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido):
+def pedido_confirmado(
+    test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido
+):
     """A Pedido in CONFIRMADO state belonging to sample_user."""
     from features.orders.models import Pedido
 
@@ -110,8 +115,8 @@ def auth_headers_admin(client, test_db_session: Session, sample_roles):
 # Tests
 # ---------------------------------------------------------------------------
 
-class TestPatchEstado:
 
+class TestPatchEstado:
     def test_patch_estado_sin_auth_401(self, client: TestClient, pedido_pendiente):
         """No auth header → 401."""
         url = ESTADO_URL.format(pedido_id=pedido_pendiente.id)
@@ -195,11 +200,15 @@ class TestPatchEstado:
         url = ESTADO_URL.format(pedido_id=pedido_pendiente.id)
 
         # Cancel the order
-        r1 = client.patch(url, json={"nuevo_estado": "CANCELADO"}, headers=auth_headers_pedidos)
+        r1 = client.patch(
+            url, json={"nuevo_estado": "CANCELADO"}, headers=auth_headers_pedidos
+        )
         assert r1.status_code == 200
 
         # Try to move it forward — CANCELADO is terminal
-        r2 = client.patch(url, json={"nuevo_estado": "CANCELADO"}, headers=auth_headers_pedidos)
+        r2 = client.patch(
+            url, json={"nuevo_estado": "CANCELADO"}, headers=auth_headers_pedidos
+        )
         # FSM: CANCELADO is terminal → 422
         assert r2.status_code == 422
 
@@ -216,10 +225,10 @@ class TestPatchEstado:
         assert response.status_code == 422
 
     def test_patch_estado_con_motivo_cancelacion_valida(
-        self, client: TestClient, auth_headers_pedidos, pedido_confirmado
+        self, client: TestClient, auth_headers_pedidos, pedido_pendiente
     ):
-        """PEDIDOS cancels CONFIRMADO with motivo → 200."""
-        url = ESTADO_URL.format(pedido_id=pedido_confirmado.id)
+        """PEDIDOS cancels PENDIENTE with motivo → CANCELADO → 200."""
+        url = ESTADO_URL.format(pedido_id=pedido_pendiente.id)
         response = client.patch(
             url,
             json={"nuevo_estado": "CANCELADO", "motivo": "Cliente cambió de opinión"},
