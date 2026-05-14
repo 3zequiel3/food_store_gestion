@@ -4,7 +4,11 @@
 
 ### 1. Checkout API Migration
 
-Extend `PaymentService` with `crear_pago_api()` that calls `sdk.payment().create()` instead of `sdk.preference().create()`. Router branches on `card_token` presence: present → API flow; absent → legacy Pro flow. New `MetodoPagoUsuario` table stores saved cards. Frontend uses `@mercadopago/sdk-js` Secure Fields for PCI-compliant card tokenization.
+Replace `crear_preferencia()` (Checkout Pro) with `crear_pago_api()` that calls `sdk.payment().create()`. **No branching, no fallback** — Checkout Pro is removed entirely. Frontend uses `@mercadopago/sdk-js` Secure Fields (iframes) for PCI-compliant card tokenization: card data never touches our DOM or server.
+
+**Idempotency**: The frontend generates `idempotency_key` via `crypto.randomUUID()` before each payment attempt and passes it in the request. The backend forwards this key to MP via `RequestOptions.custom_headers` and stores it in the `payments` table. This prevents double-charging on network retries — if the frontend resends the same request, MP sees the same key and ignores the duplicate.
+
+**Saved cards (scope decision)**: The `MetodoPagoUsuario` table is created in the Alembic migration, but CRUD operations and saved-cards UI are **deferred to a future change**. This keeps the current change focused on the critical path: payment succeeds → order state updates correctly.
 
 ### 2. Payment Method Rename: MERCADOPAGO → TARJETA
 
@@ -143,27 +147,31 @@ echo "Set this URL in your MercadoPago dashboard → Integrations → Webhooks"
 │ FRONTEND (PaymentPage)                                              │
 │                                                                     │
 │  1. User selects payment method + delivery mode                     │
-│  2. If TARJETA → SecureCardForm tokenizes card                      │
-│  3. POST /api/v1/pagos {pedido_id, monto, card_token, ...}          │
+│  2. TARJETA → SecureCardForm tokenizes card (Secure Fields iframes) │
+│  3. Frontend generates idempotency_key = crypto.randomUUID()        │
+│  4. POST /api/v1/pagos {pedido_id, monto, card_token,               │
+│       idempotency_key, payment_method_id, installments}             │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │ BACKEND (PaymentService.crear_pago_api())                           │
 │                                                                     │
-│  1. Build payment_data + request_options (idempotency key)          │
-│  2. sdk.payment().create(payment_data, request_options)             │
-│  3. If status == 'approved':                                        │
+│  1. Validate pedido exists, is PENDIENTE, owned by user             │
+│  2. Check no active payment already exists                          │
+│  3. Build payment_data + request_options (idempotency from client)  │
+│  4. sdk.payment().create(payment_data, request_options)             │
+│  5. If status == 'approved':                                        │
 │     a. Record Pago in payments table                                │
 │     b. Call OrderService.transicionar_estado(                       │
 │          pedido_id, "CONFIRMADO", actor_id=None) → PENDIENTE→CONF.  │
-│  4. Return {mp_status, mp_id, status_detail}                        │
+│  6. Return {mp_status, mp_id, status_detail}                        │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ ORDER STATE: PENDIENTE → CONFIRMADO (via webhook/payment approval)  │
-│ Next: Admin clicks "Confirmar/Preparar" → CONFIRMADO → EN_PREPARACION │
+│ ORDER STATE: PENDIENTE → CONFIRMADO (payment approved)              │
+│ Next: Admin clicks "Preparar" → CONFIRMADO → EN_PREPARACION         │
 │ Order is now: PAID + CONFIRMED = Ready for kitchen                  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -193,13 +201,13 @@ echo "Set this URL in your MercadoPago dashboard → Integrations → Webhooks"
 | `backend/features/orders/service.py` | Modify | Delivery+payment validation, motivo enforcement |
 | `backend/features/orders/router.py` | Modify | Add `POST /pedidos/{id}/transicionar` endpoint |
 | `backend/features/orders/schemas.py` | Modify | Add `motivo` field in transition request |
-| `backend/features/payments/schemas.py` | Modify | Add `card_token`, `payment_method_id`, `installments`, `idempotency_key` |
-| `backend/features/payments/models.py` | Modify | Add `MetodoPagoUsuario` table |
-| `backend/features/payments/service.py` | Modify | Add `crear_pago_api()`, saved cards CRUD |
-| `backend/features/payments/router.py` | Modify | Branch API/Pro flow, add `/metodos-pago` routes |
-| `backend/features/payments/repository.py` | Modify | Add CRUD for `MetodoPagoUsuario` |
+| `backend/features/payments/schemas.py` | Modify | Add `card_token`, `payment_method_id`, `installments`, `idempotency_key` (required, generated by frontend) |
+| `backend/features/payments/models.py` | Modify | Add `MetodoPagoUsuario` table (CRUD deferred to future change) |
+| `backend/features/payments/service.py` | Modify | Add `crear_pago_api()`, remove `crear_preferencia()` |
+| `backend/features/payments/router.py` | Modify | Replace `crear_preferencia()` call with `crear_pago_api()`, remove Checkout Pro flow |
+| `backend/features/payments/repository.py` | No change | (CRUD for MetodoPagoUsuario deferred to future change) |
 | `backend/alembic/versions/` | Create | Migration: rename MERCADOPAGO→TARJETA, add new order states, create metodo_pago_usuario table |
-| `frontend/src/features/payments/` | Modify | SecureCardForm, saved cards, inline payment |
+| `frontend/src/features/payments/` | Create | SecureCardForm, inline payment flow |
 | `frontend/src/features/checkout/` | Modify | Delivery mode selector, payment filtering by mode |
 | `frontend/src/features/orders/` | Modify | Timeline, cancel flow, modal visual fix |
 | `frontend/src/features/delivery-addresses/` | Modify | AddressModal visual fix |
@@ -214,7 +222,7 @@ echo "Set this URL in your MercadoPago dashboard → Integrations → Webhooks"
 | Unit | `crear_pago_api()` with mocked SDK | Mock `sdk.payment().create()`, verify data mapping |
 | Unit | FSM `validate_transition()` | Test all valid/invalid transitions + RBAC |
 | Unit | Delivery + payment validation | Delivery+EFECTIVO → 400, Pickup+EFECTIVO → 200 |
-| Unit | `PagoCreate` schema validation | card_token present → API path, absent → Pro path |
+| Unit | `PagoCreate` schema validation | `card_token` required, `idempotency_key` required (UUID format), `payment_method_id` required |
 | Integration | `POST /api/v1/pagos` with card_token | TestClient + mocked MP SDK |
 | Integration | `POST /pedidos/{id}/transicionar` | TestClient, verify FSM blocks invalid transitions |
 | Integration | Client cancel blocked from EN_PREPARACION | TestClient, verify 403/400 response |
@@ -228,7 +236,7 @@ echo "Set this URL in your MercadoPago dashboard → Integrations → Webhooks"
 1. **Alembic migration** (single file, 3 operations):
    - a. Rename `MERCADOPAGO` → `TARJETA` in `payment_methods` + cascade to orders/payments
    - b. Add `CANCELADO_ADMIN`, `CANCELADO_CLIENTE` to `order_states`; migrate existing `CANCELADO` → `CANCELADO_ADMIN` (all orders, `CANCELADO` stays in catalog as legacy)
-   - c. Create `metodo_pago_usuario` table
-2. **Feature flag**: None needed — new fields are optional.
-3. **Rollout order**: Backend first, then frontend.
+   - c. Create `metodo_pago_usuario` table (CRUD endpoints deferred to future change)
+2. **Checkout Pro removal**: `crear_preferencia()` is deleted from the service. The `POST /api/v1/pagos` endpoint now exclusively calls `crear_pago_api()`. No branching.
+3. **Rollout order**: Backend first (migration + service), then frontend (SecureCardForm + inline flow).
 4. **Procfile**: Already correct — `release: alembic upgrade head` runs on Railway deploy.
