@@ -93,6 +93,9 @@ export function AdminIngredientesPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                     Alérgeno
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Removible
+                  </th>
                   <th className="px-4 py-3 w-24" />
                 </tr>
               </thead>

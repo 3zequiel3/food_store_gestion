@@ -51,6 +51,7 @@ async def listar_ingredientes(
     page: int = Query(1, ge=1, description="1-based page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     es_alergeno: bool | None = Query(None, description="Filter by allergen flag"),
+    es_removible: bool | None = Query(None, description="Filter by removable flag"),
     incluir_eliminados: bool = Query(
         False,
         description="Include soft-deleted ingredients (ADMIN only, RN-CA10). Ignored for other roles.",
@@ -70,6 +71,7 @@ async def listar_ingredientes(
         page=page,
         limit=limit,
         es_alergeno=es_alergeno,
+        es_removible=es_removible,
         current_user=current_user,
         incluir_eliminados=incluir_eliminados,
     )

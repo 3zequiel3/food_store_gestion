@@ -23,6 +23,7 @@ from shared.models import BaseModel
 # Rol — tabla catálogo con IDs estables (1=ADMIN, 2=STOCK, 3=PEDIDOS, 4=CLIENT)
 # ---------------------------------------------------------------------------
 
+
 class Rol(BaseModel):
     """
     User role catalog.
@@ -47,6 +48,7 @@ class Rol(BaseModel):
 # FormaPago — PK semántica VARCHAR (MERCADOPAGO / EFECTIVO / TRANSFERENCIA)
 # ---------------------------------------------------------------------------
 
+
 class FormaPago(BaseModel):
     """
     Payment method catalog.
@@ -59,7 +61,9 @@ class FormaPago(BaseModel):
 
     # Override the BIGSERIAL id from BaseModel with a VARCHAR PK
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    codigo: Mapped[str] = mapped_column(String(50), primary_key=False, unique=True, nullable=False)
+    codigo: Mapped[str] = mapped_column(
+        String(50), primary_key=False, unique=True, nullable=False
+    )
     descripcion: Mapped[str] = mapped_column(String(255), nullable=False)
     habilitada: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -70,6 +74,7 @@ class FormaPago(BaseModel):
 # ---------------------------------------------------------------------------
 # EstadoPedido — PK semántica VARCHAR con orden y flag terminal
 # ---------------------------------------------------------------------------
+
 
 class EstadoPedido(BaseModel):
     """
@@ -94,6 +99,7 @@ class EstadoPedido(BaseModel):
 # ---------------------------------------------------------------------------
 # Categoria — árbol autoreferencial (padre_id nullable)
 # ---------------------------------------------------------------------------
+
 
 class Categoria(BaseModel):
     """
@@ -134,11 +140,14 @@ class Categoria(BaseModel):
 # Ingrediente — con flag de alérgeno
 # ---------------------------------------------------------------------------
 
+
 class Ingrediente(BaseModel):
     """
     Ingredient entity.
 
     ``es_alergeno`` drives the allergen-warning UI per spec.
+    ``es_removible`` controls whether the ingredient can be removed by the
+    client when ordering (global property, not per-product).
     ``nombre`` is UNIQUE because ingredients are reused across products.
     """
 
@@ -146,6 +155,7 @@ class Ingrediente(BaseModel):
 
     nombre: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     es_alergeno: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    es_removible: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     def __repr__(self) -> str:
         return f"<Ingrediente(id={self.id}, nombre={self.nombre!r})>"

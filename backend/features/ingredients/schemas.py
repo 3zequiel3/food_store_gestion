@@ -32,6 +32,11 @@ class IngredienteCreate(BaseModel):
         description="Whether this ingredient is an allergen.",
         examples=[False],
     )
+    es_removible: bool = Field(
+        False,
+        description="Whether this ingredient is removable by the client when ordering.",
+        examples=[False],
+    )
 
 
 class IngredienteUpdate(BaseModel):
@@ -39,9 +44,9 @@ class IngredienteUpdate(BaseModel):
 
     All fields are optional. The service MUST use
     ``model_dump(exclude_unset=True)`` to distinguish "not sent" from
-    "explicitly set" — this is CRITICAL for ``es_alergeno``:
-    if the client sends only ``{"nombre": "X"}``, ``es_alergeno`` must
-    NOT be overwritten to its default ``None`` / ``False``.
+    "explicitly set" — this is CRITICAL for ``es_alergeno`` and
+    ``es_removible``: if the client sends only ``{"nombre": "X"}``,
+    neither boolean must be overwritten to its default ``None`` / ``False``.
     """
 
     nombre: str | None = Field(
@@ -55,6 +60,11 @@ class IngredienteUpdate(BaseModel):
         description="Whether this ingredient is an allergen.",
         examples=[True],
     )
+    es_removible: bool | None = Field(
+        None,
+        description="Whether this ingredient is removable by the client when ordering.",
+        examples=[True],
+    )
 
 
 # ── Response schemas ──────────────────────────────────────────────────────
@@ -66,6 +76,7 @@ class IngredienteRead(BaseModel):
     id: int
     nombre: str
     es_alergeno: bool
+    es_removible: bool
     creado_en: datetime
     actualizado_en: datetime
 

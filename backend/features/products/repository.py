@@ -7,9 +7,9 @@ Extends BaseRepository[Producto] with specialised methods:
   New in catalog-filters change: categoria_id uses recursive CTE (D1),
   excluir_alergeno_ids list filter (D2), sin_categoria boolean filter (D5).
 - get_with_associations: eager-loads categorias + ingredientes for detail view.
-- list_ingredientes: returns (Ingrediente, es_removible) pairs from pivot.
+- list_ingredientes: returns Ingrediente objects for a product (es_removible is now on model).
 - replace_categorias: bulk replace with soft-delete + reactivation logic.
-- add_ingrediente: insert / reactivate pivot row with es_removible flag.
+- add_ingrediente: insert / reactivate pivot row (no es_removible param).
 - remove_ingrediente: soft-delete pivot row.
 - count_leaf_active_categories: count active leaf-category associations (D4).
 
@@ -178,7 +178,7 @@ class ProductRepository(BaseRepository[Producto]):
                     pi.c.eliminado_en.is_(None),
                     ing.c.eliminado_en.is_(None),
                     ing.c.es_alergeno.is_(True),
-                    pi.c.es_removible.is_(False),
+                    ing.c.es_removible.is_(False),
                 )
             )
             base = base.where(~exists(allergen_subq))
@@ -186,11 +186,16 @@ class ProductRepository(BaseRepository[Producto]):
         # 5. Allergen exclusion by specific IDs (D2) — NOT EXISTS subquery
         if excluir_alergeno_ids:
             pi2 = ProductoIngrediente.__table__.alias("pi2")
-            ban_subq = select(pi2.c.product_id).where(
-                pi2.c.product_id == Producto.id,
-                pi2.c.eliminado_en.is_(None),
-                pi2.c.es_removible.is_(False),
-                pi2.c.ingredient_id.in_(excluir_alergeno_ids),
+            ing2 = Ingrediente.__table__.alias("i2")
+            ban_subq = (
+                select(pi2.c.product_id)
+                .join(ing2, pi2.c.ingredient_id == ing2.c.id)
+                .where(
+                    pi2.c.product_id == Producto.id,
+                    pi2.c.eliminado_en.is_(None),
+                    ing2.c.es_removible.is_(False),
+                    pi2.c.ingredient_id.in_(excluir_alergeno_ids),
+                )
             )
             base = base.where(~exists(ban_subq))
 
@@ -240,8 +245,11 @@ class ProductRepository(BaseRepository[Producto]):
 
     # ── Ingredient associations with es_removible flag ────────────────────
 
-    def list_ingredientes(self, producto_id: int) -> list[tuple[Ingrediente, bool]]:
-        """Return (Ingrediente, es_removible) pairs for a product.
+    def list_ingredientes(self, producto_id: int) -> list[Ingrediente]:
+        """Return Ingrediente objects for a product.
+
+        ``es_removible`` is now an attribute of ``Ingrediente`` itself,
+        so no tuple unpacking is needed.
 
         Filters both pivot and ingredient soft-deletes.
 
@@ -249,10 +257,10 @@ class ProductRepository(BaseRepository[Producto]):
             producto_id: Product primary key.
 
         Returns:
-            List of (Ingrediente, es_removible bool) tuples.
+            List of Ingrediente entities.
         """
         query = (
-            select(Ingrediente, ProductoIngrediente.es_removible)
+            select(Ingrediente)
             .join(
                 ProductoIngrediente,
                 ProductoIngrediente.ingredient_id == Ingrediente.id,
@@ -263,8 +271,7 @@ class ProductRepository(BaseRepository[Producto]):
                 Ingrediente.eliminado_en.is_(None),
             )
         )
-        result = self.session.execute(query).all()
-        return [(row[0], row[1]) for row in result]
+        return list(self.session.execute(query).scalars().all())
 
     # ── Leaf-category count for auto-disable hook ────────────────────────
 
@@ -376,18 +383,19 @@ class ProductRepository(BaseRepository[Producto]):
         self,
         producto_id: int,
         ingrediente_id: int,
-        es_removible: bool,
     ) -> ProductoIngrediente:
         """Associate an ingredient with a product.
 
         - Active pivot row → raise ConflictError (409).
-        - Soft-deleted row → reactivate with new es_removible value.
+        - Soft-deleted row → reactivate.
         - No row → INSERT.
+
+        ``es_removible`` was removed from the signature — it is now a
+        global property on ``Ingrediente``.
 
         Args:
             producto_id: Product primary key.
             ingrediente_id: Ingredient primary key.
-            es_removible: Whether the ingredient can be removed on order.
 
         Returns:
             The ProductoIngrediente pivot row (new or reactivated).
@@ -407,7 +415,6 @@ class ProductRepository(BaseRepository[Producto]):
                 raise ConflictError("El ingrediente ya está asociado al producto")
             # Reactivate soft-deleted row
             existing.eliminado_en = None
-            existing.es_removible = es_removible
             existing.actualizado_en = datetime.now(timezone.utc)
             self.session.flush()
             return existing
@@ -416,7 +423,6 @@ class ProductRepository(BaseRepository[Producto]):
         pi = ProductoIngrediente(
             product_id=producto_id,
             ingredient_id=ingrediente_id,
-            es_removible=es_removible,
         )
         self.session.add(pi)
         self.session.flush()

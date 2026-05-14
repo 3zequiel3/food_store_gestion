@@ -23,6 +23,7 @@ import { AdminMetricasPage } from '../pages/admin/AdminMetricasPage';
 import { AdminProductosPage } from '../pages/admin/AdminProductosPage';
 import { AdminCategoriasPage } from '../pages/admin/AdminCategoriasPage';
 import { AdminIngredientesPage } from '../pages/admin/AdminIngredientesPage';
+import { AdminProfilePage } from '../pages/admin/AdminProfilePage';
 import { MisPedidosPage } from '../pages/client/MisPedidosPage';
 import { PaymentPage } from '../pages/client/PaymentPage';
 import { PaymentResultPage } from '../pages/client/PaymentResultPage';
@@ -89,6 +90,7 @@ export default function AppRoute() {
               <Route path="metricas" element={<AdminMetricasPage />} />
               <Route path="categorias" element={<AdminCategoriasPage />} />
               <Route path="ingredientes" element={<AdminIngredientesPage />} />
+              <Route path="perfil" element={<AdminProfilePage />} />
             </Route>
           </Route>
 

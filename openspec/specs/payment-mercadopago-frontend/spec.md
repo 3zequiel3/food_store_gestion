@@ -65,3 +65,16 @@ The system SHALL have a `features/payments/` folder containing:
 #### Scenario: useInitPayment redirects on success
 - **WHEN** `useInitPayment` mutation resolves with a `PagoRead` containing a valid `init_point`
 - **THEN** `window.location.href` SHALL be set to `init_point`
+
+### Requirement: MercadoPago Checkout Pro research document
+The system SHALL include a research document at `docs/mercadopago-checkout-pro-research.md` that covers: preference creation flow, webhook IPN format, return URL behavior, notification polling strategy, and current integration gaps. The document SHALL be dated and link to official MercadoPago documentation.
+
+> **ADDED (ui-sidebar-user-and-ingredient-fix)**: Research document created — covers preference creation, webhook IPN, return URL behavior, polling strategy, and integration gaps.
+
+#### Scenario: Research document exists and is findable
+- **WHEN** a developer looks for MercadoPago integration documentation
+- **THEN** `docs/mercadopago-checkout-pro-research.md` exists and covers preference creation, webhooks, return URLs, and polling
+
+#### Scenario: Document links to official MP docs
+- **WHEN** the research document is read
+- **THEN** it contains at least one link to the official MercadoPago Checkout Pro documentation

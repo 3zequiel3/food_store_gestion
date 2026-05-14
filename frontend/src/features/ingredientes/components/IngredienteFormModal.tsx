@@ -15,6 +15,7 @@ export function IngredienteFormModal({ ingrediente, onClose }: Props) {
 
   const [nombre, setNombre] = useState(ingrediente?.nombre ?? '');
   const [esAlergeno, setEsAlergeno] = useState(ingrediente?.es_alergeno ?? false);
+  const [esRemovible, setEsRemovible] = useState(ingrediente?.es_removible ?? false);
   const [error, setError] = useState('');
 
   const createMutation = useCreateIngrediente(onClose);
@@ -29,7 +30,7 @@ export function IngredienteFormModal({ ingrediente, onClose }: Props) {
     }
     setError('');
 
-    const payload = { nombre: nombre.trim(), es_alergeno: esAlergeno };
+    const payload = { nombre: nombre.trim(), es_alergeno: esAlergeno, es_removible: esRemovible };
 
     const onError = (err: Error) => {
       if (err instanceof ApiError && err.status === 409) {
@@ -81,6 +82,16 @@ export function IngredienteFormModal({ ingrediente, onClose }: Props) {
               className="w-4 h-4 rounded border-gray-300 accent-orange-500"
             />
             <span className="text-sm text-gray-700">Es alérgeno</span>
+          </label>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={esRemovible}
+              onChange={(e) => setEsRemovible(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 accent-orange-500"
+            />
+            <span className="text-sm text-gray-700">Es removible por el cliente</span>
           </label>
 
           <div className="flex gap-3 pt-2">

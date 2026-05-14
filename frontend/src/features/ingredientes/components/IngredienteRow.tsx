@@ -22,6 +22,17 @@ export function IngredienteRow({ ingrediente, onEdit, onDelete }: Props) {
         )}
       </td>
       <td className="px-4 py-3">
+        {ingrediente.es_removible ? (
+          <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+            Removible
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+            Fijo
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-3">
         <div className="flex items-center gap-2 justify-end">
           <button
             type="button"

@@ -57,13 +57,19 @@ class IngredientService:
 
             nombre = payload.nombre.strip()
             if not nombre:
-                raise BusinessRuleError("El nombre del ingrediente no puede estar vacío")
+                raise BusinessRuleError(
+                    "El nombre del ingrediente no puede estar vacío"
+                )
 
             existing = repo.find_by_nombre(nombre)
             if existing is not None:
                 raise ConflictError("Ya existe un ingrediente con ese nombre")
 
-            return repo.create(nombre=nombre, es_alergeno=payload.es_alergeno)
+            return repo.create(
+                nombre=nombre,
+                es_alergeno=payload.es_alergeno,
+                es_removible=payload.es_removible,
+            )
 
     # ── Read ──────────────────────────────────────────────────────────────
 
@@ -97,6 +103,7 @@ class IngredientService:
         page: int,
         limit: int,
         es_alergeno: bool | None,
+        es_removible: bool | None = None,
         current_user: Optional[Usuario] = None,
         incluir_eliminados: bool = False,
     ) -> tuple[list[Ingrediente], int]:
@@ -110,6 +117,7 @@ class IngredientService:
             page: 1-based page number (converted to skip internally).
             limit: Maximum items per page.
             es_alergeno: Optional filter; None means no filter.
+            es_removible: Optional filter; None means no filter.
             current_user: Authenticated user, or None for public requests.
             incluir_eliminados: Show soft-deleted ingredients (ADMIN only).
 
@@ -134,6 +142,7 @@ class IngredientService:
                 skip=skip,
                 limit=limit,
                 es_alergeno=es_alergeno,
+                es_removible=es_removible,
                 incluir_eliminados=incluir_eliminados,
             )
 

@@ -35,17 +35,13 @@ export function IngredientAssignSelector({ value, onChange }: Props) {
   function add(id: number) {
     const ing = todos.find((i) => i.id === id);
     if (!ing) return;
-    onChange([...value, { id: ing.id, nombre: ing.nombre, es_alergeno: ing.es_alergeno, es_removible: true }]);
+    onChange([...value, { id: ing.id, nombre: ing.nombre, es_alergeno: ing.es_alergeno, es_removible: ing.es_removible }]);
     setSearch('');
     setDropdownOpen(false);
   }
 
   function remove(id: number) {
     onChange(value.filter((v) => v.id !== id));
-  }
-
-  function toggleRemovible(id: number) {
-    onChange(value.map((v) => (v.id === id ? { ...v, es_removible: !v.es_removible } : v)));
   }
 
   return (
@@ -108,18 +104,16 @@ export function IngredientAssignSelector({ value, onChange }: Props) {
                 </span>
               )}
 
-              <button
-                type="button"
-                onClick={() => toggleRemovible(ing.id)}
-                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full ${
                   ing.es_removible
-                    ? 'bg-blue-50 border-blue-300 text-blue-600'
-                    : 'bg-gray-50 border-gray-300 text-gray-400'
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'bg-gray-50 text-gray-400'
                 }`}
-                title="Removible por el cliente"
+                title={ing.es_removible ? 'Removible por el cliente' : 'No removible'}
               >
                 {ing.es_removible ? 'Removible' : 'Fijo'}
-              </button>
+              </span>
 
               <button
                 type="button"

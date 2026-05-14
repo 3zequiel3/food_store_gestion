@@ -213,7 +213,6 @@ class ProductService:
                     repo.add_ingrediente(
                         producto.id,
                         ing_data["ingrediente_id"],
-                        ing_data.get("es_removible", False),
                     )
 
             # Refresh to reflect possible disponible change
@@ -246,14 +245,14 @@ class ProductService:
 
     def get_detail(
         self, producto_id: int
-    ) -> tuple[Producto, list[Categoria], list[tuple[Ingrediente, bool]]]:
+    ) -> tuple[Producto, list[Categoria], list[Ingrediente]]:
         """Fetch product with full associations for the detail endpoint.
 
         Args:
             producto_id: Product primary key.
 
         Returns:
-            (Producto, active_categorias, [(Ingrediente, es_removible)]).
+            (Producto, active_categorias, [Ingrediente, ...]).
 
         Raises:
             NotFoundError: If not found or soft-deleted.
@@ -498,7 +497,7 @@ class ProductService:
 
     def set_categorias(
         self, producto_id: int, categoria_ids: list[int]
-    ) -> tuple[Producto, list[Categoria], list[tuple[Ingrediente, bool]]]:
+    ) -> tuple[Producto, list[Categoria], list[Ingrediente]]:
         """Replace the full category set for a product.
 
         Validates ALL ids before touching pivot rows — if any id is invalid,
@@ -515,7 +514,7 @@ class ProductService:
             categoria_ids: Full desired set of category IDs (may be empty).
 
         Returns:
-            (Producto, active_categorias, [(Ingrediente, es_removible)]).
+            (Producto, active_categorias, [Ingrediente, ...]).
 
         Raises:
             NotFoundError: If the product is not found.
@@ -558,20 +557,21 @@ class ProductService:
         self,
         producto_id: int,
         ingrediente_id: int,
-        es_removible: bool,
-    ) -> tuple[ProductoIngrediente, list[tuple[Ingrediente, bool]]]:
+    ) -> tuple[ProductoIngrediente, list[Ingrediente]]:
         """Associate an ingredient with a product.
 
         Returns the pivot row and the updated ingredient list for response
         building, within the same transaction.
 
+        ``es_removible`` was removed from the signature — it is now a
+        global property on ``Ingrediente``.
+
         Args:
             producto_id: Product primary key.
             ingrediente_id: Ingredient primary key.
-            es_removible: Whether the customer can remove it on order.
 
         Returns:
-            (ProductoIngrediente pivot row, [(Ingrediente, es_removible)]).
+            (ProductoIngrediente pivot row, [Ingrediente, ...]).
 
         Raises:
             NotFoundError: If the product is not found.
@@ -589,7 +589,7 @@ class ProductService:
             if ingrediente is None:
                 raise BusinessRuleError(f"Ingrediente {ingrediente_id} no encontrado")
 
-            pi = repo.add_ingrediente(producto_id, ingrediente_id, es_removible)
+            pi = repo.add_ingrediente(producto_id, ingrediente_id)
             # Flush so list_ingredientes sees the new row
             uow.session.flush()
             result = repo.list_ingredientes(producto_id)
@@ -617,14 +617,16 @@ class ProductService:
             if not removed:
                 raise NotFoundError("Asociación de ingrediente no encontrada")
 
-    def list_ingredientes(self, producto_id: int) -> list[tuple[Ingrediente, bool]]:
-        """Return (Ingrediente, es_removible) pairs for a product.
+    def list_ingredientes(self, producto_id: int) -> list[Ingrediente]:
+        """Return Ingrediente objects for a product.
+
+        ``es_removible`` is now an attribute of ``Ingrediente`` itself.
 
         Args:
             producto_id: Product primary key.
 
         Returns:
-            List of (Ingrediente, es_removible bool) tuples.
+            List of Ingrediente entities.
 
         Raises:
             NotFoundError: If the product is not found.

@@ -315,7 +315,7 @@ async def obtener_producto(
     Returns 404 for soft-deleted or non-existent products.
     """
     service = ProductService()
-    producto, categorias, ingredientes_with_flag = service.get_detail(producto_id)
+    producto, categorias, ingredientes = service.get_detail(producto_id)
 
     # Get images from the relationship
     imagenes = [img for img in producto.imagenes if img.eliminado_en is None]
@@ -333,13 +333,7 @@ async def obtener_producto(
         actualizado_en=producto.actualizado_en,
         categorias=[CategoriaRead.model_validate(c) for c in categorias],
         ingredientes=[
-            IngredienteAsociadoRead(
-                id=ing.id,
-                nombre=ing.nombre,
-                es_alergeno=ing.es_alergeno,
-                es_removible=removible,
-            )
-            for (ing, removible) in ingredientes_with_flag
+            IngredienteAsociadoRead.model_validate(ing) for ing in ingredientes
         ],
         imagenes=[_imagen_to_read_with_presigned(img) for img in imagenes],
     )
@@ -466,7 +460,7 @@ async def set_categorias(
     Returns the updated product detail with refreshed associations.
     """
     service = ProductService()
-    producto, categorias, ingredientes_with_flag = service.set_categorias(
+    producto, categorias, ingredientes = service.set_categorias(
         producto_id, payload.categoria_ids
     )
 
@@ -485,13 +479,7 @@ async def set_categorias(
         actualizado_en=producto.actualizado_en,
         categorias=[CategoriaRead.model_validate(c) for c in categorias],
         ingredientes=[
-            IngredienteAsociadoRead(
-                id=ing.id,
-                nombre=ing.nombre,
-                es_alergeno=ing.es_alergeno,
-                es_removible=removible,
-            )
-            for (ing, removible) in ingredientes_with_flag
+            IngredienteAsociadoRead.model_validate(ing) for ing in ingredientes
         ],
         imagenes=[_imagen_to_read_with_presigned(img) for img in imagenes],
     )
@@ -512,20 +500,12 @@ async def listar_ingredientes_producto(
     """List active ingredient associations for a product.
 
     Public endpoint — no authentication required.
-    Each item includes the es_removible flag from the pivot table.
+    Each item includes the es_removible flag from the ingredient model.
     Returns 404 if the product is not found or soft-deleted.
     """
     service = ProductService()
     result = service.list_ingredientes(producto_id)
-    return [
-        IngredienteAsociadoRead(
-            id=ing.id,
-            nombre=ing.nombre,
-            es_alergeno=ing.es_alergeno,
-            es_removible=removible,
-        )
-        for (ing, removible) in result
-    ]
+    return [IngredienteAsociadoRead.model_validate(ing) for ing in result]
 
 
 @router.post(
@@ -542,29 +522,25 @@ async def agregar_ingrediente(
 
     Requires ADMIN or STOCK role.
     Returns 409 if the association already exists and is active.
-    Reactivates soft-deleted associations (updating es_removible).
+    Reactivates soft-deleted associations.
+
+    ``es_removible`` is no longer part of the payload — it is a global
+    property on the ``Ingrediente`` model.
     """
     service = ProductService()
-    pi, result = service.add_ingrediente(
-        producto_id, payload.ingrediente_id, payload.es_removible
-    )
+    pi, result = service.add_ingrediente(producto_id, payload.ingrediente_id)
 
     # Find the ingredient in the updated list
-    for ing, removible in result:
+    for ing in result:
         if ing.id == payload.ingrediente_id:
-            return IngredienteAsociadoRead(
-                id=ing.id,
-                nombre=ing.nombre,
-                es_alergeno=ing.es_alergeno,
-                es_removible=removible,
-            )
+            return IngredienteAsociadoRead.model_validate(ing)
 
     # Fallback: build from pivot row (should not be reached in normal flow)
     return IngredienteAsociadoRead(
         id=payload.ingrediente_id,
         nombre="",
         es_alergeno=False,
-        es_removible=pi.es_removible,
+        es_removible=False,
     )
 
 

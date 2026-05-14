@@ -159,15 +159,21 @@ def _create_ingrediente_direct(
     session: Session,
     nombre: str = "Ing-X",
     es_alergeno: bool = False,
+    es_removible: bool = False,
 ) -> dict:
     """Insert an Ingrediente directly via session (bypasses API)."""
     from features.catalog.models import Ingrediente
 
-    ing = Ingrediente(nombre=nombre, es_alergeno=es_alergeno)
+    ing = Ingrediente(nombre=nombre, es_alergeno=es_alergeno, es_removible=es_removible)
     session.add(ing)
     session.flush()
     session.commit()
-    return {"id": ing.id, "nombre": ing.nombre, "es_alergeno": ing.es_alergeno}
+    return {
+        "id": ing.id,
+        "nombre": ing.nombre,
+        "es_alergeno": ing.es_alergeno,
+        "es_removible": ing.es_removible,
+    }
 
 
 # ===========================================================================
@@ -971,15 +977,20 @@ class TestCatalogFilters:
         sample_roles,
         admin_user,
     ):
-        """P1 with non-removable allergen + P2 clean → excluir_alergenos=true → only P2."""
+        """P1 with non-removable allergen + P2 clean → excluir_alergenos=true → only P2.
+
+        es_removible is now on the ingredient model.
+        """
         headers = _admin_headers(client)
 
         # P1: has allergen ingredient, not removable
-        ing = _create_ingrediente_direct(test_db_session, "Mani", es_alergeno=True)
+        ing = _create_ingrediente_direct(
+            test_db_session, "Mani", es_alergeno=True, es_removible=False
+        )
         p1 = _create_product(client, headers, nombre="P1-con-alergeno")
         client.post(
             f"/api/v1/productos/{p1['id']}/ingredientes",
-            json={"ingrediente_id": ing["id"], "es_removible": False},
+            json={"ingrediente_id": ing["id"]},
             headers=headers,
         )
 
@@ -999,16 +1010,19 @@ class TestCatalogFilters:
         sample_roles,
         admin_user,
     ):
-        """P1 with REMOVABLE allergen → excluir_alergenos=true → P1 appears."""
+        """P1 with REMOVABLE allergen → excluir_alergenos=true → P1 appears.
+
+        es_removible is now on the ingredient model.
+        """
         headers = _admin_headers(client)
 
         ing = _create_ingrediente_direct(
-            test_db_session, "Gluten-rem", es_alergeno=True
+            test_db_session, "Gluten-rem", es_alergeno=True, es_removible=True
         )
         p1 = _create_product(client, headers, nombre="P1-alergeno-removible")
         client.post(
             f"/api/v1/productos/{p1['id']}/ingredientes",
-            json={"ingrediente_id": ing["id"], "es_removible": True},
+            json={"ingrediente_id": ing["id"]},
             headers=headers,
         )
 
@@ -1035,11 +1049,14 @@ class TestCatalogFilters:
         sample_roles,
         admin_user,
     ):
-        """Combined: categoria_id + search + disponible + excluir_alergenos."""
+        """Combined: categoria_id + search + disponible + excluir_alergenos.
+
+        es_removible is now on the ingredient model.
+        """
         headers = _admin_headers(client)
         cat = _create_categoria_direct(test_db_session, "Esp")
         ing = _create_ingrediente_direct(
-            test_db_session, "Polen-comb", es_alergeno=True
+            test_db_session, "Polen-comb", es_alergeno=True, es_removible=False
         )
 
         # Match: categoria, search=pizza, disponible, no non-removable allergen
@@ -1058,7 +1075,7 @@ class TestCatalogFilters:
         )
         client.post(
             f"/api/v1/productos/{with_allergy['id']}/ingredientes",
-            json={"ingrediente_id": ing["id"], "es_removible": False},
+            json={"ingrediente_id": ing["id"]},
             headers=headers,
         )
 
@@ -1328,14 +1345,17 @@ class TestIngredientes:
         sample_roles,
         admin_user,
     ):
-        """POST with es_removible=true → 201 with correct flag."""
+        """POST with es_removible=true on ingredient → 201 with correct flag.
+
+        es_removible is now a property of the ingredient, not the association.
+        """
         headers = _admin_headers(client)
-        ing = _create_ingrediente_direct(test_db_session, "Tomate-h")
+        ing = _create_ingrediente_direct(test_db_session, "Tomate-h", es_removible=True)
         prod = _create_product(client, headers, test_db_session)
 
         resp = client.post(
             f"/api/v1/productos/{prod['id']}/ingredientes",
-            json={"ingrediente_id": ing["id"], "es_removible": True},
+            json={"ingrediente_id": ing["id"]},
             headers=headers,
         )
         assert resp.status_code == 201
@@ -1350,9 +1370,14 @@ class TestIngredientes:
         sample_roles,
         admin_user,
     ):
-        """POST without es_removible → 201 with es_removible=false."""
+        """POST with es_removible=false on ingredient → 201 with es_removible=false.
+
+        es_removible is now a property of the ingredient, not the association.
+        """
         headers = _admin_headers(client)
-        ing = _create_ingrediente_direct(test_db_session, "Lechuga-d")
+        ing = _create_ingrediente_direct(
+            test_db_session, "Lechuga-d", es_removible=False
+        )
         prod = _create_product(client, headers, test_db_session)
 
         resp = client.post(
@@ -1408,16 +1433,22 @@ class TestIngredientes:
         sample_roles,
         admin_user,
     ):
-        """Add, remove, add again with different flag → 201 + updated flag."""
+        """Add, remove, add again → 201.
+
+        es_removible is now on the ingredient model, not the association.
+        The flag stays the same since it's a property of the ingredient.
+        """
         headers = _admin_headers(client)
-        ing = _create_ingrediente_direct(test_db_session, "Reactivable")
+        ing = _create_ingrediente_direct(
+            test_db_session, "Reactivable", es_removible=True
+        )
         prod = _create_product(client, headers, test_db_session)
         prod_id = prod["id"]
 
         # Add
         client.post(
             f"/api/v1/productos/{prod_id}/ingredientes",
-            json={"ingrediente_id": ing["id"], "es_removible": False},
+            json={"ingrediente_id": ing["id"]},
             headers=headers,
         )
         # Remove
@@ -1425,10 +1456,10 @@ class TestIngredientes:
             f"/api/v1/productos/{prod_id}/ingredientes/{ing['id']}",
             headers=headers,
         )
-        # Add again with different flag
+        # Add again
         resp = client.post(
             f"/api/v1/productos/{prod_id}/ingredientes",
-            json={"ingrediente_id": ing["id"], "es_removible": True},
+            json={"ingrediente_id": ing["id"]},
             headers=headers,
         )
         assert resp.status_code == 201
@@ -1712,16 +1743,16 @@ class TestPrecisionAndMigration:
         precio_returned = Decimal(str(resp.json()["precio"]))
         assert precio_returned == Decimal("19.99")
 
-    def test_es_removible_column_exists_in_pivot(
+    def test_es_removible_column_exists_in_ingredient(
         self,
         client: TestClient,
         test_db_session: Session,
         sample_roles,
     ):
-        """Verify es_removible column exists in product_ingredients via inspect."""
+        """Verify es_removible column exists in ingredients table via inspect."""
         engine = test_db_session.bind
         insp = inspect(engine)
-        columns = {col["name"] for col in insp.get_columns("product_ingredients")}
+        columns = {col["name"] for col in insp.get_columns("ingredients")}
         assert "es_removible" in columns
 
     def test_es_removible_default_false_on_insert(
@@ -1731,31 +1762,20 @@ class TestPrecisionAndMigration:
         sample_roles,
         admin_user,
     ):
-        """INSERT pivot without es_removible → row has es_removible=false."""
+        """INSERT ingredient without es_removible → row has es_removible=false."""
         headers = _admin_headers(client)
         from features.catalog.models import Ingrediente
-        from features.products.models import ProductoIngrediente
 
         prod = _create_product(client, headers, test_db_session)
-        ing = Ingrediente(nombre="DefRemovible", es_alergeno=False)
-        test_db_session.add(ing)
-        test_db_session.flush()
 
-        # Insert WITHOUT specifying es_removible (rely on server_default)
-        pi = ProductoIngrediente(
-            product_id=prod["id"],
-            ingredient_id=ing.id,
-            # es_removible not set — should default to False
-        )
-        test_db_session.add(pi)
+        ing = Ingrediente(nombre="DefRemovible", es_alergeno=False)
+        # es_removible not set — should default to False
+        test_db_session.add(ing)
         test_db_session.commit()
 
         row = test_db_session.execute(
-            text(
-                "SELECT es_removible FROM product_ingredients "
-                "WHERE product_id = :pid AND ingredient_id = :iid"
-            ),
-            {"pid": prod["id"], "iid": ing.id},
+            text("SELECT es_removible FROM ingredients WHERE id = :iid"),
+            {"iid": ing.id},
         ).fetchone()
         assert row is not None
         # SQLite returns 0/1 for booleans — normalize before comparing

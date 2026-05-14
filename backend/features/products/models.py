@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-import sqlalchemy as sa
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -63,6 +62,7 @@ class ProductoIngrediente(PivotBaseModel):
     Many-to-many association between products and ingredients.
 
     Composite PK (product_id, ingredient_id) — no surrogate id (ERD v5, migration 20260428_0001).
+    ``es_removible`` was moved to ``Ingrediente`` (migration 20260514_0000).
     """
 
     __tablename__ = "product_ingredients"
@@ -79,19 +79,12 @@ class ProductoIngrediente(PivotBaseModel):
         primary_key=True,
         nullable=False,
     )
-    es_removible: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=False,
-        server_default=sa.false(),
-    )
 
     def __repr__(self) -> str:
         return (
             f"<ProductoIngrediente("
             f"product_id={self.product_id}, "
-            f"ingredient_id={self.ingredient_id}, "
-            f"es_removible={self.es_removible}"
+            f"ingredient_id={self.ingredient_id}"
             f")>"
         )
 

@@ -1,5 +1,5 @@
 """
-Integration tests for catalog filter extensions — change catalog-filters-and-leaf-categories- 
+Integration tests for catalog filter extensions — change catalog-filters-and-leaf-categories-
 
 Covers (TDD, tasks 1–9):
 1. Filtro recursivo de categoria_id en GET /productos (CTE)
@@ -99,6 +99,7 @@ def stock_user(test_db_session: Session, sample_roles):
 def _create_product(client: TestClient, headers: dict, **overrides) -> dict:
     """POST /api/v1/productos with sensible defaults and assert 201."""
     import uuid
+
     payload = {
         "nombre": f"CF-{uuid.uuid4().hex[:8]}",
         "precio": "10.00",
@@ -122,12 +123,12 @@ def _make_cat(session: Session, nombre: str, padre_id: int | None = None) -> int
 
 
 def _make_ingrediente(
-    session: Session, nombre: str, es_alergeno: bool = False
+    session: Session, nombre: str, es_alergeno: bool = False, es_removible: bool = False
 ) -> int:
     """Insert an Ingrediente directly via session. Returns the ingredient id."""
     from features.catalog.models import Ingrediente
 
-    ing = Ingrediente(nombre=nombre, es_alergeno=es_alergeno)
+    ing = Ingrediente(nombre=nombre, es_alergeno=es_alergeno, es_removible=es_removible)
     session.add(ing)
     session.flush()
     session.commit()
@@ -139,12 +140,15 @@ def _assoc_ing(
     headers: dict,
     prod_id: int,
     ing_id: int,
-    es_removible: bool = False,
 ) -> None:
-    """Associate an ingredient with a product via API."""
+    """Associate an ingredient with a product via API.
+
+    ``es_removible`` is now a global property on the ingredient model,
+    not part of the association payload.
+    """
     resp = client.post(
         f"/api/v1/productos/{prod_id}/ingredientes",
-        json={"ingrediente_id": ing_id, "es_removible": es_removible},
+        json={"ingrediente_id": ing_id},
         headers=headers,
     )
     assert resp.status_code == 201, f"Failed to assoc ingredient: {resp.json()}"
@@ -186,7 +190,9 @@ class TestCategoriaIdRecursiveFilter:
         resp = client.get(f"/api/v1/productos?categoria_id={root_id}&disponible=true")
         assert resp.status_code == 200
         ids = [p["id"] for p in resp.json()["items"]]
-        assert prod["id"] in ids, "Producto en categoría nieta debe aparecer al filtrar por raíz"
+        assert prod["id"] in ids, (
+            "Producto en categoría nieta debe aparecer al filtrar por raíz"
+        )
 
     def test_product_in_sibling_subtree_excluded(
         self,
@@ -215,7 +221,9 @@ class TestCategoriaIdRecursiveFilter:
         resp = client.get(f"/api/v1/productos?categoria_id={root_a}&disponible=true")
         assert resp.status_code == 200
         ids = [p["id"] for p in resp.json()["items"]]
-        assert prod_b["id"] not in ids, "Producto en rama B no debe aparecer al filtrar por rama A"
+        assert prod_b["id"] not in ids, (
+            "Producto en rama B no debe aparecer al filtrar por rama A"
+        )
 
     def test_soft_deleted_descendant_excluded_from_subtree(
         self,
@@ -244,8 +252,7 @@ class TestCategoriaIdRecursiveFilter:
         # Soft-delete child (el intermedio)
         test_db_session.execute(
             text(
-                "UPDATE categories SET eliminado_en = CURRENT_TIMESTAMP "
-                "WHERE id = :cid"
+                "UPDATE categories SET eliminado_en = CURRENT_TIMESTAMP WHERE id = :cid"
             ),
             {"cid": child_id},
         )
@@ -281,7 +288,9 @@ class TestCategoriaIdRecursiveFilter:
         resp = client.get(f"/api/v1/productos?categoria_id={cat_id}&disponible=true")
         assert resp.status_code == 200
         ids = [p["id"] for p in resp.json()["items"]]
-        assert prod["id"] in ids, "Producto asociado directo debe aparecer con filtro directo"
+        assert prod["id"] in ids, (
+            "Producto asociado directo debe aparecer con filtro directo"
+        )
 
     def test_category_filter_no_match_returns_empty(
         self,
@@ -314,12 +323,17 @@ class TestExcluirAlergenos:
         sample_roles,
         admin_user,
     ):
-        """Task 2.1: producto con ingrediente 50 no-removible se excluye con ?excluir_alergeno_ids=50."""
+        """Task 2.1: producto con ingrediente 50 no-removible se excluye con ?excluir_alergeno_ids=50.
+
+        es_removible is now on the ingredient model, not the pivot.
+        """
         headers = _admin_headers(client)
 
-        ing_id = _make_ingrediente(test_db_session, "Mani-ban", es_alergeno=True)
+        ing_id = _make_ingrediente(
+            test_db_session, "Mani-ban", es_alergeno=True, es_removible=False
+        )
         prod = _create_product(client, headers, nombre="P-mani-no-rem")
-        _assoc_ing(client, headers, prod["id"], ing_id, es_removible=False)
+        _assoc_ing(client, headers, prod["id"], ing_id)
 
         resp = client.get(
             f"/api/v1/productos?excluir_alergeno_ids={ing_id}&disponible=true"
@@ -335,12 +349,17 @@ class TestExcluirAlergenos:
         sample_roles,
         admin_user,
     ):
-        """Task 2.2: producto con ingrediente removible NO se excluye."""
+        """Task 2.2: producto con ingrediente removible NO se excluye.
+
+        es_removible is now on the ingredient model, not the pivot.
+        """
         headers = _admin_headers(client)
 
-        ing_id = _make_ingrediente(test_db_session, "Gluten-rem", es_alergeno=True)
+        ing_id = _make_ingrediente(
+            test_db_session, "Gluten-rem", es_alergeno=True, es_removible=True
+        )
         prod = _create_product(client, headers, nombre="P-gluten-rem")
-        _assoc_ing(client, headers, prod["id"], ing_id, es_removible=True)
+        _assoc_ing(client, headers, prod["id"], ing_id)
 
         resp = client.get(
             f"/api/v1/productos?excluir_alergeno_ids={ing_id}&disponible=true"
@@ -375,6 +394,7 @@ class TestExcluirAlergenos:
     ):
         """Task 2.4: combinación excluir_alergenos=true & excluir_alergeno_ids aplica AND.
 
+        es_removible is now on the ingredient model.
         P1: tiene ing_general (es_alergeno=True, no-rem) → excluido por boolean.
         P2: tiene ing_especifico (es_alergeno=False, no-rem) → excluido por ids.
         P3: tiene ing_especifico (es_alergeno=False, es_removible=True) → incluido.
@@ -382,17 +402,24 @@ class TestExcluirAlergenos:
         """
         headers = _admin_headers(client)
 
-        ing_gen = _make_ingrediente(test_db_session, "IngGen-and", es_alergeno=True)
-        ing_esp = _make_ingrediente(test_db_session, "IngEsp-and", es_alergeno=False)
+        ing_gen = _make_ingrediente(
+            test_db_session, "IngGen-and", es_alergeno=True, es_removible=False
+        )
+        ing_esp = _make_ingrediente(
+            test_db_session, "IngEsp-and", es_alergeno=False, es_removible=False
+        )
+        ing_esp_rem = _make_ingrediente(
+            test_db_session, "IngEsp-rem", es_alergeno=False, es_removible=True
+        )
 
         p1 = _create_product(client, headers, nombre="P1-boolean-excluded")
-        _assoc_ing(client, headers, p1["id"], ing_gen, es_removible=False)
+        _assoc_ing(client, headers, p1["id"], ing_gen)
 
         p2 = _create_product(client, headers, nombre="P2-ids-excluded")
-        _assoc_ing(client, headers, p2["id"], ing_esp, es_removible=False)
+        _assoc_ing(client, headers, p2["id"], ing_esp)
 
         p3 = _create_product(client, headers, nombre="P3-removible-ok")
-        _assoc_ing(client, headers, p3["id"], ing_esp, es_removible=True)
+        _assoc_ing(client, headers, p3["id"], ing_esp_rem)
 
         p4 = _create_product(client, headers, nombre="P4-clean")
 
@@ -416,23 +443,33 @@ class TestExcluirAlergenos:
         sample_roles,
         admin_user,
     ):
-        """Múltiples IDs en excluir_alergeno_ids → AND lógico: excluir si tiene alguno no-removible."""
+        """Múltiples IDs en excluir_alergeno_ids → AND lógico: excluir si tiene alguno no-removible.
+
+        es_removible is now on the ingredient model.
+        """
         headers = _admin_headers(client)
 
-        ing1 = _make_ingrediente(test_db_session, "Mani-multi", es_alergeno=True)
-        ing2 = _make_ingrediente(test_db_session, "Trigo-multi", es_alergeno=False)
+        ing1 = _make_ingrediente(
+            test_db_session, "Mani-multi", es_alergeno=True, es_removible=False
+        )
+        ing2 = _make_ingrediente(
+            test_db_session, "Trigo-multi", es_alergeno=False, es_removible=False
+        )
+        ing1_rem = _make_ingrediente(
+            test_db_session, "Mani-rem", es_alergeno=True, es_removible=True
+        )
 
         # P1: tiene ing1 no-rem → excluido
         p1 = _create_product(client, headers, nombre="P1-multi-excluded")
-        _assoc_ing(client, headers, p1["id"], ing1, es_removible=False)
+        _assoc_ing(client, headers, p1["id"], ing1)
 
         # P2: tiene ing2 no-rem → excluido
         p2 = _create_product(client, headers, nombre="P2-multi-excluded")
-        _assoc_ing(client, headers, p2["id"], ing2, es_removible=False)
+        _assoc_ing(client, headers, p2["id"], ing2)
 
         # P3: tiene ing1 removible → incluido
         p3 = _create_product(client, headers, nombre="P3-multi-ok")
-        _assoc_ing(client, headers, p3["id"], ing1, es_removible=True)
+        _assoc_ing(client, headers, p3["id"], ing1_rem)
 
         # P4: limpio → incluido
         p4 = _create_product(client, headers, nombre="P4-multi-clean")
@@ -475,7 +512,11 @@ class TestLeafOnlyValidationHelper:
 
         resp = client.post(
             "/api/v1/productos",
-            json={"nombre": "Cerveza-NL", "precio": "5.00", "categoria_ids": [bebidas_id]},
+            json={
+                "nombre": "Cerveza-NL",
+                "precio": "5.00",
+                "categoria_ids": [bebidas_id],
+            },
             headers=headers,
         )
         assert resp.status_code == 422
@@ -499,7 +540,11 @@ class TestLeafOnlyValidationHelper:
 
         resp = client.post(
             "/api/v1/productos",
-            json={"nombre": "Prod-leaf-ok", "precio": "8.00", "categoria_ids": [leaf_id]},
+            json={
+                "nombre": "Prod-leaf-ok",
+                "precio": "8.00",
+                "categoria_ids": [leaf_id],
+            },
             headers=headers,
         )
         assert resp.status_code == 201
@@ -519,7 +564,9 @@ class TestLeafOnlyValidationHelper:
 
         # Soft-delete the child
         test_db_session.execute(
-            text("UPDATE categories SET eliminado_en = CURRENT_TIMESTAMP WHERE id = :cid"),
+            text(
+                "UPDATE categories SET eliminado_en = CURRENT_TIMESTAMP WHERE id = :cid"
+            ),
             {"cid": child_id},
         )
         test_db_session.commit()
@@ -527,7 +574,11 @@ class TestLeafOnlyValidationHelper:
         # Ahora parent_id es efectivamente una hoja → debe permitir asignación
         resp = client.post(
             "/api/v1/productos",
-            json={"nombre": "Prod-sd-child-ok", "precio": "9.00", "categoria_ids": [parent_id]},
+            json={
+                "nombre": "Prod-sd-child-ok",
+                "precio": "9.00",
+                "categoria_ids": [parent_id],
+            },
             headers=headers,
         )
         assert resp.status_code == 201
@@ -587,14 +638,20 @@ class TestLeafOnlyValidationHelper:
         nombre = "Prod-mix-fails"
         resp = client.post(
             "/api/v1/productos",
-            json={"nombre": nombre, "precio": "7.00", "categoria_ids": [leaf_id, non_leaf_id]},
+            json={
+                "nombre": nombre,
+                "precio": "7.00",
+                "categoria_ids": [leaf_id, non_leaf_id],
+            },
             headers=headers,
         )
         assert resp.status_code == 422
 
         # Producto no debe existir
         count = test_db_session.execute(
-            text("SELECT COUNT(*) FROM products WHERE nombre = :nombre AND eliminado_en IS NULL"),
+            text(
+                "SELECT COUNT(*) FROM products WHERE nombre = :nombre AND eliminado_en IS NULL"
+            ),
             {"nombre": nombre},
         ).scalar()
         assert count == 0
@@ -619,7 +676,12 @@ class TestAutoDisableHook:
 
         resp = client.post(
             "/api/v1/productos",
-            json={"nombre": "P-empty-cats", "precio": "10.00", "disponible": True, "categoria_ids": []},
+            json={
+                "nombre": "P-empty-cats",
+                "precio": "10.00",
+                "disponible": True,
+                "categoria_ids": [],
+            },
             headers=headers,
         )
         assert resp.status_code == 201
@@ -656,7 +718,11 @@ class TestAutoDisableHook:
 
         cat_id = _make_cat(test_db_session, "CatHook-leaf")
         prod = _create_product(
-            client, headers, nombre="P-hook-setcat", disponible=True, categoria_ids=[cat_id]
+            client,
+            headers,
+            nombre="P-hook-setcat",
+            disponible=True,
+            categoria_ids=[cat_id],
         )
         prod_id = prod["id"]
 
@@ -680,7 +746,11 @@ class TestAutoDisableHook:
 
         leaf_id = _make_cat(test_db_session, "LeafKeep-hook")
         prod = _create_product(
-            client, headers, nombre="P-hook-keeptrue", disponible=True, categoria_ids=[leaf_id]
+            client,
+            headers,
+            nombre="P-hook-keeptrue",
+            disponible=True,
+            categoria_ids=[leaf_id],
         )
         prod_id = prod["id"]
 
@@ -705,7 +775,11 @@ class TestAutoDisableHook:
 
         leaf_id = _make_cat(test_db_session, "LeafNoReEnable")
         prod = _create_product(
-            client, headers, nombre="P-no-reenable", disponible=False, categoria_ids=[leaf_id]
+            client,
+            headers,
+            nombre="P-no-reenable",
+            disponible=False,
+            categoria_ids=[leaf_id],
         )
         prod_id = prod["id"]
 
@@ -743,9 +817,7 @@ class TestSinCategoriaFilter:
             client, headers, nombre="P-sincat-nocat", disponible=False
         )
 
-        resp = client.get(
-            "/api/v1/productos?sin_categoria=true&disponible=false"
-        )
+        resp = client.get("/api/v1/productos?sin_categoria=true&disponible=false")
         assert resp.status_code == 200
         ids = [p["id"] for p in resp.json()["items"]]
         assert prod["id"] in ids
@@ -770,9 +842,7 @@ class TestSinCategoriaFilter:
         cat_id = _make_cat(test_db_session, "CatSinCat-SD")
 
         # Crear producto sin categorías (disponible=false por hook)
-        prod = _create_product(
-            client, headers, nombre="P-sincat-sd", categoria_ids=[]
-        )
+        prod = _create_product(client, headers, nombre="P-sincat-sd", categoria_ids=[])
         prod_id = prod["id"]
 
         # Verificar que quedó desactivado por el hook
@@ -780,6 +850,7 @@ class TestSinCategoriaFilter:
 
         # Insertar un pivot row ya soft-deleted directamente
         from datetime import datetime, timezone
+
         now = datetime.now(timezone.utc)
         pivot = ProductoCategoria(
             product_id=prod_id,
@@ -789,9 +860,7 @@ class TestSinCategoriaFilter:
         test_db_session.add(pivot)
         test_db_session.commit()
 
-        resp = client.get(
-            "/api/v1/productos?sin_categoria=true&disponible=false"
-        )
+        resp = client.get("/api/v1/productos?sin_categoria=true&disponible=false")
         assert resp.status_code == 200
         ids = [p["id"] for p in resp.json()["items"]]
         assert prod_id in ids
@@ -811,9 +880,7 @@ class TestSinCategoriaFilter:
             client, headers, nombre="P-sincat-active", categoria_ids=[cat_id]
         )
 
-        resp = client.get(
-            "/api/v1/productos?sin_categoria=true&disponible=true"
-        )
+        resp = client.get("/api/v1/productos?sin_categoria=true&disponible=true")
         assert resp.status_code == 200
         ids = [p["id"] for p in resp.json()["items"]]
         assert prod["id"] not in ids
@@ -889,7 +956,11 @@ class TestBlockOnPromoteGuard:
         assert resp.status_code == 422
         body_str = str(resp.json())
         # El mensaje debe mencionar la categoría o el count
-        assert "PadreConProds-guard" in body_str or "3" in body_str or "subcategor" in body_str.lower()
+        assert (
+            "PadreConProds-guard" in body_str
+            or "3" in body_str
+            or "subcategor" in body_str.lower()
+        )
 
     def test_create_subcategory_parent_with_softdeleted_products_succeeds(
         self,
@@ -1007,7 +1078,9 @@ class TestSoloHojasFilter:
         """Task 7.2: categoría soft-deleted no aparece en solo_hojas."""
         leaf_id = _make_cat(test_db_session, "SH-SoftLeaf")
         test_db_session.execute(
-            text("UPDATE categories SET eliminado_en = CURRENT_TIMESTAMP WHERE id = :cid"),
+            text(
+                "UPDATE categories SET eliminado_en = CURRENT_TIMESTAMP WHERE id = :cid"
+            ),
             {"cid": leaf_id},
         )
         test_db_session.commit()
@@ -1027,7 +1100,9 @@ class TestSoloHojasFilter:
         parent_id = _make_cat(test_db_session, "SH-EffectiveLeaf")
         child_id = _make_cat(test_db_session, "SH-ChildSD", padre_id=parent_id)
         test_db_session.execute(
-            text("UPDATE categories SET eliminado_en = CURRENT_TIMESTAMP WHERE id = :cid"),
+            text(
+                "UPDATE categories SET eliminado_en = CURRENT_TIMESTAMP WHERE id = :cid"
+            ),
             {"cid": child_id},
         )
         test_db_session.commit()
@@ -1145,7 +1220,9 @@ class TestIngredientesAlergeno:
         """Task 8.3: soft-deleted excluidos por default."""
         ing_id = _make_ingrediente(test_db_session, "IngAlerg-SD", es_alergeno=True)
         test_db_session.execute(
-            text("UPDATE ingredients SET eliminado_en = CURRENT_TIMESTAMP WHERE id = :iid"),
+            text(
+                "UPDATE ingredients SET eliminado_en = CURRENT_TIMESTAMP WHERE id = :iid"
+            ),
             {"iid": ing_id},
         )
         test_db_session.commit()

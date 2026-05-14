@@ -74,10 +74,12 @@ class PatchStock(BaseModel):
 
 
 class AsociarIngrediente(BaseModel):
-    """Payload for associating an ingredient to a product."""
+    """Payload for associating an ingredient to a product.
+
+    ``es_removible`` was removed — it is now a global property on ``Ingrediente``.
+    """
 
     ingrediente_id: int
-    es_removible: bool = False
 
 
 class SetCategorias(BaseModel):
@@ -145,10 +147,13 @@ class CategoriaRead(BaseModel):
 
 
 class IngredienteAsociadoRead(BaseModel):
-    """Nested DTO for ingredient + removable flag inside ProductoDetail.
+    """Nested DTO for ingredient data inside ProductoDetail.
 
-    Built manually from tuple[Ingrediente, bool] — no from_attributes needed.
+    Built via ``from_attributes=True`` on the ``Ingrediente`` model —
+    ``es_removible`` is now a column on ``Ingrediente`` itself.
     """
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     nombre: str

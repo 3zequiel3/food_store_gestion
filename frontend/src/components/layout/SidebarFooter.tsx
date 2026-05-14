@@ -17,7 +17,7 @@ export function SidebarFooter({ isExpanded }: SidebarFooterProps) {
   if (!user) return null;
 
   const initials = `${user.nombre.charAt(0)}${user.apellido.charAt(0)}`.toUpperCase();
-  const profileRoute = hasAdminRole ? '/admin/usuarios' : '/cliente/perfil';
+  const profileRoute = hasAdminRole ? '/admin/perfil' : '/cliente/perfil';
 
   return (
     <div className="border-t border-chrome-border/50 p-2">
