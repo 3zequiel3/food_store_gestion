@@ -115,7 +115,7 @@ export function AddressModal({ isOpen, onClose, address }: AddressModalProps) {
       onClose={handleClose}
       aria-labelledby="address-modal-title"
       className="
-        m-auto w-full max-w-lg rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-0 shadow-xl
+        m-auto w-full max-w-lg rounded-xl bg-white border border-gray-200 p-0 shadow-xl
         backdrop:bg-black/60 backdrop:backdrop-blur-sm
         open:animate-in open:fade-in open:zoom-in-95
       "
