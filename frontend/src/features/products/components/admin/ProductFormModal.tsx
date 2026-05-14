@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, Loader2, Upload, Link as LinkIcon, Star, Trash2, Image as ImageIcon } from 'lucide-react';
 import { useCreateProduct } from '../../hooks/useCreateProduct';
 import { useUpdateProduct } from '../../hooks/useUpdateProduct';
@@ -13,8 +13,6 @@ import {
   setProductImagePrimary,
 } from '../../services/admin-products.service';
 import { getProduct } from '../../services/products.service';
-import { apiClient } from '../../../../api/client';
-import { ENDPOINTS } from '../../../../lib/constants/endpoints';
 import { toast } from 'sonner';
 
 interface ProductFormModalProps {
@@ -27,6 +25,7 @@ interface FormErrors {
   precio?: string;
   stock_cantidad?: string;
   categoria_ids?: string;
+  ingredientes?: string;
   imagen_url?: string;
 }
 
@@ -52,6 +51,39 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
   const [imagenes, setImagenes] = useState<ImagenRead[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  // Pending files for create mode (uploaded after product is created)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const pendingFilesRef = useRef<File[]>([]);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    pendingFilesRef.current = pendingFiles;
+  }, [pendingFiles]);
+
+  const [imageMode, setImageMode] = useState<ImageMode>('file');
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageUrlError, setImageUrlError] = useState('');
+  const [uploading, setUploading] = useState(false);
+
+  // Form errors
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  const createMutation = useCreateProduct(() => {
+    // After product is created, upload any pending files then close
+    const files = pendingFilesRef.current;
+    if (files.length > 0 && createMutation.data) {
+      const newProductId = createMutation.data.id;
+      uploadPendingFiles(newProductId, files).finally(() => {
+        onClose();
+      });
+    } else {
+      onClose();
+    }
+  });
+  const updateMutation = useUpdateProduct(onClose);
+  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isLoadingDetail = isEdit && detailLoading;
+
   // Load full product detail when editing (the list row only has ProductoRead, not categorias/ingredientes)
   useEffect(() => {
     if (!producto) {
@@ -59,6 +91,7 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
       setCategoriaIds([]);
       setIngredientes([]);
       setImagenes([]);
+      setPendingFiles([]);
       return;
     }
 
@@ -87,18 +120,6 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
 
     return () => { cancelled = true; };
   }, [producto]);
-  const [imageMode, setImageMode] = useState<ImageMode>('file');
-  const [imageUrl, setImageUrl] = useState('');
-  const [imageUrlError, setImageUrlError] = useState('');
-  const [uploading, setUploading] = useState(false);
-
-  // Form errors
-  const [errors, setErrors] = useState<FormErrors>({});
-
-  const createMutation = useCreateProduct(onClose);
-  const updateMutation = useUpdateProduct(onClose);
-  const isPending = createMutation.isPending || updateMutation.isPending;
-  const isLoadingDetail = isEdit && detailLoading;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -106,29 +127,50 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  // Handle file upload
-  const handleFileUpload = useCallback(async (file: File) => {
-    if (!producto) return; // Only works in edit mode for now; for create, we upload after creation
+  // Upload pending files after product creation
+  const uploadPendingFiles = async (productId: number, files: File[]) => {
     setUploading(true);
-    try {
-      const result = await uploadProductImage(producto.id, file);
-      setImagenes((prev) => [...prev, result]);
-      toast.success('Imagen subida');
-    } catch {
-      toast.error('Error al subir la imagen');
-    } finally {
-      setUploading(false);
+    for (const file of files) {
+      try {
+        const result = await uploadProductImage(productId, file);
+        setImagenes((prev) => [...prev, result]);
+      } catch {
+        toast.error(`Error al subir ${file.name}`);
+      }
     }
-  }, [producto]);
+    setPendingFiles([]);
+    setUploading(false);
+  };
+
+  // Handle file selection/add to pending (create mode) or upload immediately (edit mode)
+  const handleFileAdd = useCallback((file: File) => {
+    if (isEdit) {
+      // Edit mode: upload immediately
+      setUploading(true);
+      uploadProductImage(producto!.id, file)
+        .then((result) => {
+          setImagenes((prev) => [...prev, result]);
+          toast.success('Imagen subida');
+        })
+        .catch(() => {
+          toast.error('Error al subir la imagen');
+        })
+        .finally(() => setUploading(false));
+    } else {
+      // Create mode: queue file for upload after creation
+      setPendingFiles((prev) => [...prev, file]);
+      toast.success(`"${file.name}" lista para subir`);
+    }
+  }, [isEdit, producto]);
 
   // Handle drag and drop
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-      handleFileUpload(file);
+      handleFileAdd(file);
     }
-  }, [handleFileUpload]);
+  }, [handleFileAdd]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -138,9 +180,11 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleFileUpload(file);
+      handleFileAdd(file);
     }
-  }, [handleFileUpload]);
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  }, [handleFileAdd]);
 
   // Handle URL add
   const handleAddUrl = useCallback(async () => {
@@ -151,19 +195,30 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     }
     setImageUrlError('');
 
-    if (!producto) return;
-    setUploading(true);
-    try {
-      const result = await addProductImageUrl(producto.id, imageUrl.trim());
-      setImagenes((prev) => [...prev, result]);
-      setImageUrl('');
-      toast.success('Imagen agregada');
-    } catch {
-      toast.error('Error al agregar la imagen');
-    } finally {
-      setUploading(false);
+    if (isEdit) {
+      // Edit mode: upload immediately
+      setUploading(true);
+      try {
+        const result = await addProductImageUrl(producto!.id, imageUrl.trim());
+        setImagenes((prev) => [...prev, result]);
+        setImageUrl('');
+        toast.success('Imagen agregada');
+      } catch {
+        toast.error('Error al agregar la imagen');
+      } finally {
+        setUploading(false);
+      }
     }
-  }, [imageUrl, producto]);
+    // Create mode: URL is included in the payload via getInitialImageUrl
+  }, [imageUrl, isEdit, producto]);
+
+  // For create mode: URL-based initial image
+  const getInitialImageUrl = useCallback(() => {
+    if (!isEdit && imageUrl.trim() && /^https?:\/\/.+/.test(imageUrl.trim())) {
+      return imageUrl.trim();
+    }
+    return null;
+  }, [isEdit, imageUrl]);
 
   // Set primary image
   const handleSetPrimary = useCallback(async (imagenId: number) => {
@@ -200,6 +255,7 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     const stockNum = parseInt(stock, 10);
     if (isNaN(stockNum) || stockNum < 0) errs.stock_cantidad = 'Debe ser un número mayor o igual a 0';
     if (categoriaIds.length === 0) errs.categoria_ids = 'El producto debe tener al menos una categoría';
+    if (ingredientes.length === 0) errs.ingredientes = 'El producto debe tener al menos un ingrediente';
     return errs;
   }
 
@@ -207,6 +263,8 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
+
+    const initialImageUrl = getInitialImageUrl();
 
     const payload = {
       nombre: nombre.trim(),
@@ -219,6 +277,7 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
         ingrediente_id: ing.id,
         es_removible: ing.es_removible,
       })),
+      imagen_url: initialImageUrl,
     };
 
     if (isEdit) {
@@ -236,12 +295,6 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
       createMutation.mutate(payload);
     }
   }
-
-  // For create mode: images are uploaded after product creation via separate flow
-  // For simplicity in create mode, we only allow URL-based initial image
-  const handleCreateWithImageUrl = async () => {
-    // This is handled by passing imagen_url in the payload for backward compat
-  };
 
   return (
     <div
@@ -364,8 +417,13 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
 
               {/* Ingredientes */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Ingredientes</label>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Ingredientes <span className="text-destructive">*</span>
+                </label>
                 <IngredientAssignSelector value={ingredientes} onChange={setIngredientes} />
+                {errors.ingredientes && (
+                  <p className="text-xs text-destructive mt-1">{errors.ingredientes}</p>
+                )}
               </div>
             </div>
 
@@ -402,7 +460,7 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
               </div>
 
               {/* File upload zone */}
-              {imageMode === 'file' && isEdit && (
+              {imageMode === 'file' && (
                 <div
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
@@ -411,7 +469,9 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
                 >
                   <ImageIcon className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">
-                    Arrastrá una imagen aquí o hacé click para seleccionar
+                    {isEdit
+                      ? 'Arrastrá una imagen aquí o hacé click para seleccionar'
+                      : 'Arrastrá una imagen aquí o hacé click para seleccionar (se subirá al crear el producto)'}
                   </p>
                   <input
                     id="image-file-input"
@@ -423,15 +483,49 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
                 </div>
               )}
 
+              {/* Pending files list (create mode) */}
+              {pendingFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Imágenes pendientes de subir ({pendingFiles.length})
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {pendingFiles.map((file, i) => (
+                      <div
+                        key={i}
+                        className="relative group aspect-square rounded-lg overflow-hidden border border-border bg-muted"
+                      >
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPendingFiles((prev) => prev.filter((_, idx) => idx !== i));
+                          }}
+                          className="absolute top-1 right-1 p-1 bg-white/90 rounded-full hover:bg-white transition-colors"
+                          title="Quitar imagen"
+                        >
+                          <Trash2 className="h-3 w-3 text-red-500" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* URL input */}
-              {imageMode === 'url' && isEdit && (
+              {imageMode === 'url' && (
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <input
                       value={imageUrl}
                       onChange={(e) => { setImageUrl(e.target.value); setImageUrlError(''); }}
                       className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                      placeholder="https://..."
+                      placeholder={isEdit ? 'https://...' : 'https://... (se agregará al crear el producto)'}
                     />
                     {imageUrlError && (
                       <p className="text-xs text-destructive mt-1">{imageUrlError}</p>
@@ -445,24 +539,6 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
                   >
                     Confirmar
                   </button>
-                </div>
-              )}
-
-              {/* For create mode: simple URL input for initial image */}
-              {imageMode === 'url' && !isEdit && (
-                <div>
-                  <label className="block text-sm text-muted-foreground mb-1">
-                    URL de imagen (opcional)
-                  </label>
-                  <input
-                    value={imageUrl}
-                    onChange={(e) => { setImageUrl(e.target.value); setImageUrlError(''); }}
-                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    placeholder="https://..."
-                  />
-                  {imageUrlError && (
-                    <p className="text-xs text-destructive mt-1">{imageUrlError}</p>
-                  )}
                 </div>
               )}
 

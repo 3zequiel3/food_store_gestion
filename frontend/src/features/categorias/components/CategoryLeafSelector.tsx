@@ -131,10 +131,12 @@ export function CategoryLeafSelector({ value, onChange }: Props) {
 
   return (
     <div ref={containerRef} className="relative">
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((p) => !p)}
-        className="w-full min-h-[40px] px-3 py-2 border border-gray-300 rounded-lg text-sm text-left flex items-center justify-between gap-2 focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpen((p) => !p); }}
+        className="w-full min-h-[40px] px-3 py-2 border border-gray-300 rounded-lg text-sm text-left flex items-center justify-between gap-2 focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white cursor-pointer"
       >
         <span className="flex flex-wrap gap-1 flex-1">
           {selectedLeaves.length === 0 ? (
@@ -161,7 +163,7 @@ export function CategoryLeafSelector({ value, onChange }: Props) {
           )}
         </span>
         <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+      </div>
 
       {open && (
         <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
