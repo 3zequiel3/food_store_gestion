@@ -79,3 +79,22 @@ export interface AvanzarEstadoRequest {
   nuevo_estado: EstadoCodigo;
   motivo?: string;
 }
+
+export interface TransicionarRequest {
+  estado_codigo_destino: string;
+  motivo?: string;
+}
+
+export interface TransicionarResponse {
+  pedido_id: number;
+  estado_anterior: string;
+  estado_nuevo: string;
+  historial: Array<{
+    id: number;
+    estado_anterior: string | null;
+    estado_nuevo: string;
+    actor: string | null;
+    motivo: string | null;
+    creado_en: string;
+  }>;
+}

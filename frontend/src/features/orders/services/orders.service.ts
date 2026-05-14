@@ -6,6 +6,8 @@ import type {
   OrderFilters,
   AvanzarEstadoRequest,
   EstadoCodigo,
+  TransicionarRequest,
+  TransicionarResponse,
 } from '../types/orders.types';
 
 export async function listOrders(filters: OrderFilters = {}): Promise<PaginatedPedidos> {
@@ -34,5 +36,20 @@ export async function advanceOrderState(
   const body: AvanzarEstadoRequest = { nuevo_estado };
   if (motivo) body.motivo = motivo;
   const response = await apiClient.patch<PedidoDetalle>(ENDPOINTS.pedidos.estado(id), body);
+  return response.data;
+}
+
+/** Transition order state via FSM (new endpoint). */
+export async function transicionarEstado(
+  pedidoId: number,
+  estadoDestino: string,
+  motivo?: string,
+): Promise<TransicionarResponse> {
+  const body: TransicionarRequest = { estado_codigo_destino: estadoDestino };
+  if (motivo) body.motivo = motivo;
+  const response = await apiClient.post<TransicionarResponse>(
+    `/pedidos/${pedidoId}/transicionar`,
+    body,
+  );
   return response.data;
 }
