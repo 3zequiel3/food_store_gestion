@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, Loader2, Upload, Link as LinkIcon, Star, Trash2, Image as ImageIcon } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useCreateProduct } from '../../hooks/useCreateProduct';
 import { useUpdateProduct } from '../../hooks/useUpdateProduct';
 import type { ProductoRead, ImagenRead, ProductoDetail } from '../../types/products.types';
