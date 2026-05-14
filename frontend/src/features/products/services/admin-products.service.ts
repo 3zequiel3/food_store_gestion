@@ -28,6 +28,34 @@ export async function updateStock(id: number, stock_cantidad: number): Promise<P
 
 // Image management functions
 
+export async function getPresignedUploadUrl(id: number, contentType: string): Promise<{ url: string; fields: Record<string, string> }> {
+  const response = await apiClient.post(`/productos/${id}/imagenes/presigned-url`, { content_type: contentType });
+  return response.data;
+}
+
+export async function uploadProductImageDirect(id: number, file: File): Promise<void> {
+  // 1. Get presigned POST from backend
+  const { url, fields } = await getPresignedUploadUrl(id, file.type);
+
+  // 2. Upload directly to S3 (bypasses backend entirely)
+  const formData = new FormData();
+  Object.entries(fields).forEach(([key, value]) => {
+    formData.append(key, value);
+  });
+  formData.append('Content-Type', file.type);
+  formData.append('file', file);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`S3 upload failed: ${response.status}`);
+  }
+}
+
+// Legacy function — kept for STORAGE=local fallback
 export async function uploadProductImage(id: number, file: File): Promise<ImagenRead> {
   const formData = new FormData();
   formData.append('file', file);

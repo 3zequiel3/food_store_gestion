@@ -34,6 +34,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 
+from pydantic import BaseModel
+
 from features.auth.dependencies import get_optional_user, require_role
 from features.users.models import Usuario
 from features.products.schemas import (
@@ -56,6 +58,18 @@ from features.products.service import ProductService
 from shared.storage import StorageService
 
 router = APIRouter()
+
+_storage = StorageService()
+
+
+def _imagen_to_read_with_presigned(img) -> ImagenRead:
+    """Convert a ProductoImagen to ImagenRead, resolving URL via presigned or direct."""
+    return ImagenRead(
+        id=img.id,
+        url=_storage.product_image_url(img.url),
+        orden=img.orden,
+        es_primaria=img.es_primaria,
+    )
 
 
 # ===========================================================================
@@ -177,7 +191,7 @@ async def listar_productos(
                 creado_en=p.creado_en,
                 actualizado_en=p.actualizado_en,
                 imagenes=[
-                    ImagenRead.model_validate(img)
+                    _imagen_to_read_with_presigned(img)
                     for img in images_by_pid.get(p.id, [])
                 ],
             )
@@ -194,13 +208,35 @@ async def listar_productos(
     response_class=StreamingResponse,
 )
 def obtener_imagen_producto(image_path: str) -> StreamingResponse:
-    """Serve a stored product image.
+    """Serve a stored product image via backend proxy.
 
-    Railway S3-compatible buckets are private, so S3 images are proxied through
-    the backend unless S3_PUBLIC_BASE_URL points to an explicit public proxy/CDN.
+    Active when STORAGE=local (dev). When STORAGE=s3, images are served
+    via presigned URLs directly from the Railway bucket (avoids service egress).
     """
     stream, content_type = StorageService().open_product_image(image_path)
     return StreamingResponse(stream, media_type=content_type)
+
+
+class PresignedUploadRequest(BaseModel):
+    """Request body for presigned upload generation."""
+
+    content_type: str = "image/jpeg"
+
+
+@router.post("/{producto_id}/imagenes/presigned-url")
+async def obtener_presigned_url(
+    producto_id: int,
+    payload: PresignedUploadRequest = PresignedUploadRequest(),
+    _user=Depends(require_role("ADMIN", "STOCK")),
+) -> dict:
+    """Generate a presigned POST for direct client-to-S3 upload.
+
+    Returns { url, fields } that the frontend uses to POST a file directly
+    to the S3 bucket without going through the backend.
+    """
+    # Verify product exists
+    ProductService().get_by_id(producto_id)
+    return StorageService().presign_upload(producto_id, payload.content_type)
 
 
 @router.post(
@@ -283,7 +319,7 @@ async def obtener_producto(
             )
             for (ing, removible) in ingredientes_with_flag
         ],
-        imagenes=[ImagenRead.model_validate(img) for img in imagenes],
+        imagenes=[_imagen_to_read_with_presigned(img) for img in imagenes],
     )
 
 
@@ -435,7 +471,7 @@ async def set_categorias(
             )
             for (ing, removible) in ingredientes_with_flag
         ],
-        imagenes=[ImagenRead.model_validate(img) for img in imagenes],
+        imagenes=[_imagen_to_read_with_presigned(img) for img in imagenes],
     )
 
 
@@ -555,7 +591,7 @@ async def upload_imagen(
 
     # Create DB row
     img = service.add_imagen_from_url(producto_id, url)
-    return ImagenRead.model_validate(img)
+    return _imagen_to_read_with_presigned(img)
 
 
 @router.post(
@@ -571,7 +607,7 @@ async def add_imagen_url(
     """Add an image by URL for a product."""
     service = ProductService()
     img = service.add_imagen_from_url(producto_id, payload.url)
-    return ImagenRead.model_validate(img)
+    return _imagen_to_read_with_presigned(img)
 
 
 @router.delete(
@@ -602,7 +638,7 @@ async def set_imagen_orden(
     """Update the display order of an image."""
     service = ProductService()
     img = service.set_imagen_orden(producto_id, imagen_id, payload.orden)
-    return ImagenRead.model_validate(img)
+    return _imagen_to_read_with_presigned(img)
 
 
 @router.patch(
@@ -617,4 +653,4 @@ async def set_imagen_primaria(
     """Set an image as primary, unsetting all others."""
     service = ProductService()
     img = service.set_imagen_primaria(producto_id, imagen_id)
-    return ImagenRead.model_validate(img)
+    return _imagen_to_read_with_presigned(img)

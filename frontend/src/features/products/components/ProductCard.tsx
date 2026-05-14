@@ -83,7 +83,7 @@ export function ProductCard({ producto }: ProductCardProps) {
             <button
               type="button"
               onClick={goPrev}
-              className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/70 transition-all"
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/70 transition-all"
               aria-label="Imagen anterior"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -91,14 +91,14 @@ export function ProductCard({ producto }: ProductCardProps) {
             <button
               type="button"
               onClick={goNext}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/70 transition-all"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 z-10 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/70 transition-all"
               aria-label="Imagen siguiente"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
 
             {/* Dots indicator */}
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               {images.map((_, idx) => (
                 <button
                   key={idx}
@@ -117,7 +117,7 @@ export function ProductCard({ producto }: ProductCardProps) {
           </>
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-glass to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+        <div className="absolute inset-0 z-0 bg-gradient-to-t from-glass to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
       </div>
 
       <div className="flex flex-col gap-2 p-4 flex-1">

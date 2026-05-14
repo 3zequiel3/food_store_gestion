@@ -7,7 +7,7 @@ import type { IngredienteAsignado } from '../../../ingredientes/types/ingredient
 import { CategoryLeafSelector } from '../../../categorias/components/CategoryLeafSelector';
 import { IngredientAssignSelector } from '../../../ingredientes/components/IngredientAssignSelector';
 import {
-  uploadProductImage,
+  uploadProductImageDirect,
   addProductImageUrl,
   deleteProductImage,
   setProductImagePrimary,
@@ -132,10 +132,19 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     setUploading(true);
     for (const file of files) {
       try {
-        const result = await uploadProductImage(productId, file);
-        setImagenes((prev) => [...prev, result]);
+        await uploadProductImageDirect(productId, file);
+        toast.success(`"${file.name}" subida`);
       } catch {
         toast.error(`Error al subir ${file.name}`);
+      }
+    }
+    // Refresh images from server after uploads
+    if (files.length > 0) {
+      try {
+        const detail = await getProduct(productId);
+        setImagenes(detail.imagenes ?? []);
+      } catch {
+        // Non-critical — images were uploaded even if refresh failed
       }
     }
     setPendingFiles([]);
@@ -145,12 +154,16 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
   // Handle file selection/add to pending (create mode) or upload immediately (edit mode)
   const handleFileAdd = useCallback((file: File) => {
     if (isEdit) {
-      // Edit mode: upload immediately
+      // Edit mode: upload directly to S3 via presigned POST
       setUploading(true);
-      uploadProductImage(producto!.id, file)
-        .then((result) => {
-          setImagenes((prev) => [...prev, result]);
+      uploadProductImageDirect(producto!.id, file)
+        .then(() => {
           toast.success('Imagen subida');
+          // Refresh images from server
+          return getProduct(producto!.id);
+        })
+        .then((detail) => {
+          setImagenes(detail.imagenes ?? []);
         })
         .catch(() => {
           toast.error('Error al subir la imagen');
