@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { X, Loader2, Upload, Link as LinkIcon, Star, Trash2, Image as ImageIcon } from 'lucide-react';
 import { useCreateProduct } from '../../hooks/useCreateProduct';
 import { useUpdateProduct } from '../../hooks/useUpdateProduct';
-import type { ProductoRead, ImagenRead } from '../../types/products.types';
+import type { ProductoRead, ImagenRead, ProductoDetail } from '../../types/products.types';
 import type { IngredienteAsignado } from '../../../ingredientes/types/ingredientes.types';
 import { CategoryLeafSelector } from '../../../categorias/components/CategoryLeafSelector';
 import { IngredientAssignSelector } from '../../../ingredientes/components/IngredientAssignSelector';
@@ -12,6 +12,7 @@ import {
   deleteProductImage,
   setProductImagePrimary,
 } from '../../services/admin-products.service';
+import { getProduct } from '../../services/products.service';
 import { apiClient } from '../../../../api/client';
 import { ENDPOINTS } from '../../../../lib/constants/endpoints';
 import { toast } from 'sonner';
@@ -48,7 +49,44 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
   const [ingredientes, setIngredientes] = useState<IngredienteAsignado[]>([]);
 
   // Images
-  const [imagenes, setImagenes] = useState<ImagenRead[]>(producto?.imagenes ?? []);
+  const [imagenes, setImagenes] = useState<ImagenRead[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // Load full product detail when editing (the list row only has ProductoRead, not categorias/ingredientes)
+  useEffect(() => {
+    if (!producto) {
+      // Reset for create mode
+      setCategoriaIds([]);
+      setIngredientes([]);
+      setImagenes([]);
+      return;
+    }
+
+    let cancelled = false;
+    setDetailLoading(true);
+    getProduct(producto.id)
+      .then((detail: ProductoDetail) => {
+        if (cancelled) return;
+        setCategoriaIds(detail.categorias?.map((c) => c.id) ?? []);
+        setIngredientes(
+          detail.ingredientes?.map((ing) => ({
+            id: ing.id,
+            nombre: ing.nombre,
+            es_alergeno: ing.es_alergeno,
+            es_removible: ing.es_removible,
+          })) ?? []
+        );
+        setImagenes(detail.imagenes ?? []);
+      })
+      .catch(() => {
+        toast.error('No se pudo cargar el detalle del producto');
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [producto]);
   const [imageMode, setImageMode] = useState<ImageMode>('file');
   const [imageUrl, setImageUrl] = useState('');
   const [imageUrlError, setImageUrlError] = useState('');
@@ -60,6 +98,7 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
   const createMutation = useCreateProduct(onClose);
   const updateMutation = useUpdateProduct(onClose);
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const isLoadingDetail = isEdit && detailLoading;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -210,7 +249,7 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
       onClick={onClose}
     >
       <div
-        className="bg-card border border-border rounded-lg w-full max-w-4xl p-6 shadow-lg max-h-[90vh] overflow-y-auto"
+        className="bg-card border border-border rounded-lg w-full max-w-4xl p-6 shadow-lg max-h-[90vh] overflow-y-auto relative"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
@@ -222,7 +261,16 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className={isLoadingDetail ? 'opacity-50 pointer-events-none' : ''}>
+          {/* Loading overlay for edit mode */}
+          {isLoadingDetail && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-lg">
+              <div className="flex items-center gap-2 text-sm text-foreground bg-card px-4 py-2 rounded-lg shadow">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando datos del producto...
+              </div>
+            </div>
+          )}
           {/* 2-column layout */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* LEFT COLUMN — data fields */}
@@ -489,7 +537,7 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
             </button>
             <button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || isLoadingDetail}
               className="flex-1 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isPending ? (
