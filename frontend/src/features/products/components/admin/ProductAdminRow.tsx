@@ -1,5 +1,6 @@
 import { Pencil, Trash2, Loader2 } from 'lucide-react';
 import { useToggleDisponibilidad } from '../../hooks/useToggleDisponibilidad';
+import { ProductImage } from '../ProductImage';
 import type { ProductoRead } from '../../types/products.types';
 
 interface ProductAdminRowProps {
@@ -16,17 +17,16 @@ export function ProductAdminRow({ product, onEdit, onDelete }: ProductAdminRowPr
       {/* Thumbnail */}
       <td className="px-4 py-3 w-12">
         <div className="h-10 w-10 rounded-lg bg-muted overflow-hidden flex-shrink-0">
-          {product.imagen_url ? (
-            <img
-              src={product.imagen_url}
-              alt={product.nombre}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center text-muted-foreground/30 text-lg">
-              🍽
-            </div>
-          )}
+          <ProductImage
+            src={product.imagen_url}
+            alt={product.nombre}
+            className="h-full w-full object-cover"
+            placeholder={
+              <div className="h-full w-full flex items-center justify-center text-muted-foreground/30 text-lg">
+                🍽
+              </div>
+            }
+          />
         </div>
       </td>
 

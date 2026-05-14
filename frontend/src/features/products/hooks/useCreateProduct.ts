@@ -1,17 +1,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { createProduct } from '../services/admin-products.service';
-import type { ProductoCreate } from '../types/products.types';
+import type { ProductoCreate, ProductoRead } from '../types/products.types';
 
-export function useCreateProduct(onSuccess?: () => void) {
+export function useCreateProduct(onSuccess?: (data: ProductoRead) => void) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: ProductoCreate) => createProduct(payload),
-    onSuccess() {
+    onSuccess(data) {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success('Producto creado');
-      onSuccess?.();
+      onSuccess?.(data);
     },
     onError() {
       toast.error('Error al crear el producto');

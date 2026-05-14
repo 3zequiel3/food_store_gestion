@@ -9,6 +9,7 @@ Implements the product catalog for Food Store: CRUD, availability/stock patches,
 | `POST` | `/` | ADMIN / STOCK | Create product (optionally with `categoria_ids`) |
 | `GET` | `/` | public | List paginated (filters: `categoria_id`, `search`, `disponible`, `excluir_alergenos`) |
 | `GET` | `/{id}` | public | Product detail with categories and ingredients |
+| `POST` | `/{id}/imagen` | ADMIN / STOCK | Upload product image using configured storage |
 | `PUT` | `/{id}` | ADMIN / STOCK | Partial update (exclude_unset) |
 | `DELETE` | `/{id}` | ADMIN / STOCK | Soft delete |
 | `PATCH` | `/{id}/disponibilidad` | ADMIN / STOCK | Toggle availability |
@@ -37,3 +38,32 @@ curl -X POST http://localhost:8000/api/v1/productos \
 # List with combined filters
 curl "http://localhost:8000/api/v1/productos?search=pizza&categoria_id=1&disponible=true&excluir_alergenos=true&page=1&limit=10"
 ```
+
+## Product image storage
+
+`POST /api/v1/productos/{id}/imagen` accepts multipart field `file` and updates `imagen_url`.
+
+Storage is selected by env var:
+
+- `STORAGE=local`: saves under `backend/uploads/productos/{id}/` and serves files from `/uploads/...`.
+- `STORAGE=s3`: uploads to the configured S3-compatible bucket and, by default, serves images through the backend proxy `/api/v1/productos/imagenes/...` because Railway buckets are private.
+
+
+For Railway production, set `STORAGE_PUBLIC_BASE_URL` to the public backend URL, for example:
+
+```env
+STORAGE_PUBLIC_BASE_URL=https://foodstoregestion-production.up.railway.app
+```
+
+Railway S3-compatible env names:
+
+```env
+STORAGE=s3
+S3_ENDPOINT_URL=https://t3.storageapi.dev
+S3_REGION=auto
+S3_BUCKET_NAME=your-bucket
+S3_ACCESS_KEY_ID=your-access-key-id
+S3_SECRET_ACCESS_KEY=your-secret-access-key
+```
+
+Do not commit real S3 credentials. Configure them only in Railway variables.

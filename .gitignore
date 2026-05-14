@@ -15,3 +15,5 @@ frontend/.pnpm-store/
 testsprite_tests/
 .testsprite/
 
+# Upload storage artifacts
+backend/uploads/

@@ -9,6 +9,7 @@ Orchestrates:
 - M:N bulk replace for categories (replace semantics).
 - M:N individual add/remove for ingredients (with es_removible flag).
 - Partial updates via model_dump(exclude_unset=True).
+- Image CRUD operations (upload, URL, delete, reorder, set primary).
 
 Rules:
 - Each public method opens its own UnitOfWork context. Commit is performed
@@ -30,7 +31,7 @@ from sqlalchemy.orm import Session
 from features.catalog.models import Categoria, Ingrediente
 from features.categories.repository import CategoryRepository
 from features.ingredients.repository import IngredientRepository
-from features.products.models import Producto, ProductoIngrediente
+from features.products.models import Producto, ProductoImagen, ProductoIngrediente
 from features.products.repository import ProductRepository
 from features.products.schemas import ProductoCreate, ProductoUpdate
 from features.users.models import Usuario
@@ -46,7 +47,9 @@ class ProductService:
     def __init__(self) -> None:
         pass
 
-    def _register_repos(self, uow: UnitOfWork) -> tuple[ProductRepository, CategoryRepository, IngredientRepository]:
+    def _register_repos(
+        self, uow: UnitOfWork
+    ) -> tuple[ProductRepository, CategoryRepository, IngredientRepository]:
         """Register and return the three repositories for this domain."""
         uow.register_repository("productos", ProductRepository(uow.session))
         uow.register_repository("categorias", CategoryRepository(uow.session))
@@ -135,25 +138,25 @@ class ProductService:
         count = repo.count_leaf_active_categories(product_id)
         if count == 0:
             repo.update(product_id, disponible=False)
-            logger.info("Producto %s desactivado: sin categoría hoja activa", product_id)
+            logger.info(
+                "Producto %s desactivado: sin categoría hoja activa", product_id
+            )
 
     # ── Create ────────────────────────────────────────────────────────────
 
     def create(self, payload: ProductoCreate) -> Producto:
-        """Create a new product, optionally associating categories.
+        """Create a new product with required categories and optional ingredients.
 
         Validates:
         - nombre is not blank after strip.
+        - categoria_ids is required and non-empty (BusinessRuleError if empty).
         - Each id in categoria_ids exists in the categories table (active rows).
         - Each id in categoria_ids references a leaf category (D3).
+        - If ingrediente_ids provided, each must exist as an active ingredient.
 
         After creating category associations, invokes the auto-disable hook
         if categoria_ids was explicitly provided (D4): if the resulting count
         of active leaf categories is zero, sets disponible=False.
-
-        Note: the auto-disable hook only runs when categoria_ids is provided
-        in the payload (not None). If categoria_ids is omitted entirely, the
-        hook does NOT run and disponible remains as specified by the caller.
 
         Args:
             payload: Creation data.
@@ -162,27 +165,33 @@ class ProductService:
             Newly created Producto.
 
         Raises:
-            BusinessRuleError: If nombre is blank, any categoria_id is
-                missing, or any categoria_id is not a leaf.
+            BusinessRuleError: If nombre is blank, categoria_ids is empty,
+                any categoria_id is missing, or any categoria_id is not a leaf.
         """
         with UnitOfWork() as uow:
-            repo, cat_repo, _ = self._register_repos(uow)
+            repo, cat_repo, ing_repo = self._register_repos(uow)
 
             nombre = payload.nombre.strip()
             if not nombre:
-                raise BusinessRuleError(
-                    "El nombre del producto no puede estar vacío"
-                )
+                raise BusinessRuleError("El nombre del producto no puede estar vacío")
 
-            # Validate categoria_ids before touching the DB
-            if payload.categoria_ids is not None:
-                for cat_id in payload.categoria_ids:
-                    if cat_repo.read(cat_id) is None:
-                        raise BusinessRuleError(
-                            f"Categoría {cat_id} no encontrada"
-                        )
-                # Leaf-only validation (D3) — after existence check
-                self._validate_categorias_are_leaves(payload.categoria_ids, uow.session)
+            # categoria_ids is now REQUIRED
+            if not payload.categoria_ids:
+                raise BusinessRuleError("El producto debe tener al menos una categoría")
+
+            # Validate categoria_ids existence
+            for cat_id in payload.categoria_ids:
+                if cat_repo.read(cat_id) is None:
+                    raise BusinessRuleError(f"Categoría {cat_id} no encontrada")
+            # Leaf-only validation (D3)
+            self._validate_categorias_are_leaves(payload.categoria_ids, uow.session)
+
+            # Validate ingrediente_ids if provided
+            if payload.ingrediente_ids:
+                for ing_data in payload.ingrediente_ids:
+                    ing_id = ing_data.get("ingrediente_id")
+                    if ing_repo.read(ing_id) is None:
+                        raise BusinessRuleError(f"Ingrediente {ing_id} no encontrado")
 
             producto = repo.create(
                 nombre=nombre,
@@ -193,13 +202,23 @@ class ProductService:
                 imagen_url=payload.imagen_url,
             )
 
-            if payload.categoria_ids is not None:
-                repo.replace_categorias(producto.id, payload.categoria_ids)
-                # Auto-disable hook (D4)
-                self._auto_disable_if_no_leaf_categoria(producto.id, uow.session)
-                # Refresh to reflect possible disponible change
-                uow.session.flush()
-                uow.session.refresh(producto)
+            # Associate categories
+            repo.replace_categorias(producto.id, payload.categoria_ids)
+            # Auto-disable hook (D4)
+            self._auto_disable_if_no_leaf_categoria(producto.id, uow.session)
+
+            # Associate ingredients if provided
+            if payload.ingrediente_ids:
+                for ing_data in payload.ingrediente_ids:
+                    repo.add_ingrediente(
+                        producto.id,
+                        ing_data["ingrediente_id"],
+                        ing_data.get("es_removible", False),
+                    )
+
+            # Refresh to reflect possible disponible change
+            uow.session.flush()
+            uow.session.refresh(producto)
 
             return producto
 
@@ -319,6 +338,41 @@ class ProductService:
                 sin_categoria=sin_categoria,
                 incluir_eliminados=incluir_eliminados,
             )
+
+    def list_with_images(
+        self,
+        *,
+        page: int,
+        limit: int,
+        categoria_id: int | None = None,
+        search: str | None = None,
+        disponible: bool | None = None,
+        excluir_alergenos: bool = False,
+        excluir_alergeno_ids: list[int] | None = None,
+        sin_categoria: bool = False,
+        current_user=None,
+        incluir_eliminados: bool = False,
+    ) -> tuple[list[Producto], int, dict[int, list]]:
+        """Return paginated products with their images in 2 queries (no N+1)."""
+        items, total = self.list_paginated(
+            page=page,
+            limit=limit,
+            categoria_id=categoria_id,
+            search=search,
+            disponible=disponible,
+            excluir_alergenos=excluir_alergenos,
+            excluir_alergeno_ids=excluir_alergeno_ids,
+            sin_categoria=sin_categoria,
+            current_user=current_user,
+            incluir_eliminados=incluir_eliminados,
+        )
+        if not items:
+            return items, total, {}
+
+        with UnitOfWork() as uow:
+            repo, _, _ = self._register_repos(uow)
+            images_by_pid = repo.list_imagenes_by_product_ids([p.id for p in items])
+            return items, total, images_by_pid
 
     # ── Update ────────────────────────────────────────────────────────────
 
@@ -533,9 +587,7 @@ class ProductService:
 
             ingrediente = ing_repo.read(ingrediente_id)
             if ingrediente is None:
-                raise BusinessRuleError(
-                    f"Ingrediente {ingrediente_id} no encontrado"
-                )
+                raise BusinessRuleError(f"Ingrediente {ingrediente_id} no encontrado")
 
             pi = repo.add_ingrediente(producto_id, ingrediente_id, es_removible)
             # Flush so list_ingredientes sees the new row
@@ -543,9 +595,7 @@ class ProductService:
             result = repo.list_ingredientes(producto_id)
             return pi, result
 
-    def remove_ingrediente(
-        self, producto_id: int, ingrediente_id: int
-    ) -> None:
+    def remove_ingrediente(self, producto_id: int, ingrediente_id: int) -> None:
         """Remove (soft-delete) an ingredient association.
 
         Args:
@@ -567,9 +617,7 @@ class ProductService:
             if not removed:
                 raise NotFoundError("Asociación de ingrediente no encontrada")
 
-    def list_ingredientes(
-        self, producto_id: int
-    ) -> list[tuple[Ingrediente, bool]]:
+    def list_ingredientes(self, producto_id: int) -> list[tuple[Ingrediente, bool]]:
         """Return (Ingrediente, es_removible) pairs for a product.
 
         Args:
@@ -588,3 +636,95 @@ class ProductService:
             if producto is None:
                 raise NotFoundError("Producto no encontrado")
             return repo.list_ingredientes(producto_id)
+
+    # ── Image management ──────────────────────────────────────────────────
+
+    def add_imagen_from_url(self, producto_id: int, url: str) -> ProductoImagen:
+        """Add an image by URL for a product."""
+        # Validate URL format
+        if not url.startswith(("http://", "https://")):
+            raise BusinessRuleError("URL debe comenzar con http:// o https://")
+
+        with UnitOfWork() as uow:
+            repo, _, _ = self._register_repos(uow)
+
+            producto = repo.read(producto_id)
+            if producto is None:
+                raise NotFoundError("Producto no encontrado")
+
+            existing = repo.list_imagenes(producto_id)
+            orden = len(existing)
+            es_primaria = not any(img.es_primaria for img in existing)
+
+            img = repo.add_imagen(producto_id, url)
+            img.orden = orden
+            img.es_primaria = es_primaria
+            uow.session.flush()
+            uow.session.refresh(img)
+            return img
+
+    def delete_imagen(self, producto_id: int, imagen_id: int) -> None:
+        """Soft-delete an image. If primary, reassign to next by orden."""
+        with UnitOfWork() as uow:
+            repo, _, _ = self._register_repos(uow)
+
+            producto = repo.read(producto_id)
+            if producto is None:
+                raise NotFoundError("Producto no encontrado")
+
+            images = repo.list_imagenes(producto_id)
+            target = next((img for img in images if img.id == imagen_id), None)
+            if target is None:
+                raise NotFoundError("Imagen no encontrada")
+
+        with UnitOfWork() as uow:
+            repo, _, _ = self._register_repos(uow)
+
+            was_primary = target.es_primaria
+            repo.delete_imagen(imagen_id)
+
+            if was_primary:
+                remaining = repo.list_imagenes(producto_id)
+                if remaining:
+                    repo.set_all_non_primaria(producto_id)
+                    repo.set_primaria(remaining[0].id)
+
+    def set_imagen_orden(
+        self, producto_id: int, imagen_id: int, new_orden: int
+    ) -> ProductoImagen:
+        """Update the display order of an image."""
+        with UnitOfWork() as uow:
+            repo, _, _ = self._register_repos(uow)
+
+            producto = repo.read(producto_id)
+            if producto is None:
+                raise NotFoundError("Producto no encontrado")
+
+            images = repo.list_imagenes(producto_id)
+            target = next((img for img in images if img.id == imagen_id), None)
+            if target is None:
+                raise NotFoundError("Imagen no encontrada")
+
+            target.orden = new_orden
+            uow.session.flush()
+            uow.session.refresh(target)
+            return target
+
+    def set_imagen_primaria(self, producto_id: int, imagen_id: int) -> ProductoImagen:
+        """Set an image as primary, unsetting all others."""
+        with UnitOfWork() as uow:
+            repo, _, _ = self._register_repos(uow)
+
+            producto = repo.read(producto_id)
+            if producto is None:
+                raise NotFoundError("Producto no encontrado")
+
+            images = repo.list_imagenes(producto_id)
+            target = next((img for img in images if img.id == imagen_id), None)
+            if target is None:
+                raise NotFoundError("Imagen no encontrada")
+
+            repo.set_all_non_primaria(producto_id)
+            repo.set_primaria(imagen_id)
+            uow.session.refresh(target)
+            return target
