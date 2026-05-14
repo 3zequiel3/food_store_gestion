@@ -8,11 +8,13 @@ CORS configuration, and feature routers.
 import logging
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Callable
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -138,6 +140,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve local uploads when STORAGE=local. In S3 mode this directory is unused,
+# but mounting it is harmless and keeps local development URLs stable.
+Path(settings.STORAGE_LOCAL_DIR).mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=settings.STORAGE_LOCAL_DIR), name="uploads")
 
 
 # Request logging middleware
