@@ -7,10 +7,21 @@ Upgrades:
   D. Create metodo_pago_usuario table for saved cards (CRUD deferred).
 """
 
-from typing import Sequence
+from __future__ import annotations
+from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+
+
+# ---------------------------------------------------------------------------
+# Revision identifiers
+# ---------------------------------------------------------------------------
+
+revision: str = "payment_order_state_refactor"
+down_revision: Union[str, None] = "move_es_removible_to_ingredients"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 
 # ---------------------------------------------------------------------------
