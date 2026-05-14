@@ -1,6 +1,6 @@
 import { apiClient } from '../../../api/client';
 import { ENDPOINTS } from '../../../lib/constants/endpoints';
-import type { ProductoRead, ProductoCreate, ProductoUpdate, ImagenRead } from '../types/products.types';
+import type { ProductoRead, ProductoCreate, ProductoUpdate, ImagenRead, IngredienteAsociadoRead } from '../types/products.types';
 
 export async function createProduct(payload: ProductoCreate): Promise<ProductoRead> {
   const response = await apiClient.post<ProductoRead>(ENDPOINTS.productos.create, payload);
@@ -95,4 +95,27 @@ export async function setProductImagePrimary(id: number, imagenId: number): Prom
 
 export async function setProductImageOrder(id: number, imagenId: number, orden: number): Promise<void> {
   await apiClient.patch(`/productos/${id}/imagenes/${imagenId}/orden`, { orden });
+}
+
+// Ingredient association functions (M:N sync for edit mode)
+
+/** POST /productos/{id}/ingredientes — associate an ingredient with es_removible flag */
+export async function addProductIngredient(
+  productoId: number,
+  ingredienteId: number,
+  esRemovible: boolean,
+): Promise<IngredienteAsociadoRead> {
+  const response = await apiClient.post<IngredienteAsociadoRead>(
+    ENDPOINTS.productos.ingredientes(productoId),
+    { ingrediente_id: ingredienteId, es_removible: esRemovible },
+  );
+  return response.data;
+}
+
+/** DELETE /productos/{productoId}/ingredientes/{ingredienteId} — dissociate an ingredient */
+export async function removeProductIngredient(
+  productoId: number,
+  ingredienteId: number,
+): Promise<void> {
+  await apiClient.delete(ENDPOINTS.productos.ingredienteDelete(productoId, ingredienteId));
 }

@@ -1,7 +1,7 @@
-import { ShoppingCart, LogOut, User } from 'lucide-react';
+import { ShoppingCart, User } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../features/auth/stores/authStore';
 import { useCartStore } from '../../features/cart/stores/cartStore';
-import { useLogout } from '../../features/auth/hooks/useLogout';
 
 interface TopNavbarProps {
   onCartOpen: () => void;
@@ -15,9 +15,17 @@ export function TopNavbar({ onCartOpen }: TopNavbarProps) {
   const totalItems = useCartStore((s) =>
     s.items.reduce((sum, item) => sum + item.cantidad, 0),
   );
-  const { mutate: logout } = useLogout();
 
   const isAdmin = hasAdmin || hasPedidos || hasStock;
+  const profileRoute = user
+    ? isAdmin
+      ? '/admin/usuarios'
+      : '/cliente/perfil'
+    : '#';
+
+  const initials = user
+    ? `${user.nombre.charAt(0)}${user.apellido.charAt(0)}`.toUpperCase()
+    : '';
 
   return (
     <header
@@ -51,25 +59,20 @@ export function TopNavbar({ onCartOpen }: TopNavbarProps) {
             </button>
           )}
 
-          <div className="flex items-center gap-1.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-sm">
-              <User className="h-4 w-4" />
-            </div>
-            {user && (
-              <span className="hidden sm:block text-sm text-foreground/90 max-w-[120px] truncate">
+          {/* Mobile-only user info → clickable to profile */}
+          {user && (
+            <Link
+              to={profileRoute}
+              className="flex items-center gap-1.5 sm:hidden"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-xs font-bold text-primary-foreground shadow-sm">
+                {initials}
+              </div>
+              <span className="text-sm text-foreground/90 max-w-[120px] truncate">
                 {user.nombre}
               </span>
-            )}
-            <button
-              type="button"
-              onClick={() => logout()}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-glass-hover hover:text-destructive transition-all duration-150"
-              aria-label="Cerrar sesión"
-              title="Cerrar sesión"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+            </Link>
+          )}
         </div>
       </div>
     </header>

@@ -15,6 +15,7 @@ import {
   PanelLeftOpen,
 } from 'lucide-react';
 import { useAuthStore } from '../../features/auth/stores/authStore';
+import { SidebarFooter } from './SidebarFooter';
 
 interface NavSubItem {
   label: string;
@@ -257,6 +258,8 @@ export function Sidebar({ onLockChange }: SidebarProps) {
           ))}
         </div>
       </nav>
+
+      <SidebarFooter isExpanded={isExpanded} />
     </aside>
   );
 }

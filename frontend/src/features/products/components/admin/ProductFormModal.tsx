@@ -1,16 +1,20 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, Loader2, Upload, Link as LinkIcon, Star, Trash2, Image as ImageIcon } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCreateProduct } from '../../hooks/useCreateProduct';
 import { useUpdateProduct } from '../../hooks/useUpdateProduct';
 import type { ProductoRead, ImagenRead, ProductoDetail } from '../../types/products.types';
 import type { IngredienteAsignado } from '../../../ingredientes/types/ingredientes.types';
 import { CategoryLeafSelector } from '../../../categorias/components/CategoryLeafSelector';
 import { IngredientAssignSelector } from '../../../ingredientes/components/IngredientAssignSelector';
+import { diffIngredientes } from '../../../ingredientes/utils/diff-ingredientes';
 import {
   uploadProductImage,
   addProductImageUrl,
   deleteProductImage,
   setProductImagePrimary,
+  addProductIngredient,
+  removeProductIngredient,
 } from '../../services/admin-products.service';
 import { getProduct } from '../../services/products.service';
 import { toast } from 'sonner';
@@ -58,6 +62,7 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
 
   // Ingredients
   const [ingredientes, setIngredientes] = useState<IngredienteAsignado[]>([]);
+  const originalIngredientes = useRef<IngredienteAsignado[]>([]);
 
   // Images
   const [imagenes, setImagenes] = useState<ImagenRead[]>([]);
@@ -92,7 +97,20 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
       onClose();
     }
   });
-  const updateMutation = useUpdateProduct(onClose);
+
+  // In edit mode: sync ingredients after basic fields update, then close
+  const handleUpdateSuccess = useCallback(async () => {
+    if (!producto) return;
+    try {
+      await syncIngredientes(producto.id, originalIngredientes.current, ingredientes);
+    } catch (err) {
+      console.error('[IngredientSync] Error:', err);
+      toast.error('Error al sincronizar ingredientes');
+    }
+    onClose();
+  }, [producto, ingredientes, onClose]);
+
+  const updateMutation = useUpdateProduct(handleUpdateSuccess);
   const isPending = createMutation.isPending || updateMutation.isPending;
   const isLoadingDetail = isEdit && detailLoading;
 
@@ -102,6 +120,7 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
       // Reset for create mode
       setCategoriaIds([]);
       setIngredientes([]);
+      originalIngredientes.current = [];
       setImagenes([]);
       setPendingFiles([]);
       return;
@@ -113,14 +132,14 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
       .then((detail: ProductoDetail) => {
         if (cancelled) return;
         setCategoriaIds(detail.categorias?.map((c) => c.id) ?? []);
-        setIngredientes(
-          detail.ingredientes?.map((ing) => ({
-            id: ing.id,
-            nombre: ing.nombre,
-            es_alergeno: ing.es_alergeno,
-            es_removible: ing.es_removible,
-          })) ?? []
-        );
+        const loadedIngredientes = detail.ingredientes?.map((ing) => ({
+          id: ing.id,
+          nombre: ing.nombre,
+          es_alergeno: ing.es_alergeno,
+          es_removible: ing.es_removible,
+        })) ?? [];
+        setIngredientes(loadedIngredientes);
+        originalIngredientes.current = loadedIngredientes;
         setImagenes(detail.imagenes ?? []);
       })
       .catch(() => {
@@ -138,6 +157,8 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
+
+  const queryClient = useQueryClient();
 
   // Upload pending files after product creation
   const uploadPendingFiles = async (productId: number, files: File[]) => {
@@ -171,6 +192,30 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     setPendingFiles([]);
     setUploading(false);
   };
+
+  /**
+   * Sync ingredient associations between original (loaded from backend) and current (form state).
+   * Strategy: DELETE removed, POST added, DELETE→POST for es_removible changes (backend reactivates soft-deleted pivots).
+   */
+  async function syncIngredientes(
+    productoId: number,
+    original: IngredienteAsignado[],
+    current: IngredienteAsignado[],
+  ): Promise<void> {
+    const changes = diffIngredientes(original, current);
+
+    for (const change of changes) {
+      if (change.type === 'remove') {
+        await removeProductIngredient(productoId, change.ingrediente.id);
+      } else if (change.type === 'add') {
+        await addProductIngredient(productoId, change.ingrediente.id, change.ingrediente.es_removible);
+      } else if (change.type === 'update') {
+        // DELETE first (soft-deletes the pivot), then POST (reactivates with new es_removible)
+        await removeProductIngredient(productoId, change.after.id);
+        await addProductIngredient(productoId, change.after.id, change.after.es_removible);
+      }
+    }
+  }
 
   // Handle file selection/add to pending (create mode) or upload immediately (edit mode)
   const handleFileAdd = useCallback((file: File) => {
@@ -331,7 +376,7 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     };
 
     if (isEdit) {
-      // Edit mode: update basic fields, then sync associations
+      // Edit mode: update basic fields first; ingredient sync runs in updateMutation.onSuccess
       updateMutation.mutate({ id: producto.id, payload: {
         nombre: payload.nombre,
         descripcion: payload.descripcion,
@@ -339,8 +384,6 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
         stock_cantidad: payload.stock_cantidad,
         disponible: payload.disponible,
       }});
-      // Note: category/ingredient/image sync would happen via separate endpoints
-      // For now, the basic fields are updated
     } else {
       createMutation.mutate(payload);
     }
