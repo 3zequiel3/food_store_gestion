@@ -1,34 +1,38 @@
 import { useState } from 'react';
 import type { PedidoDetalle, EstadoCodigo } from '../types/orders.types';
-import { useAdvanceOrderState } from '../hooks/useAdvanceOrderState';
+import { useTransitionOrderState } from '../hooks/useTransitionOrderState';
 
 interface Transition {
-  nuevo_estado: EstadoCodigo;
+  estado_codigo_destino: string;
   label: string;
   variant: 'primary' | 'danger';
   requiresMotivo: boolean;
 }
 
+/**
+ * Admin-facing transitions only.
+ * PENDIENTE → CONFIRMADO is webhook-only (MercadoPago payment confirmation).
+ * CANCELADO_ADMIN is the admin cancellation target (not legacy CANCELADO).
+ */
 function getTransitions(estado: EstadoCodigo): Transition[] {
   switch (estado) {
     case 'PENDIENTE':
       return [
-        { nuevo_estado: 'CONFIRMADO', label: 'Confirmar', variant: 'primary', requiresMotivo: false },
-        { nuevo_estado: 'CANCELADO', label: 'Rechazar', variant: 'danger', requiresMotivo: true },
+        { estado_codigo_destino: 'CANCELADO_ADMIN', label: 'Rechazar', variant: 'danger', requiresMotivo: true },
       ];
     case 'CONFIRMADO':
       return [
-        { nuevo_estado: 'EN_PREPARACION', label: 'Iniciar preparación', variant: 'primary', requiresMotivo: false },
-        { nuevo_estado: 'CANCELADO', label: 'Cancelar', variant: 'danger', requiresMotivo: true },
+        { estado_codigo_destino: 'EN_PREPARACION', label: 'Iniciar preparación', variant: 'primary', requiresMotivo: false },
+        { estado_codigo_destino: 'CANCELADO_ADMIN', label: 'Cancelar', variant: 'danger', requiresMotivo: true },
       ];
     case 'EN_PREPARACION':
       return [
-        { nuevo_estado: 'EN_CAMINO', label: 'Marcar en camino', variant: 'primary', requiresMotivo: false },
-        { nuevo_estado: 'CANCELADO', label: 'Cancelar', variant: 'danger', requiresMotivo: true },
+        { estado_codigo_destino: 'EN_CAMINO', label: 'Marcar en camino', variant: 'primary', requiresMotivo: false },
+        { estado_codigo_destino: 'CANCELADO_ADMIN', label: 'Cancelar', variant: 'danger', requiresMotivo: true },
       ];
     case 'EN_CAMINO':
       return [
-        { nuevo_estado: 'ENTREGADO', label: 'Marcar entregado', variant: 'primary', requiresMotivo: false },
+        { estado_codigo_destino: 'ENTREGADO', label: 'Marcar entregado', variant: 'primary', requiresMotivo: false },
       ];
     default:
       return [];
@@ -41,7 +45,7 @@ interface OrderStateActionsProps {
 
 export function OrderStateActions({ order }: OrderStateActionsProps) {
   const transitions = getTransitions(order.estado_codigo);
-  const mutation = useAdvanceOrderState();
+  const mutation = useTransitionOrderState();
   const [motivoInput, setMotivoInput] = useState('');
   const [pendingTransition, setPendingTransition] = useState<Transition | null>(null);
 
@@ -52,7 +56,7 @@ export function OrderStateActions({ order }: OrderStateActionsProps) {
       setPendingTransition(transition);
       setMotivoInput('');
     } else {
-      mutation.mutate({ id: order.id, nuevo_estado: transition.nuevo_estado });
+      mutation.mutate({ id: order.id, estado_codigo_destino: transition.estado_codigo_destino });
     }
   }
 
@@ -60,7 +64,7 @@ export function OrderStateActions({ order }: OrderStateActionsProps) {
     if (!pendingTransition) return;
     mutation.mutate({
       id: order.id,
-      nuevo_estado: pendingTransition.nuevo_estado,
+      estado_codigo_destino: pendingTransition.estado_codigo_destino,
       motivo: motivoInput.trim() || undefined,
     });
     setPendingTransition(null);
@@ -82,10 +86,8 @@ export function OrderStateActions({ order }: OrderStateActionsProps) {
         <div className="flex flex-col gap-2">
           <p className="text-sm text-foreground">
             Motivo para{' '}
-            <span className="font-medium">
-              {pendingTransition.nuevo_estado === 'CANCELADO' ? 'cancelar' : 'el cambio'}
-            </span>{' '}
-            (opcional):
+            <span className="font-medium">cancelar</span>{' '}
+            (obligatorio):
           </p>
           <input
             type="text"
@@ -117,7 +119,7 @@ export function OrderStateActions({ order }: OrderStateActionsProps) {
         <div className="flex flex-wrap gap-2">
           {transitions.map((t) => (
             <button
-              key={t.nuevo_estado}
+              key={t.estado_codigo_destino}
               type="button"
               onClick={() => handleClick(t)}
               disabled={mutation.isPending}
