@@ -43,29 +43,12 @@ def upgrade() -> None:
     )
 
     # ── Step B: Add CANCELADO_ADMIN and CANCELADO_CLIENTE to order_states ──
-    op.bulk_insert(
-        sa.table(
-            "order_states",
-            sa.column("codigo", sa.String),
-            sa.column("descripcion", sa.String),
-            sa.column("orden", sa.Integer),
-            sa.column("es_terminal", sa.Boolean),
-        ),
-        [
-            {
-                "codigo": "CANCELADO_ADMIN",
-                "descripcion": "Pedido cancelado por el administrador",
-                "orden": 6,
-                "es_terminal": True,
-            },
-            {
-                "codigo": "CANCELADO_CLIENTE",
-                "descripcion": "Pedido cancelado por el cliente",
-                "orden": 7,
-                "es_terminal": True,
-            },
-        ],
-    )
+    op.execute("""
+        INSERT INTO order_states (codigo, descripcion, orden, es_terminal)
+        VALUES ('CANCELADO_ADMIN', 'Pedido cancelado por el administrador', 6, true),
+               ('CANCELADO_CLIENTE', 'Pedido cancelado por el cliente', 7, true)
+        ON CONFLICT (codigo) DO NOTHING
+    """)
 
     # ── Step C: Migrate existing CANCELADO → CANCELADO_ADMIN ──────────────
     op.execute(
@@ -79,41 +62,26 @@ def upgrade() -> None:
         "UPDATE order_state_history SET estado_anterior_codigo = 'CANCELADO_ADMIN' WHERE estado_anterior_codigo = 'CANCELADO'"
     )
 
-    # ── Step D: Create metodo_pago_usuario table ──────────────────────────
-    op.create_table(
-        "metodo_pago_usuario",
-        sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column(
-            "usuario_id",
-            sa.Integer,
-            sa.ForeignKey("users.id", ondelete="CASCADE"),
-            nullable=False,
-            index=True,
-        ),
-        sa.Column("mp_customer_id", sa.String, nullable=True),
-        sa.Column("mp_card_id", sa.String, nullable=True),
-        sa.Column("last_four", sa.String(4), nullable=True),
-        sa.Column("expiration_month", sa.Integer, nullable=True),
-        sa.Column("expiration_year", sa.Integer, nullable=True),
-        sa.Column(
-            "payment_method_id",
-            sa.String(50),
-            sa.ForeignKey("payment_methods.codigo", ondelete="RESTRICT"),
-            nullable=False,
-        ),
-        sa.Column("card_brand", sa.String(50), nullable=True),
-        sa.Column(
-            "created_at", sa.DateTime, nullable=False, server_default=sa.func.now()
-        ),
-        sa.Column(
-            "updated_at", sa.DateTime, nullable=False, server_default=sa.func.now()
-        ),
-    )
-    op.create_index(
-        "ix_metodo_pago_usuario_usuario_id",
-        "metodo_pago_usuario",
-        ["usuario_id"],
-    )
+    # ── Step D: Create metodo_pago_usuario table (idempotent) ─────────────
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS metodo_pago_usuario (
+            id SERIAL PRIMARY KEY,
+            usuario_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            mp_customer_id VARCHAR,
+            mp_card_id VARCHAR,
+            last_four VARCHAR(4),
+            expiration_month INTEGER,
+            expiration_year INTEGER,
+            payment_method_id VARCHAR(50) NOT NULL REFERENCES payment_methods(codigo) ON DELETE RESTRICT,
+            card_brand VARCHAR(50),
+            created_at TIMESTAMP NOT NULL DEFAULT now(),
+            updated_at TIMESTAMP NOT NULL DEFAULT now()
+        )
+    """)
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS ix_metodo_pago_usuario_usuario_id
+        ON metodo_pago_usuario (usuario_id)
+    """)
 
 
 # ---------------------------------------------------------------------------
