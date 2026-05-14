@@ -56,6 +56,7 @@ from features.products.schemas import (
 )
 from features.products.service import ProductService
 from shared.storage import StorageService
+from shared.exceptions import BusinessRuleError
 
 router = APIRouter()
 
