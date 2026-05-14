@@ -1,27 +1,37 @@
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { initiatePayment } from '../services/payments.service';
+import { createInlinePayment } from '../services/payments.service';
+import type { PaymentResponse } from '../types/payments.types';
 import { ApiError } from '../../../api/interceptors/error';
 
+interface InlinePaymentInput {
+  pedidoId: number;
+  monto: number;
+  cardToken: string;
+  paymentMethodId: string;
+  installments?: number;
+}
+
 export function useInitPayment() {
-  return useMutation({
-    mutationFn: async (pedidoId: number) => {
-      const data = await initiatePayment(pedidoId);
-      if (!data.init_point) {
-        throw new Error('No se recibió el link de pago de MercadoPago.');
-      }
+  return useMutation<PaymentResponse, unknown, InlinePaymentInput>({
+    mutationFn: async ({ pedidoId, monto, cardToken, paymentMethodId, installments = 1 }) => {
+      const data = await createInlinePayment({
+        pedido_id: pedidoId,
+        monto,
+        card_token: cardToken,
+        payment_method_id: paymentMethodId,
+        installments,
+        idempotency_key: crypto.randomUUID(),
+      });
       return data;
-    },
-    onSuccess(data) {
-      window.location.href = data.init_point!;
     },
     onError(error) {
       if (error instanceof ApiError) {
-        toast.error('Error al iniciar el pago', {
+        toast.error('Error al procesar el pago', {
           description: error.detail || 'Intentá de nuevo.',
         });
       } else {
-        toast.error('Error al iniciar el pago', {
+        toast.error('Error al procesar el pago', {
           description: error instanceof Error ? error.message : 'Intentá de nuevo.',
         });
       }
