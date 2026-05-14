@@ -25,6 +25,8 @@ from features.orders.schemas import (
     PedidoDetalle,
     PedidoListFilters,
     PedidoRead,
+    TransicionarRequest,
+    TransicionarResponse,
 )
 from features.orders.service import OrderService
 from features.users.models import Usuario
@@ -151,3 +153,48 @@ async def avanzar_estado(
         motivo=payload.motivo,
     )
     return PedidoRead.model_validate(pedido)
+
+
+@router.post(
+    "/{pedido_id}/transicionar",
+    response_model=TransicionarResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Transicionar estado del pedido",
+    description=(
+        "Ejecuta una transición de estado genérica sobre un pedido. "
+        "Acepta cualquier estado destino válido según la FSM (incluye CANCELADO_ADMIN, CANCELADO_CLIENTE). "
+        "Valida FSM, RBAC por transición y ownership (CLIENT solo sus propios pedidos). "
+        "Requiere autenticación por cookie."
+    ),
+)
+async def transicionar_estado(
+    pedido_id: int,
+    payload: TransicionarRequest,
+    current_user: Usuario = Depends(get_current_user),
+) -> TransicionarResponse:
+    """
+    POST /api/v1/pedidos/{pedido_id}/transicionar
+
+    Authentication: cookie-backed session required (401 if missing/invalid).
+    Authorization: RBAC dynamic — validated inside OrderService.transicionar_pedido().
+
+    HTTP mapping (global exception handler):
+      NotFoundError → 404
+      ForbiddenError → 403
+      InvalidStateTransitionError → 409
+      BusinessRuleError → 422
+    """
+    service = OrderService()
+    pedido, estado_anterior, nuevo_historial = service.transicionar_pedido(
+        user_id=current_user.id,
+        pedido_id=pedido_id,
+        estado_codigo_destino=payload.estado_codigo_destino,
+        motivo=payload.motivo,
+    )
+
+    return TransicionarResponse(
+        pedido_id=pedido.id,
+        estado_anterior=estado_anterior,
+        estado_nuevo=pedido.estado_codigo,
+        historial=[nuevo_historial],
+    )

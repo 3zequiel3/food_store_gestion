@@ -101,6 +101,38 @@ class AvanzarEstadoRequest(BaseModel):
     )
 
 
+class TransicionarRequest(BaseModel):
+    """
+    Request body for POST /api/v1/pedidos/{pedido_id}/transicionar.
+
+    Generic state transition — any target state allowed by the FSM.
+    motivo is required for CANCELADO_ADMIN transitions.
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    estado_codigo_destino: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="Código del estado destino (ej. CANCELADO_ADMIN).",
+    )
+    motivo: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Motivo de la transición (obligatorio para CANCELADO_ADMIN).",
+    )
+
+
+class TransicionarResponse(BaseModel):
+    """Response for POST /api/v1/pedidos/{pedido_id}/transicionar."""
+
+    pedido_id: int
+    estado_anterior: str
+    estado_nuevo: str
+    historial: list[HistorialItem]
+
+
 class PedidoRead(BaseModel):
     """
     Compact read schema for the order creation response (201) and state transitions.
@@ -124,6 +156,7 @@ class PedidoRead(BaseModel):
 # ---------------------------------------------------------------------------
 # Visualization schemas (order-visualization-backend #17)
 # ---------------------------------------------------------------------------
+
 
 class PedidoListItem(BaseModel):
     """Compact schema for order list items — no relations, no N+1."""
@@ -223,6 +256,10 @@ class PedidoListFilters(BaseModel):
 
     @model_validator(mode="after")
     def _validate_rango_fechas(self) -> "PedidoListFilters":
-        if self.desde is not None and self.hasta is not None and self.desde > self.hasta:
+        if (
+            self.desde is not None
+            and self.hasta is not None
+            and self.desde > self.hasta
+        ):
             raise ValueError("desde no puede ser posterior a hasta")
         return self
