@@ -194,19 +194,9 @@
 
 ## Phase 10: DevOps & Documentation
 
-[ ] **Task 10.1**: Create ngrok tunnel script
-- File: `scripts/dev-tunnel.sh`
-- Starts ngrok on port 8000, prints HTTPS URL
-- Include instructions for ngrok auth token setup
-
-[ ] **Task 10.2**: Create webhook testing documentation
-- File: `docs/webhook-testing.md`
-- Steps: start ngrok → copy HTTPS URL → configure in MP dashboard → trigger test payment
-- Document the 3 webhook formats the backend handles
-
-[ ] **Task 10.3**: Verify Procfile for Railway migrations
-- Confirm `release: alembic upgrade head` is present (it is)
-- Add doc note about migration behavior on deploy
+- [x] **Task 10.1**: Create ngrok tunnel script
+- [x] **Task 10.2**: Create webhook testing documentation
+- [x] **Task 10.3**: Verify Procfile for Railway migrations
 
 ## Review Workload Forecast
 

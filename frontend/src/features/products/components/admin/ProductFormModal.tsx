@@ -158,7 +158,6 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const queryClient = useQueryClient();
 
   // Upload pending files after product creation
   const uploadPendingFiles = async (productId: number, files: File[]) => {

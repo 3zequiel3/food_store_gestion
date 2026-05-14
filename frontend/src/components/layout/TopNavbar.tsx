@@ -1,4 +1,4 @@
-import { ShoppingCart, User } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../features/auth/stores/authStore';
 import { useCartStore } from '../../features/cart/stores/cartStore';

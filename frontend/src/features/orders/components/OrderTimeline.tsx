@@ -43,10 +43,7 @@ export function OrderTimeline({ historial, currentEstado }: OrderTimelineProps) 
   const currentState = currentEstado ?? historial[historial.length - 1]?.estado_nuevo_codigo ?? '';
   const isCancelled = isCancelState(currentState);
 
-  // Build the state sequence to display
-  const statesToDisplay = isCancelled
-    ? [...STATE_ORDER.slice(0, STATE_ORDER.indexOf(currentState as typeof STATE_ORDER[number]) + 1).filter(() => false), currentState]
-    : STATE_ORDER;
+  // Build the state sequence — cancelled orders show only their terminal state
 
   // Find the index of the current state in the standard order
   const currentIdx = isCancelled

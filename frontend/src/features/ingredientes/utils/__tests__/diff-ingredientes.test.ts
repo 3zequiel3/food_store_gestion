@@ -41,7 +41,7 @@ describe('diffIngredientes', () => {
 
   it('handles add + remove + update in single diff', () => {
     const original = [tomate, lechuga];
-    const current = [tomate, queso]; // lechuga removed, queso added
+    // current = [tomate, queso]; lechuga removed, queso added
     // Also toggle tomate's es_removible
     const tomateToggled = { ...tomate, es_removible: false };
     const currentWithToggle = [tomateToggled, queso];
