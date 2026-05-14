@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Check } from 'lucide-react';
 import { useCartStore } from '../../cart/stores/cartStore';
+import { ProductImage } from './ProductImage';
 import type { ProductoRead } from '../types/products.types';
 
 interface ProductCardProps {
@@ -50,15 +51,12 @@ export function ProductCard({ producto }: ProductCardProps) {
       aria-label={`Ver detalle de ${producto.nombre}`}
     >
       <div className="aspect-square w-full bg-muted flex items-center justify-center overflow-hidden relative">
-        {producto.imagen_url ? (
-          <img
-            src={producto.imagen_url}
-            alt={producto.nombre}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <FoodPlaceholder />
-        )}
+        <ProductImage
+          src={producto.imagen_url}
+          alt={producto.nombre}
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          placeholder={<FoodPlaceholder />}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-glass to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
       </div>
 
