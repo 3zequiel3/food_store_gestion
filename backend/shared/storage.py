@@ -115,7 +115,7 @@ class StorageService:
         if settings.STORAGE == "local":
             raise BusinessRuleError("Uploads directos solo disponibles con STORAGE=s3")
 
-        key = f"productos/{producto_id}/{uuid4().hex}{_extension_from_content_type(content_type)}"
+        key = f"productos/{producto_id}/{uuid4().hex}{self._extension_from_content_type(content_type)}"
         safe_key = _validate_product_image_key(key)
 
         client = self._s3_client()
