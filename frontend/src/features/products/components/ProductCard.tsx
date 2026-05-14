@@ -33,7 +33,7 @@ export function ProductCard({ producto }: ProductCardProps) {
         producto_id: producto.id,
         nombre: producto.nombre,
         precio: Number(producto.precio),
-        imagen_url: producto.imagen_url ?? undefined,
+        imagen_url: producto.imagenes?.[0]?.url ?? producto.imagen_url ?? undefined,
       },
       1,
     );

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, ShoppingCart, Trash2, Minus, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import { useCartStore } from '../../features/cart/stores/cartStore';
 import { useValidateCart } from '../../features/checkout/hooks/useValidateCart';
 import { CartValidationModal } from '../../features/checkout/components/CartValidationModal';
@@ -46,6 +47,9 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         } else {
           setValidationResult(result);
         }
+      },
+      onError() {
+        toast.error('No se pudo verificar el carrito. Intentá de nuevo.');
       },
     });
   }
