@@ -6,6 +6,7 @@ import { ProductImage } from '../../features/products/components/ProductImage';
 import { useCartStore } from '../../features/cart/stores/cartStore';
 import { NotFound } from '../errors/NotFound';
 import { isAxiosError } from 'axios';
+import { resolveImageUrl } from '../../lib/images';
 import type { ImagenRead } from '../../features/products/types/products.types';
 
 /**
@@ -204,7 +205,7 @@ export function ProductDetailPage() {
                   }`}
                 >
                   <img
-                    src={img.url}
+                    src={resolveImageUrl(img.url)}
                     alt={`Thumbnail ${idx + 1}`}
                     className="w-full h-full object-cover"
                   />

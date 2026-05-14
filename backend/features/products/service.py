@@ -339,6 +339,41 @@ class ProductService:
                 incluir_eliminados=incluir_eliminados,
             )
 
+    def list_with_images(
+        self,
+        *,
+        page: int,
+        limit: int,
+        categoria_id: int | None = None,
+        search: str | None = None,
+        disponible: bool | None = None,
+        excluir_alergenos: bool = False,
+        excluir_alergeno_ids: list[int] | None = None,
+        sin_categoria: bool = False,
+        current_user=None,
+        incluir_eliminados: bool = False,
+    ) -> tuple[list[Producto], int, dict[int, list]]:
+        """Return paginated products with their images in 2 queries (no N+1)."""
+        items, total = self.list_paginated(
+            page=page,
+            limit=limit,
+            categoria_id=categoria_id,
+            search=search,
+            disponible=disponible,
+            excluir_alergenos=excluir_alergenos,
+            excluir_alergeno_ids=excluir_alergeno_ids,
+            sin_categoria=sin_categoria,
+            current_user=current_user,
+            incluir_eliminados=incluir_eliminados,
+        )
+        if not items:
+            return items, total, {}
+
+        with UnitOfWork() as uow:
+            repo, _, _ = self._register_repos(uow)
+            images_by_pid = repo.list_imagenes_by_product_ids([p.id for p in items])
+            return items, total, images_by_pid
+
     # ── Update ────────────────────────────────────────────────────────────
 
     def update(self, producto_id: int, payload: ProductoUpdate) -> Producto:

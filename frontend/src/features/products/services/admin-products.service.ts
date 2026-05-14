@@ -32,7 +32,7 @@ export async function uploadProductImage(id: number, file: File): Promise<Imagen
   const formData = new FormData();
   formData.append('file', file);
   const response = await apiClient.post<ImagenRead>(
-    `/api/v1/productos/${id}/imagenes`,
+    `/productos/${id}/imagenes`,
     formData,
     { headers: { 'Content-Type': 'multipart/form-data' } },
   );
@@ -40,18 +40,18 @@ export async function uploadProductImage(id: number, file: File): Promise<Imagen
 }
 
 export async function addProductImageUrl(id: number, url: string): Promise<ImagenRead> {
-  const response = await apiClient.post<ImagenRead>(`/api/v1/productos/${id}/imagenes/url`, { url });
+  const response = await apiClient.post<ImagenRead>(`/productos/${id}/imagenes/url`, { url });
   return response.data;
 }
 
 export async function deleteProductImage(id: number, imagenId: number): Promise<void> {
-  await apiClient.delete(`/api/v1/productos/${id}/imagenes/${imagenId}`);
+  await apiClient.delete(`/productos/${id}/imagenes/${imagenId}`);
 }
 
 export async function setProductImagePrimary(id: number, imagenId: number): Promise<void> {
-  await apiClient.patch(`/api/v1/productos/${id}/imagenes/${imagenId}/primaria`);
+  await apiClient.patch(`/productos/${id}/imagenes/${imagenId}/primaria`);
 }
 
 export async function setProductImageOrder(id: number, imagenId: number, orden: number): Promise<void> {
-  await apiClient.patch(`/api/v1/productos/${id}/imagenes/${imagenId}/orden`, { orden });
+  await apiClient.patch(`/productos/${id}/imagenes/${imagenId}/orden`, { orden });
 }

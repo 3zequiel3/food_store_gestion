@@ -537,3 +537,35 @@ class ProductRepository(BaseRepository[Producto]):
             .values(es_primaria=True)
         )
         self.session.flush()
+
+    def list_imagenes_by_product_ids(
+        self, product_ids: list[int]
+    ) -> dict[int, list[ProductoImagen]]:
+        """Return active images for multiple products in a single query.
+
+        Args:
+            product_ids: List of product primary keys.
+
+        Returns:
+            Dict mapping producto_id → list of active ProductoImagen
+            ordered by orden ASC, id ASC.
+        """
+        if not product_ids:
+            return {}
+
+        query = (
+            select(ProductoImagen)
+            .where(
+                ProductoImagen.producto_id.in_(product_ids),
+                ProductoImagen.eliminado_en.is_(None),
+            )
+            .order_by(
+                ProductoImagen.producto_id, ProductoImagen.orden, ProductoImagen.id
+            )
+        )
+        rows = list(self.session.execute(query).scalars().all())
+
+        result: dict[int, list[ProductoImagen]] = {}
+        for row in rows:
+            result.setdefault(row.producto_id, []).append(row)
+        return result

@@ -152,7 +152,7 @@ async def listar_productos(
         disponible = True
 
     service = ProductService()
-    items, total = service.list_paginated(
+    items, total, images_by_pid = service.list_with_images(
         page=page,
         limit=limit,
         categoria_id=categoria_id,
@@ -176,7 +176,10 @@ async def listar_productos(
                 imagen_url=p.imagen_url,
                 creado_en=p.creado_en,
                 actualizado_en=p.actualizado_en,
-                imagenes=[],
+                imagenes=[
+                    ImagenRead.model_validate(img)
+                    for img in images_by_pid.get(p.id, [])
+                ],
             )
             for p in items
         ],

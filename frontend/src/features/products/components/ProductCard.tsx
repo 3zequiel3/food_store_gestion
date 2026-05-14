@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, Check } from 'lucide-react';
+import { ShoppingCart, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCartStore } from '../../cart/stores/cartStore';
 import { ProductImage } from './ProductImage';
 import type { ProductoRead } from '../types/products.types';
@@ -12,8 +12,13 @@ interface ProductCardProps {
 export function ProductCard({ producto }: ProductCardProps) {
   const navigate = useNavigate();
   const [added, setAdded] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const sinStock = !producto.disponible || producto.stock_cantidad === 0;
+
+  const images = [...(producto.imagenes ?? [])].sort((a, b) => a.orden - b.orden);
+  const hasMultipleImages = images.length > 1;
+  const hasImages = images.length > 0;
 
   function handleNavigate() {
     navigate(`/cliente/catalogo/${producto.id}`);
@@ -43,6 +48,20 @@ export function ProductCard({ producto }: ProductCardProps) {
     minimumFractionDigits: 2,
   }).format(producto.precio);
 
+  // Resolve current image: by index from product images, fallback to imagen_url
+  const currentImage = hasImages ? images[activeImageIndex % images.length] : null;
+  const imageSrc = currentImage?.url ?? producto.imagen_url ?? undefined;
+
+  function goNext(e: React.MouseEvent) {
+    e.stopPropagation();
+    setActiveImageIndex((prev) => (prev + 1) % images.length);
+  }
+
+  function goPrev(e: React.MouseEvent) {
+    e.stopPropagation();
+    setActiveImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  }
+
   return (
     <div
       className="group flex flex-col rounded-xl bg-glass backdrop-blur-xl border border-glass-border overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
@@ -52,11 +71,52 @@ export function ProductCard({ producto }: ProductCardProps) {
     >
       <div className="aspect-square w-full bg-muted flex items-center justify-center overflow-hidden relative">
         <ProductImage
-          src={producto.imagen_url}
+          src={imageSrc}
           alt={producto.nombre}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           placeholder={<FoodPlaceholder />}
         />
+
+        {/* Carousel controls (only when multiple images) */}
+        {hasMultipleImages && (
+          <>
+            <button
+              type="button"
+              onClick={goPrev}
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/70 transition-all"
+              aria-label="Imagen anterior"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/70 transition-all"
+              aria-label="Imagen siguiente"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+
+            {/* Dots indicator */}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {images.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveImageIndex(idx);
+                  }}
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                    idx === activeImageIndex ? 'bg-white' : 'bg-white/50'
+                  }`}
+                  aria-label={`Imagen ${idx + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
         <div className="absolute inset-0 bg-gradient-to-t from-glass to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
       </div>
 
