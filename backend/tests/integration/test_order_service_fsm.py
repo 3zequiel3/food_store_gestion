@@ -21,9 +21,11 @@ from sqlalchemy.orm import Session
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def order_service():
     from features.orders.service import OrderService
+
     return OrderService()
 
 
@@ -45,7 +47,9 @@ def producto(test_db_session: Session):
 
 
 @pytest.fixture
-def pedido_pendiente_sin_items(test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido):
+def pedido_pendiente_sin_items(
+    test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido
+):
     """A Pedido in PENDIENTE state — no items (for backward-compat and simple tests)."""
     from features.orders.models import Pedido
 
@@ -63,8 +67,13 @@ def pedido_pendiente_sin_items(test_db_session: Session, sample_user, sample_for
 
 
 @pytest.fixture
-def pedido_con_item(test_db_session: Session, sample_user, sample_formas_pago,
-                    sample_estados_pedido, producto):
+def pedido_con_item(
+    test_db_session: Session,
+    sample_user,
+    sample_formas_pago,
+    sample_estados_pedido,
+    producto,
+):
     """
     A Pedido in PENDIENTE state with one DetallePedido-like item.
 
@@ -97,13 +106,14 @@ def pedido_con_item(test_db_session: Session, sample_user, sample_formas_pago,
         cantidad=3,
     )
     # Monkey-patch items so transicionar_estado can access them
-    object.__setattr__(pedido, '_fake_items', [fake_item])
+    object.__setattr__(pedido, "_fake_items", [fake_item])
     return pedido, fake_item
 
 
 # ---------------------------------------------------------------------------
 # Task 5.1 — Regression test (BLOQUEANTE)
 # ---------------------------------------------------------------------------
+
 
 class TestTransicionarEstadoRegression:
     """
@@ -112,8 +122,7 @@ class TestTransicionarEstadoRegression:
     """
 
     def test_webhook_transicion_pendiente_a_confirmado_sigue_funcionando(
-        self, order_service, test_db_session: Session,
-        pedido_pendiente_sin_items
+        self, order_service, test_db_session: Session, pedido_pendiente_sin_items
     ):
         """
         PaymentService calls transicionar_estado(pedido_id, 'PENDIENTE', 'CONFIRMADO', actor_id=None).
@@ -147,8 +156,7 @@ class TestTransicionarEstadoRegression:
         assert historial.motivo is None  # No motivo passed = NULL
 
     def test_transicionar_estado_idempotencia_409(
-        self, order_service, test_db_session: Session,
-        pedido_pendiente_sin_items
+        self, order_service, test_db_session: Session, pedido_pendiente_sin_items
     ):
         """Calling with wrong estado_anterior raises InvalidStateTransitionError (409)."""
         from shared.exceptions import InvalidStateTransitionError
@@ -167,11 +175,10 @@ class TestTransicionarEstadoRegression:
 # Task 5.4-5.9 — Stock side-effects in transicionar_estado
 # ---------------------------------------------------------------------------
 
-class TestTransicionarEstadoStockSideEffects:
 
+class TestTransicionarEstadoStockSideEffects:
     def test_transicionar_estado_pendiente_a_confirmado_decrementa_stock(
-        self, order_service, test_db_session: Session,
-        pedido_con_item, producto
+        self, order_service, test_db_session: Session, pedido_con_item, producto
     ):
         """PENDIENTE → CONFIRMADO: stock decrements by item.cantidad."""
         from features.products.models import Producto
@@ -183,7 +190,9 @@ class TestTransicionarEstadoStockSideEffects:
         # Patch the repo's load of items inside the UoW
         original_transicionar = order_service.transicionar_estado
 
-        def patched_transicionar(pedido_id, estado_anterior, estado_nuevo, actor_id=None, motivo=None):
+        def patched_transicionar(
+            pedido_id, estado_anterior, estado_nuevo, actor_id=None, motivo=None
+        ):
             from features.orders.service import OrderService
             from features.orders.repository import OrderRepository
             from shared.unit_of_work import UnitOfWork
@@ -217,7 +226,9 @@ class TestTransicionarEstadoStockSideEffects:
                 uow.session.refresh(pedido_locked)
                 return pedido_locked
 
-        with mock.patch.object(order_service, 'transicionar_estado', side_effect=patched_transicionar):
+        with mock.patch.object(
+            order_service, "transicionar_estado", side_effect=patched_transicionar
+        ):
             resultado = order_service.transicionar_estado(
                 pedido_id=pedido.id,
                 estado_anterior="PENDIENTE",
@@ -232,8 +243,11 @@ class TestTransicionarEstadoStockSideEffects:
         assert p.stock_cantidad == 7  # 10 - 3
 
     def test_transicionar_estado_pendiente_a_cancelado_no_toca_stock(
-        self, order_service, test_db_session: Session,
-        pedido_pendiente_sin_items, sample_producto_disponible
+        self,
+        order_service,
+        test_db_session: Session,
+        pedido_pendiente_sin_items,
+        sample_producto_disponible,
     ):
         """PENDIENTE → CANCELADO: stock not touched (never decremented)."""
         from features.products.models import Producto
@@ -259,11 +273,10 @@ class TestTransicionarEstadoStockSideEffects:
 # Task 5.10 — Idempotencia (already covered in regression, but explicit)
 # ---------------------------------------------------------------------------
 
-class TestTransicionarEstadoIdempotencia:
 
+class TestTransicionarEstadoIdempotencia:
     def test_transicionar_estado_second_call_409(
-        self, order_service, test_db_session: Session,
-        pedido_pendiente_sin_items
+        self, order_service, test_db_session: Session, pedido_pendiente_sin_items
     ):
         """Second identical call raises 409 — idempotent guard."""
         from shared.exceptions import InvalidStateTransitionError
@@ -287,6 +300,7 @@ class TestTransicionarEstadoIdempotencia:
 # ---------------------------------------------------------------------------
 # Fixtures for avanzar_estado tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def user_pedidos(test_db_session: Session, sample_roles):
@@ -331,7 +345,9 @@ def user_admin(test_db_session: Session, sample_roles):
 
 
 @pytest.fixture
-def pedido_confirmado(test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido):
+def pedido_confirmado(
+    test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido
+):
     """A Pedido already in CONFIRMADO state."""
     from features.orders.models import Pedido
 
@@ -349,7 +365,9 @@ def pedido_confirmado(test_db_session: Session, sample_user, sample_formas_pago,
 
 
 @pytest.fixture
-def pedido_en_preparacion(test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido):
+def pedido_en_preparacion(
+    test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido
+):
     """A Pedido in EN_PREPARACION state."""
     from features.orders.models import Pedido
 
@@ -370,16 +388,21 @@ def pedido_en_preparacion(test_db_session: Session, sample_user, sample_formas_p
 # Tests for avanzar_estado
 # ---------------------------------------------------------------------------
 
-class TestAvanzarEstado:
 
+class TestAvanzarEstado:
     def test_avanzar_estado_rechaza_confirmado_explicit(
-        self, order_service, test_db_session: Session,
-        sample_user, pedido_pendiente_sin_items
+        self,
+        order_service,
+        test_db_session: Session,
+        sample_user,
+        pedido_pendiente_sin_items,
     ):
         """avanzar_estado rejects CONFIRMADO with BusinessRuleError — D5 second defense."""
         from shared.exceptions import BusinessRuleError
 
-        with pytest.raises(BusinessRuleError, match="CONFIRMADO solo se setea automáticamente"):
+        with pytest.raises(
+            BusinessRuleError, match="CONFIRMADO solo se setea automáticamente"
+        ):
             order_service.avanzar_estado(
                 user_id=sample_user.id,
                 pedido_id=pedido_pendiente_sin_items.id,
@@ -387,9 +410,7 @@ class TestAvanzarEstado:
                 motivo=None,
             )
 
-    def test_avanzar_estado_pedido_no_existe_404(
-        self, order_service, sample_user
-    ):
+    def test_avanzar_estado_pedido_no_existe_404(self, order_service, sample_user):
         """Non-existent pedido_id raises NotFoundError (404)."""
         from shared.exceptions import NotFoundError
 
@@ -402,8 +423,12 @@ class TestAvanzarEstado:
             )
 
     def test_avanzar_estado_client_no_dueno_404(
-        self, order_service, test_db_session: Session,
-        sample_user, sample_roles, pedido_pendiente_sin_items
+        self,
+        order_service,
+        test_db_session: Session,
+        sample_user,
+        sample_roles,
+        pedido_pendiente_sin_items,
     ):
         """CLIENT trying to act on a pedido they don't own gets 404 (anti-leak, D13)."""
         from features.users.models import Usuario, UsuarioRol
@@ -433,8 +458,11 @@ class TestAvanzarEstado:
             )
 
     def test_avanzar_estado_pedidos_opera_sobre_pedido_ajeno_ok(
-        self, order_service, test_db_session: Session,
-        user_pedidos, pedido_pendiente_sin_items
+        self,
+        order_service,
+        test_db_session: Session,
+        user_pedidos,
+        pedido_pendiente_sin_items,
     ):
         """PEDIDOS can cancel any order regardless of ownership."""
         resultado = order_service.avanzar_estado(
@@ -446,8 +474,11 @@ class TestAvanzarEstado:
         assert resultado.estado_codigo == "CANCELADO"
 
     def test_avanzar_estado_fsm_invalida_422(
-        self, order_service, test_db_session: Session,
-        user_pedidos, pedido_pendiente_sin_items
+        self,
+        order_service,
+        test_db_session: Session,
+        user_pedidos,
+        pedido_pendiente_sin_items,
     ):
         """Transition not allowed by FSM raises BusinessRuleError."""
         from shared.exceptions import BusinessRuleError
@@ -462,8 +493,7 @@ class TestAvanzarEstado:
             )
 
     def test_avanzar_estado_rol_insuficiente_403(
-        self, order_service, test_db_session: Session,
-        sample_user, pedido_confirmado
+        self, order_service, test_db_session: Session, sample_user, pedido_confirmado
     ):
         """CLIENT cannot move CONFIRMADO → EN_PREPARACION — ForbiddenError (403)."""
         from shared.exceptions import ForbiddenError
@@ -477,8 +507,7 @@ class TestAvanzarEstado:
             )
 
     def test_avanzar_estado_motivo_obligatorio_en_cancel_desde_confirmado_422(
-        self, order_service, test_db_session: Session,
-        user_pedidos, pedido_confirmado
+        self, order_service, test_db_session: Session, user_pedidos, pedido_confirmado
     ):
         """Cancelling CONFIRMADO without motivo raises BusinessRuleError (D7)."""
         from shared.exceptions import BusinessRuleError
@@ -487,13 +516,12 @@ class TestAvanzarEstado:
             order_service.avanzar_estado(
                 user_id=user_pedidos.id,
                 pedido_id=pedido_confirmado.id,
-                nuevo_estado="CANCELADO",
+                nuevo_estado="CANCELADO_ADMIN",
                 motivo=None,
             )
 
     def test_avanzar_estado_motivo_solo_espacios_es_invalido(
-        self, order_service, test_db_session: Session,
-        user_pedidos, pedido_confirmado
+        self, order_service, test_db_session: Session, user_pedidos, pedido_confirmado
     ):
         """motivo with only whitespace is treated as missing (D7)."""
         from shared.exceptions import BusinessRuleError
@@ -502,13 +530,16 @@ class TestAvanzarEstado:
             order_service.avanzar_estado(
                 user_id=user_pedidos.id,
                 pedido_id=pedido_confirmado.id,
-                nuevo_estado="CANCELADO",
+                nuevo_estado="CANCELADO_ADMIN",
                 motivo="   ",
             )
 
     def test_avanzar_estado_motivo_opcional_en_cancel_desde_pendiente(
-        self, order_service, test_db_session: Session,
-        sample_user, pedido_pendiente_sin_items
+        self,
+        order_service,
+        test_db_session: Session,
+        sample_user,
+        pedido_pendiente_sin_items,
     ):
         """Cancelling PENDIENTE without motivo is OK — motivo=NULL in historial."""
         from features.orders.models import HistorialEstadoPedido
@@ -532,8 +563,11 @@ class TestAvanzarEstado:
         assert historial.motivo is None
 
     def test_avanzar_estado_pedidos_no_puede_cancel_desde_en_preparacion_403(
-        self, order_service, test_db_session: Session,
-        user_pedidos, pedido_en_preparacion
+        self,
+        order_service,
+        test_db_session: Session,
+        user_pedidos,
+        pedido_en_preparacion,
     ):
         """PEDIDOS (without ADMIN) cannot cancel EN_PREPARACION — RN-RB08."""
         from shared.exceptions import ForbiddenError
@@ -542,13 +576,12 @@ class TestAvanzarEstado:
             order_service.avanzar_estado(
                 user_id=user_pedidos.id,
                 pedido_id=pedido_en_preparacion.id,
-                nuevo_estado="CANCELADO",
+                nuevo_estado="CANCELADO_ADMIN",
                 motivo="algún motivo",
             )
 
     def test_avanzar_estado_con_motivo_valido_confirma_a_cancelado(
-        self, order_service, test_db_session: Session,
-        user_pedidos, pedido_confirmado
+        self, order_service, test_db_session: Session, user_pedidos, pedido_confirmado
     ):
         """PEDIDOS can cancel CONFIRMADO with valid motivo — state changes, historial recorded."""
         from features.orders.models import HistorialEstadoPedido
@@ -557,15 +590,15 @@ class TestAvanzarEstado:
         resultado = order_service.avanzar_estado(
             user_id=user_pedidos.id,
             pedido_id=pedido_confirmado.id,
-            nuevo_estado="CANCELADO",
+            nuevo_estado="CANCELADO_ADMIN",
             motivo="Stock agotado inesperadamente",
         )
-        assert resultado.estado_codigo == "CANCELADO"
+        assert resultado.estado_codigo == "CANCELADO_ADMIN"
 
         historial = test_db_session.execute(
             select(HistorialEstadoPedido).where(
                 HistorialEstadoPedido.pedido_id == pedido_confirmado.id,
-                HistorialEstadoPedido.estado_nuevo_codigo == "CANCELADO",
+                HistorialEstadoPedido.estado_nuevo_codigo == "CANCELADO_ADMIN",
             )
         ).scalar_one_or_none()
         assert historial is not None
@@ -573,14 +606,13 @@ class TestAvanzarEstado:
         assert historial.cambiado_por_id == user_pedidos.id
 
     def test_avanzar_estado_admin_puede_cancelar_en_preparacion(
-        self, order_service, test_db_session: Session,
-        user_admin, pedido_en_preparacion
+        self, order_service, test_db_session: Session, user_admin, pedido_en_preparacion
     ):
         """ADMIN can cancel EN_PREPARACION with motivo."""
         resultado = order_service.avanzar_estado(
             user_id=user_admin.id,
             pedido_id=pedido_en_preparacion.id,
-            nuevo_estado="CANCELADO",
+            nuevo_estado="CANCELADO_ADMIN",
             motivo="Pedido problemático",
         )
-        assert resultado.estado_codigo == "CANCELADO"
+        assert resultado.estado_codigo == "CANCELADO_ADMIN"
