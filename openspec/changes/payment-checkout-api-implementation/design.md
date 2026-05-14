@@ -10,14 +10,21 @@ Extend `PaymentService` with `crear_pago_api()` that calls `sdk.payment().create
 
 Current `payment_methods` table has `MERCADOPAGO` as the online payment method. Since we're migrating to Checkout API (direct card processing), rename to `TARJETA`:
 
-**Alembic data migration**:
+**Alembic data migration** (3 pasos, no borra `CANCELADO` del catálogo):
 ```python
 def upgrade():
+    # A) Rename MERCADOPAGO → TARJETA
     op.execute("UPDATE payment_methods SET codigo = 'TARJETA', descripcion = 'Pago con tarjeta (MercadoPago)' WHERE codigo = 'MERCADOPAGO'")
-    # Update any orders referencing the old code
     op.execute("UPDATE orders SET forma_pago_codigo = 'TARJETA' WHERE forma_pago_codigo = 'MERCADOPAGO'")
-    # Update any payment records
     op.execute("UPDATE payments SET forma_pago_codigo = 'TARJETA' WHERE forma_pago_codigo = 'MERCADOPAGO'")
+
+    # B) Add new order states (NO se borra CANCELADO del catálogo — se deja como legacy)
+    op.execute("INSERT INTO order_states (codigo, descripcion, orden, es_terminal) VALUES ('CANCELADO_ADMIN', 'Pedido cancelado por el administrador', 6, true)")
+    op.execute("INSERT INTO order_states (codigo, descripcion, orden, es_terminal) VALUES ('CANCELADO_CLIENTE', 'Pedido cancelado por el cliente', 7, true)")
+
+    # C) Migrate existing CANCELADO orders → CANCELADO_ADMIN (todos, sin excepción)
+    op.execute("UPDATE orders SET estado_codigo = 'CANCELADO_ADMIN' WHERE estado_codigo = 'CANCELADO'")
+    op.execute("UPDATE historial_estado_pedido SET estado_nuevo_codigo = 'CANCELADO_ADMIN' WHERE estado_nuevo_codigo = 'CANCELADO'")
 ```
 
 ### 3. Order State Machine — New Flow
@@ -26,9 +33,7 @@ def upgrade():
 - `CANCELADO_ADMIN` — Pedido cancelado por el administrador (requires `motivo`)
 - `CANCELADO_CLIENTE` — Pedido cancelado por el cliente (requires `motivo`, blocked from EN_PREPARACION+)
 
-**Data migration**: Existing `CANCELADO` orders need to be split:
-- If `cambiado_por_id IS NULL` in the cancellation history record → `CANCELADO_ADMIN`
-- If `cambiado_por_id IS NOT NULL` → `CANCELADO_CLIENTE`
+**Data migration**: Existing `CANCELADO` orders all move to `CANCELADO_ADMIN`. `CANCELADO` stays in `order_states` catalog as legacy code — not deleted to avoid FK issues.
 
 **Updated FSM transitions**:
 
@@ -220,9 +225,9 @@ echo "Set this URL in your MercadoPago dashboard → Integrations → Webhooks"
 
 ## Migration / Rollout
 
-1. **Alembic migration** (single migration file with 3 operations):
+1. **Alembic migration** (single file, 3 operations):
    - a. Rename `MERCADOPAGO` → `TARJETA` in `payment_methods` + cascade to orders/payments
-   - b. Add `CANCELADO_ADMIN`, `CANCELADO_CLIENTE` to `order_states`; migrate existing `CANCELADO` orders
+   - b. Add `CANCELADO_ADMIN`, `CANCELADO_CLIENTE` to `order_states`; migrate existing `CANCELADO` → `CANCELADO_ADMIN` (all orders, `CANCELADO` stays in catalog as legacy)
    - c. Create `metodo_pago_usuario` table
 2. **Feature flag**: None needed — new fields are optional.
 3. **Rollout order**: Backend first, then frontend.

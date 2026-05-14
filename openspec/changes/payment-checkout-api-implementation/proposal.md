@@ -97,12 +97,13 @@
 ## Rollback Plan
 
 1. Revert payment method rename: TARJETA → MERCADOPAGO.
-2. Remove new order states from `order_states`.
-3. Revert FSM to previous transitions.
-4. Revert `router.py` to always call `crear_preferencia()`.
-5. Revert modal CSS changes.
-6. Stop ngrok tunnel, remove script.
-7. Drop `metodo_pago_usuario` table via Alembic downgrade.
+2. Revert `CANCELADO_ADMIN` → `CANCELADO` in orders + historial (Alembic downgrade).
+3. Remove `CANCELADO_ADMIN` and `CANCELADO_CLIENTE` from `order_states`.
+4. Revert FSM to previous transitions.
+5. Revert `router.py` to always call `crear_preferencia()`.
+6. Revert modal CSS changes.
+7. Stop ngrok tunnel, remove script.
+8. Drop `metodo_pago_usuario` table via Alembic downgrade.
 
 ## Dependencies
 

@@ -8,7 +8,7 @@
 - Single migration file: `backend/alembic/versions/YYYYMMDD_HHMM_payment_order_state_refactor.py`
 - Step A: Rename `MERCADOPAGO` → `TARJETA` in `payment_methods`, cascade to `orders.forma_pago_codigo` and `payments.forma_pago_codigo`
 - Step B: Add `CANCELADO_ADMIN` (descripcion: "Pedido cancelado por el administrador", orden: 6, es_terminal: true) and `CANCELADO_CLIENTE` (descripcion: "Pedido cancelado por el cliente", orden: 7, es_terminal: true) to `order_states`
-- Step C: Migrate existing `CANCELADO` orders: if `cambiado_por_id IS NULL` in history → `CANCELADO_ADMIN`, else → `CANCELADO_CLIENTE`
+- Step C: Migrar TODOS los pedidos existentes `CANCELADO` → `CANCELADO_ADMIN` (UPDATE orders SET estado_codigo = 'CANCELADO_ADMIN' WHERE estado_codigo = 'CANCELADO'). Actualizar historial: UPDATE historial_estado_pedido SET estado_nuevo_codigo = 'CANCELADO_ADMIN' WHERE estado_nuevo_codigo = 'CANCELADO'. **NO** borrar `CANCELADO` del catálogo (se deja como legacy).
 - Step D: Create `metodo_pago_usuario` table (id, usuario_id FK, mp_customer_id, mp_card_id, last_four, expiration_month, expiration_year, payment_method_id, card_brand, created_at)
 - Verify with `alembic upgrade head` and `alembic downgrade -1`
 
