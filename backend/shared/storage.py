@@ -109,8 +109,8 @@ class StorageService:
     def presign_upload(self, producto_id: int, content_type: str) -> dict[str, str]:
         """Generate a presigned POST for direct client-to-S3 upload.
 
-        Returns a dict with { url, fields } ready for the frontend to POST a file.
-        The client must include the fields + file in a multipart POST.
+        Returns a dict with { url, fields, key } ready for the frontend to POST a file.
+        The `key` is needed to register the image in the DB after successful upload.
         """
         if settings.STORAGE == "local":
             raise BusinessRuleError("Uploads directos solo disponibles con STORAGE=s3")
@@ -133,6 +133,7 @@ class StorageService:
             ],
             ExpiresIn=3600,
         )
+        response["key"] = safe_key
         return response
 
     def _presign_get(self, key: str) -> str:

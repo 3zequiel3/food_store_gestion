@@ -231,12 +231,33 @@ async def obtener_presigned_url(
 ) -> dict:
     """Generate a presigned POST for direct client-to-S3 upload.
 
-    Returns { url, fields } that the frontend uses to POST a file directly
-    to the S3 bucket without going through the backend.
+    Returns { url, fields, key } that the frontend uses to POST a file directly
+    to the S3 bucket. The `key` is needed to register the image in the DB after upload.
     """
     # Verify product exists
     ProductService().get_by_id(producto_id)
     return StorageService().presign_upload(producto_id, payload.content_type)
+
+
+@router.post("/{producto_id}/imagenes/registro")
+async def registrar_imagen_producto(
+    producto_id: int,
+    payload: dict,
+    _user=Depends(require_role("ADMIN", "STOCK")),
+) -> ImagenRead:
+    """Register an uploaded image in the database.
+
+    After a direct upload to S3, the frontend calls this to create the
+    ProductoImagen record. The `key` should be the S3 object key
+    (e.g. 'productos/1/abc.jpg').
+    """
+    key = payload.get("key") or payload.get("url")
+    if not key:
+        raise BusinessRuleError("Falta la clave/URL de la imagen")
+
+    service = ProductService()
+    img = service.add_imagen_from_url(producto_id, key)
+    return _imagen_to_read_with_presigned(img)
 
 
 @router.post(

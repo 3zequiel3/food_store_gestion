@@ -8,6 +8,7 @@ import { CategoryLeafSelector } from '../../../categorias/components/CategoryLea
 import { IngredientAssignSelector } from '../../../ingredientes/components/IngredientAssignSelector';
 import {
   uploadProductImageDirect,
+  registerProductImage,
   addProductImageUrl,
   deleteProductImage,
   setProductImagePrimary,
@@ -132,9 +133,11 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
     setUploading(true);
     for (const file of files) {
       try {
-        await uploadProductImageDirect(productId, file);
+        const key = await uploadProductImageDirect(productId, file);
+        await registerProductImage(productId, key);
         toast.success(`"${file.name}" subida`);
-      } catch {
+      } catch (err) {
+        console.error(err);
         toast.error(`Error al subir ${file.name}`);
       }
     }
@@ -157,6 +160,7 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
       // Edit mode: upload directly to S3 via presigned POST
       setUploading(true);
       uploadProductImageDirect(producto!.id, file)
+        .then((key) => registerProductImage(producto!.id, key))
         .then(() => {
           toast.success('Imagen subida');
           // Refresh images from server
@@ -165,7 +169,8 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
         .then((detail) => {
           setImagenes(detail.imagenes ?? []);
         })
-        .catch(() => {
+        .catch((err) => {
+          console.error(err);
           toast.error('Error al subir la imagen');
         })
         .finally(() => setUploading(false));

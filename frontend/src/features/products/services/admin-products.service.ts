@@ -28,22 +28,25 @@ export async function updateStock(id: number, stock_cantidad: number): Promise<P
 
 // Image management functions
 
-export async function getPresignedUploadUrl(id: number, contentType: string): Promise<{ url: string; fields: Record<string, string> }> {
+export async function getPresignedUploadUrl(id: number, contentType: string): Promise<{ url: string; fields: Record<string, string>; key: string }> {
   const response = await apiClient.post(`/productos/${id}/imagenes/presigned-url`, { content_type: contentType });
   return response.data;
 }
 
-export async function uploadProductImageDirect(id: number, file: File): Promise<void> {
+export async function uploadProductImageDirect(id: number, file: File): Promise<string> {
   // 1. Get presigned POST from backend
-  const { url, fields } = await getPresignedUploadUrl(id, file.type);
+  const { url, fields, key } = await getPresignedUploadUrl(id, file.type);
 
   // 2. Upload directly to S3 (bypasses backend entirely)
   const formData = new FormData();
-  Object.entries(fields).forEach(([key, value]) => {
-    formData.append(key, value);
+  Object.entries(fields).forEach(([fKey, value]) => {
+    formData.append(fKey, value);
   });
   formData.append('Content-Type', file.type);
   formData.append('file', file);
+
+  console.log('[S3 Upload] Uploading to:', url);
+  console.log('[S3 Upload] Content-Type:', file.type);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -51,8 +54,18 @@ export async function uploadProductImageDirect(id: number, file: File): Promise<
   });
 
   if (!response.ok) {
-    throw new Error(`S3 upload failed: ${response.status}`);
+    const errorText = await response.text();
+    console.error('[S3 Upload] Failed:', response.status, errorText);
+    throw new Error(`S3 upload failed: ${response.status} - ${errorText}`);
   }
+
+  console.log('[S3 Upload] Success. Key:', key);
+  return key;
+}
+
+export async function registerProductImage(id: number, key: string): Promise<ImagenRead> {
+  const response = await apiClient.post<ImagenRead>(`/productos/${id}/imagenes/registro`, { key });
+  return response.data;
 }
 
 // Legacy function — kept for STORAGE=local fallback
