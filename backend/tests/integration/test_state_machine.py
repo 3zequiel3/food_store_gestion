@@ -16,61 +16,82 @@ from shared.exceptions import BusinessRuleError, ForbiddenError
 # ALLOWED_TRANSITIONS
 # ---------------------------------------------------------------------------
 
-class TestAllowedTransitions:
 
+class TestAllowedTransitions:
     def test_allowed_transitions_completas(self):
-        """ALLOWED_TRANSITIONS must define exactly 7 valid outgoing transitions
-        plus empty sets for the two terminal states."""
+        """ALLOWED_TRANSITIONS must define valid outgoing transitions
+        plus empty sets for terminal states."""
         from features.orders.state_machine import ALLOWED_TRANSITIONS
 
         # Non-terminal states with allowed targets
         assert "CANCELADO" in ALLOWED_TRANSITIONS["PENDIENTE"]
+        assert "CANCELADO_ADMIN" in ALLOWED_TRANSITIONS["PENDIENTE"]
+        assert "CANCELADO_CLIENTE" in ALLOWED_TRANSITIONS["PENDIENTE"]
         assert "EN_PREPARACION" in ALLOWED_TRANSITIONS["CONFIRMADO"]
-        assert "CANCELADO" in ALLOWED_TRANSITIONS["CONFIRMADO"]
+        assert "CANCELADO_ADMIN" in ALLOWED_TRANSITIONS["CONFIRMADO"]
         assert "EN_CAMINO" in ALLOWED_TRANSITIONS["EN_PREPARACION"]
-        assert "CANCELADO" in ALLOWED_TRANSITIONS["EN_PREPARACION"]
+        assert "CANCELADO_ADMIN" in ALLOWED_TRANSITIONS["EN_PREPARACION"]
         assert "ENTREGADO" in ALLOWED_TRANSITIONS["EN_CAMINO"]
 
         # Terminal states have no outgoing transitions
         assert ALLOWED_TRANSITIONS["ENTREGADO"] == set()
         assert ALLOWED_TRANSITIONS["CANCELADO"] == set()
+        assert ALLOWED_TRANSITIONS["CANCELADO_ADMIN"] == set()
+        assert ALLOWED_TRANSITIONS["CANCELADO_CLIENTE"] == set()
 
-        # Total outgoing transitions: PENDIENTE(1) + CONFIRMADO(2) + EN_PREPARACION(2)
-        # + EN_CAMINO(1) = 6 edges (PENDIENTE→CONFIRMADO is webhook-only so not in TRANSITION_ROLES)
+        # Total outgoing transitions: PENDIENTE(3) + CONFIRMADO(2) + EN_PREPARACION(2)
+        # + EN_CAMINO(1) = 8 edges
         total = sum(len(v) for v in ALLOWED_TRANSITIONS.values())
-        assert total == 6  # 1+2+2+1+0+0
+        assert total == 8  # 3+2+2+1+0+0+0+0
 
 
 # ---------------------------------------------------------------------------
 # TRANSITION_ROLES
 # ---------------------------------------------------------------------------
 
-class TestTransitionRoles:
 
+class TestTransitionRoles:
     def test_transition_roles_matriz_completa(self):
-        """TRANSITION_ROLES must define all 6 manual transitions with correct role sets."""
+        """TRANSITION_ROLES must define all manual transitions with correct role sets."""
         from features.orders.state_machine import TRANSITION_ROLES
 
-        assert TRANSITION_ROLES[("PENDIENTE", "CANCELADO")] == {"CLIENT", "PEDIDOS", "ADMIN"}
-        assert TRANSITION_ROLES[("CONFIRMADO", "EN_PREPARACION")] == {"PEDIDOS", "ADMIN"}
-        assert TRANSITION_ROLES[("CONFIRMADO", "CANCELADO")] == {"PEDIDOS", "ADMIN"}
+        assert TRANSITION_ROLES[("PENDIENTE", "CANCELADO")] == {
+            "CLIENT",
+            "PEDIDOS",
+            "ADMIN",
+        }
+        assert TRANSITION_ROLES[("PENDIENTE", "CANCELADO_CLIENTE")] == {"CLIENT"}
+        assert TRANSITION_ROLES[("PENDIENTE", "CANCELADO_ADMIN")] == {
+            "ADMIN",
+            "PEDIDOS",
+        }
+        assert TRANSITION_ROLES[("CONFIRMADO", "EN_PREPARACION")] == {
+            "PEDIDOS",
+            "ADMIN",
+        }
+        assert TRANSITION_ROLES[("CONFIRMADO", "CANCELADO_ADMIN")] == {
+            "PEDIDOS",
+            "ADMIN",
+        }
         assert TRANSITION_ROLES[("EN_PREPARACION", "EN_CAMINO")] == {"PEDIDOS", "ADMIN"}
-        assert TRANSITION_ROLES[("EN_PREPARACION", "CANCELADO")] == {"ADMIN"}   # RN-RB08
+        assert TRANSITION_ROLES[("EN_PREPARACION", "CANCELADO_ADMIN")] == {
+            "ADMIN"
+        }  # RN-RB08
         assert TRANSITION_ROLES[("EN_CAMINO", "ENTREGADO")] == {"PEDIDOS", "ADMIN"}
 
         # PENDIENTE→CONFIRMADO must NOT be in TRANSITION_ROLES (webhook-only)
         assert ("PENDIENTE", "CONFIRMADO") not in TRANSITION_ROLES
 
-        # Exactly 6 entries
-        assert len(TRANSITION_ROLES) == 6
+        # 8 entries total
+        assert len(TRANSITION_ROLES) == 8
 
 
 # ---------------------------------------------------------------------------
 # validate_transition
 # ---------------------------------------------------------------------------
 
-class TestValidateTransition:
 
+class TestValidateTransition:
     def test_validate_transition_valida_ok(self):
         """Valid FSM transition with authorized role returns None (no exception)."""
         from features.orders.state_machine import validate_transition
@@ -83,8 +104,11 @@ class TestValidateTransition:
         from features.orders.state_machine import validate_transition
 
         validate_transition("PENDIENTE", "CANCELADO", {"ADMIN"})
+        validate_transition("PENDIENTE", "CANCELADO_ADMIN", {"ADMIN"})
         validate_transition("CONFIRMADO", "EN_PREPARACION", {"ADMIN"})
-        validate_transition("EN_PREPARACION", "CANCELADO", {"ADMIN"})  # exclusive ADMIN
+        validate_transition(
+            "EN_PREPARACION", "CANCELADO_ADMIN", {"ADMIN"}
+        )  # exclusive ADMIN
 
     def test_validate_transition_client_puede_cancelar_pendiente(self):
         """CLIENT can cancel PENDIENTE orders."""
@@ -106,9 +130,9 @@ class TestValidateTransition:
         """Transition exists in FSM but user lacks required role raises ForbiddenError."""
         from features.orders.state_machine import validate_transition
 
-        # PEDIDOS is NOT in TRANSITION_ROLES[("EN_PREPARACION", "CANCELADO")] — only ADMIN
+        # PEDIDOS is NOT in TRANSITION_ROLES[("EN_PREPARACION", "CANCELADO_ADMIN")] — only ADMIN
         with pytest.raises(ForbiddenError):
-            validate_transition("EN_PREPARACION", "CANCELADO", {"PEDIDOS"})
+            validate_transition("EN_PREPARACION", "CANCELADO_ADMIN", {"PEDIDOS"})
 
     def test_validate_transition_client_no_puede_en_preparacion(self):
         """CLIENT cannot move CONFIRMADO → EN_PREPARACION (not in role set)."""

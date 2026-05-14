@@ -125,6 +125,16 @@ class OrderService:
             if forma is None:
                 raise BusinessRuleError("Forma de pago no válida o no disponible")
 
+            # RN: efectivo no disponible para envíos a domicilio
+            if (
+                payload.direccion_id is not None
+                and payload.forma_pago_codigo == "EFECTIVO"
+            ):
+                raise BusinessRuleError(
+                    "El pago en efectivo no está disponible para envíos. Elegí tarjeta o transferencia.",
+                    code="invalid_payment_for_delivery",
+                )
+
             # ── Step 2: Validate direccion ownership ──────────────────────
             direccion: Optional[object] = None
             if payload.direccion_id is not None:
@@ -144,7 +154,9 @@ class OrderService:
             for item in payload.items:
                 producto = uow.orders.get_producto_for_update(item.producto_id)
                 if producto is None:
-                    raise NotFoundError(f"Producto no encontrado: id={item.producto_id}")
+                    raise NotFoundError(
+                        f"Producto no encontrado: id={item.producto_id}"
+                    )
                 if not producto.disponible:
                     raise BusinessRuleError(
                         f"Producto no disponible: {producto.nombre!r}"
@@ -164,7 +176,9 @@ class OrderService:
                 Decimal(str(producto.precio)) * item.cantidad
                 for producto, item in items_validados
             )
-            costo_envio = SHIPPING_COST_DEFAULT if direccion is not None else Decimal("0.00")
+            costo_envio = (
+                SHIPPING_COST_DEFAULT if direccion is not None else Decimal("0.00")
+            )
             total = subtotal + costo_envio
 
             # ── Step 6: Create Pedido ─────────────────────────────────────
@@ -248,7 +262,9 @@ class OrderService:
             needs_stock_effect = (estado_anterior, estado_nuevo) in {
                 ("PENDIENTE", "CONFIRMADO"),
                 ("CONFIRMADO", "CANCELADO"),
+                ("CONFIRMADO", "CANCELADO_ADMIN"),
                 ("EN_PREPARACION", "CANCELADO"),
+                ("EN_PREPARACION", "CANCELADO_ADMIN"),
             }
             if needs_stock_effect:
                 try:
@@ -275,7 +291,9 @@ class OrderService:
             uow.session.refresh(pedido, attribute_names=["estado_codigo", "creado_en"])
             return pedido
 
-    def listar_pedidos(self, user: Usuario, filtros: PedidoListFilters) -> PaginatedPedidos:
+    def listar_pedidos(
+        self, user: Usuario, filtros: PedidoListFilters
+    ) -> PaginatedPedidos:
         """
         List orders with role-aware filtering and pagination.
 
@@ -451,11 +469,15 @@ class OrderService:
             # D3 + D4: FSM and RBAC validation
             validate_transition(pedido.estado_codigo, nuevo_estado, user_roles)
 
-            # D7: motivo required for cancellations from CONFIRMADO or EN_PREPARACION
-            if nuevo_estado == "CANCELADO" and pedido.estado_codigo in {"CONFIRMADO", "EN_PREPARACION"}:
+            # D7: motivo required for CANCELADO_ADMIN from PENDIENTE, CONFIRMADO or EN_PREPARACION
+            if nuevo_estado == "CANCELADO_ADMIN" and pedido.estado_codigo in {
+                "PENDIENTE",
+                "CONFIRMADO",
+                "EN_PREPARACION",
+            }:
                 if not motivo or not motivo.strip():
                     raise BusinessRuleError(
-                        "motivo es obligatorio para cancelar pedidos desde CONFIRMADO o EN_PREPARACION"
+                        "motivo es obligatorio para cancelar pedidos como administrador"
                     )
 
             estado_actual = pedido.estado_codigo
@@ -470,3 +492,101 @@ class OrderService:
             actor_id=user_id,
             motivo=motivo,
         )
+
+    def transicionar_pedido(
+        self,
+        user_id: int,
+        pedido_id: int,
+        estado_codigo_destino: str,
+        motivo: Optional[str] = None,
+    ) -> tuple[Pedido, str, HistorialItem]:
+        """
+        Execute a generic state transition via POST /pedidos/{id}/transicionar.
+
+        Similar to avanzar_estado but accepts any FSM-allowed target state
+        (including CANCELADO_ADMIN, CANCELADO_CLIENTE).
+
+        Returns (Pedido, estado_anterior, nuevo_historial) so the caller can
+        build the response.
+
+        Raises:
+            BusinessRuleError: invalid FSM transition or missing motivo.
+            NotFoundError: pedido not found, or CLIENT accessing another user's order.
+            ForbiddenError: user lacks required role for this transition.
+            InvalidStateTransitionError: race condition (409).
+        """
+        import shared.unit_of_work as _uow_mod
+        from sqlalchemy import select as sa_select
+
+        # Read-only session for validation — no UoW, no lock (D14)
+        session = _uow_mod.get_session_factory()()
+        try:
+            order_repo = OrderRepository(session)
+            user_repo = UserProfileRepository(session)
+
+            pedido = order_repo.find_by_id(pedido_id)
+            if pedido is None:
+                raise NotFoundError(f"Pedido no encontrado: id={pedido_id}")
+
+            user = user_repo.find_by_id_with_roles(user_id)
+            user_roles = {r.codigo for r in user.roles}
+
+            # D13: ownership check — CLIENT can only act on their own orders
+            if user_roles == {"CLIENT"} and pedido.user_id != user_id:
+                raise NotFoundError(f"Pedido no encontrado: id={pedido_id}")
+
+            # D3 + D4: FSM and RBAC validation
+            validate_transition(pedido.estado_codigo, estado_codigo_destino, user_roles)
+
+            # motivo required for CANCELADO_ADMIN from non-terminal states
+            if estado_codigo_destino == "CANCELADO_ADMIN" and pedido.estado_codigo in {
+                "PENDIENTE",
+                "CONFIRMADO",
+                "EN_PREPARACION",
+            }:
+                if not motivo or not motivo.strip():
+                    raise BusinessRuleError(
+                        "motivo es obligatorio para cancelar pedidos como administrador"
+                    )
+
+            estado_actual = pedido.estado_codigo
+        finally:
+            session.close()
+
+        # Delegate to transicionar_estado which opens its own UoW with FOR UPDATE
+        pedido = self.transicionar_estado(
+            pedido_id=pedido_id,
+            estado_anterior=estado_actual,
+            estado_nuevo=estado_codigo_destino,
+            actor_id=user_id,
+            motivo=motivo,
+        )
+
+        # Fetch the latest historial entry from a fresh read session
+        read_session = _uow_mod.get_session_factory()()
+        try:
+            from features.orders.models import HistorialEstadoPedido
+
+            stmt = (
+                sa_select(HistorialEstadoPedido)
+                .where(HistorialEstadoPedido.pedido_id == pedido_id)
+                .order_by(HistorialEstadoPedido.creado_en.desc())
+                .limit(1)
+            )
+            hist_row = read_session.execute(stmt).scalar_one_or_none()
+            nuevo_historial = (
+                HistorialItem.model_validate(hist_row)
+                if hist_row
+                else HistorialItem(
+                    id=0,
+                    estado_anterior_codigo=estado_actual,
+                    estado_nuevo_codigo=estado_codigo_destino,
+                    cambiado_por_id=user_id,
+                    motivo=motivo,
+                    creado_en=pedido.creado_en,
+                )
+            )
+        finally:
+            read_session.close()
+
+        return pedido, estado_actual, nuevo_historial

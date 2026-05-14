@@ -20,12 +20,14 @@ from shared.exceptions import BusinessRuleError, ForbiddenError
 # ---------------------------------------------------------------------------
 
 ALLOWED_TRANSITIONS: dict[str, set[str]] = {
-    "PENDIENTE":      {"CANCELADO"},
-    "CONFIRMADO":     {"EN_PREPARACION", "CANCELADO"},
-    "EN_PREPARACION": {"EN_CAMINO", "CANCELADO"},
-    "EN_CAMINO":      {"ENTREGADO"},
-    "ENTREGADO":      set(),
-    "CANCELADO":      set(),
+    "PENDIENTE": {"CANCELADO", "CANCELADO_ADMIN", "CANCELADO_CLIENTE"},
+    "CONFIRMADO": {"EN_PREPARACION", "CANCELADO_ADMIN"},
+    "EN_PREPARACION": {"EN_CAMINO", "CANCELADO_ADMIN"},
+    "EN_CAMINO": {"ENTREGADO"},
+    "ENTREGADO": set(),
+    "CANCELADO": set(),
+    "CANCELADO_ADMIN": set(),
+    "CANCELADO_CLIENTE": set(),
 }
 
 # ---------------------------------------------------------------------------
@@ -37,18 +39,21 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
 # ---------------------------------------------------------------------------
 
 TRANSITION_ROLES: dict[tuple[str, str], set[str]] = {
-    ("PENDIENTE",      "CANCELADO"):      {"CLIENT", "PEDIDOS", "ADMIN"},
-    ("CONFIRMADO",     "EN_PREPARACION"): {"PEDIDOS", "ADMIN"},
-    ("CONFIRMADO",     "CANCELADO"):      {"PEDIDOS", "ADMIN"},
-    ("EN_PREPARACION", "EN_CAMINO"):      {"PEDIDOS", "ADMIN"},
-    ("EN_PREPARACION", "CANCELADO"):      {"ADMIN"},            # RN-RB08 — solo ADMIN
-    ("EN_CAMINO",      "ENTREGADO"):      {"PEDIDOS", "ADMIN"},
+    ("PENDIENTE", "CANCELADO"): {"CLIENT", "PEDIDOS", "ADMIN"},
+    ("PENDIENTE", "CANCELADO_CLIENTE"): {"CLIENT"},
+    ("PENDIENTE", "CANCELADO_ADMIN"): {"ADMIN", "PEDIDOS"},
+    ("CONFIRMADO", "EN_PREPARACION"): {"PEDIDOS", "ADMIN"},
+    ("CONFIRMADO", "CANCELADO_ADMIN"): {"PEDIDOS", "ADMIN"},
+    ("EN_PREPARACION", "EN_CAMINO"): {"PEDIDOS", "ADMIN"},
+    ("EN_PREPARACION", "CANCELADO_ADMIN"): {"ADMIN"},  # RN-RB08 — solo ADMIN
+    ("EN_CAMINO", "ENTREGADO"): {"PEDIDOS", "ADMIN"},
 }
 
 
 # ---------------------------------------------------------------------------
 # validate_transition
 # ---------------------------------------------------------------------------
+
 
 def validate_transition(desde: str, hacia: str, user_roles: set[str]) -> None:
     """
