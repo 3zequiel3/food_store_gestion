@@ -523,6 +523,9 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
                       ? 'Arrastrá una imagen aquí o hacé click para seleccionar'
                       : 'Arrastrá una imagen aquí o hacé click para seleccionar (se subirá al crear el producto)'}
                   </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Máximo {MAX_IMAGE_SIZE_MB} MB por imagen
+                  </p>
                   <input
                     id="image-file-input"
                     type="file"
