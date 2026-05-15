@@ -148,7 +148,7 @@ class PaymentService:
             pago = uow.payments.create_pago(
                 pedido_id=pedido_id,
                 monto=order_total,
-                forma_pago_codigo="tarjeta",
+                forma_pago_codigo="TARJETA",
                 idempotency_key=idempotency_key,
             )
 
