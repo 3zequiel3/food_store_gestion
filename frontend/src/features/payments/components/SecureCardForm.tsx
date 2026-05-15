@@ -8,34 +8,33 @@ interface SecureCardFormProps {
   isLoading?: boolean;
 }
 
-type MercadoPagoConstructor = new (
-  publicKey: string,
-  options?: { locale?: string },
-) => {
-  cardToken: {
-    create: (cardData: {
-      cardNumber: string;
-      cardholderName: string;
-      cardExpirationMonth: string;
-      cardExpirationYear: string;
-      securityCode: string;
-      identificationType?: string;
-      identificationNumber?: string;
-    }) => Promise<{ id: string; payment_method_id: string }>;
-  };
+type MercadoPagoInstance = {
+  createCardToken: (cardData: {
+    cardNumber: string;
+    cardholderName: string;
+    cardExpirationMonth: string;
+    cardExpirationYear: string;
+    securityCode: string;
+    identificationType?: string;
+    identificationNumber?: string;
+  }) => Promise<{ id: string; payment_method_id: string }>;
+  getPaymentMethods: (params: { bin: string }) => Promise<{ results: Array<{ id: string }> }>;
+  getIdentificationTypes: () => Promise<Array<{ id: string; name: string }>>;
 };
 
 // loadMercadoPago() injects <script src="sdk.mercadopago.com/js/v2">
 // and resolves the MercadoPago constructor. The SDK has no TS types,
 // so we type the result via a cast.
-async function loadMP(): Promise<MercadoPagoConstructor> {
+async function loadMP(publicKey: string): Promise<MercadoPagoInstance> {
   const sdk = await loadMercadoPago();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return sdk as any as MercadoPagoConstructor;
+  const MercadoPago = sdk as any;
+  const mp = new MercadoPago(publicKey, { locale: 'es-AR' });
+  return mp as MercadoPagoInstance;
 }
 
 export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormProps) {
-  const [mpInstance, setMpInstance] = useState<InstanceType<MercadoPagoConstructor> | null>(null);
+  const [mpInstance, setMpInstance] = useState<MercadoPagoInstance | null>(null);
   const [sdkReady, setSdkReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
 
@@ -56,11 +55,10 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
 
     let cancelled = false;
 
-    loadMP()
-      .then((MercadoPago) => {
-        if (cancelled || !MercadoPago) return;
-        console.log('[SecureCardForm] MP SDK loaded, initializing with public key:', publicKey.slice(0, 12) + '...');
-        const mp = new MercadoPago(publicKey, { locale: 'es-AR' });
+    loadMP(publicKey)
+      .then((mp) => {
+        if (cancelled || !mp) return;
+        console.log('[SecureCardForm] MP SDK initialized with public key:', publicKey.slice(0, 12) + '...');
         setMpInstance(mp);
         setSdkReady(true);
       })
@@ -88,7 +86,7 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
 
       try {
         const { id: token, payment_method_id: paymentMethodId } =
-          await mpInstance.cardToken.create({
+          await mpInstance.createCardToken({
             cardNumber: cardNumber.replace(/\s/g, ''),
             cardholderName: cardholderName,
             cardExpirationMonth: expMonth,
