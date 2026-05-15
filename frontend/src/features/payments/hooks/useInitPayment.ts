@@ -6,7 +6,6 @@ import { ApiError } from '../../../api/interceptors/error';
 
 interface InlinePaymentInput {
   pedidoId: number;
-  monto: number;
   cardToken: string;
   paymentMethodId: string;
   installments?: number;
@@ -14,10 +13,9 @@ interface InlinePaymentInput {
 
 export function useInitPayment() {
   return useMutation<PaymentResponse, unknown, InlinePaymentInput>({
-    mutationFn: async ({ pedidoId, monto, cardToken, paymentMethodId, installments = 1 }) => {
+    mutationFn: async ({ pedidoId, cardToken, paymentMethodId, installments = 1 }) => {
       const data = await createInlinePayment({
         pedido_id: pedidoId,
-        monto,
         card_token: cardToken,
         payment_method_id: paymentMethodId,
         installments,

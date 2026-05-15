@@ -10,14 +10,12 @@ describe('payment types shape', () => {
   it('PaymentCreateRequest has required fields', () => {
     const req: PaymentCreateRequest = {
       pedido_id: 1,
-      monto: 1500.5,
       card_token: 'tok_test_123',
       payment_method_id: 'visa',
       installments: 1,
       idempotency_key: crypto.randomUUID(),
     };
     expect(req.pedido_id).toBe(1);
-    expect(req.monto).toBe(1500.5);
     expect(req.card_token).toBe('tok_test_123');
     expect(req.payment_method_id).toBe('visa');
     expect(req.installments).toBe(1);
