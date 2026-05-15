@@ -29,7 +29,7 @@ async function loadMP(publicKey: string): Promise<MercadoPagoInstance> {
   const sdk = await loadMercadoPago();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const MercadoPago = sdk as any;
-  const mp = new MercadoPago(publicKey, { locale: 'es-AR' });
+  const mp = new MercadoPago(publicKey, { locale: 'es-AR', trackingDisabled: true });
   
   return mp as MercadoPagoInstance;
 }
