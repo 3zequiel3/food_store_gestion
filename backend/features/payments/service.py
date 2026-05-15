@@ -52,6 +52,8 @@ class PaymentService:
         Create a direct card charge via MercadoPago Checkout API.
 
         Validates order ownership, state, and no active payment.
+        Calls MP API BEFORE creating the Pago record to avoid
+        leaving orphan pending payments on MP errors.
         On approval, transitions order PENDIENTE → CONFIRMADO.
 
         Returns:
@@ -63,6 +65,10 @@ class PaymentService:
             BusinessRuleError: pedido is not PENDIENTE, or an active payment exists,
                 or MP payment was rejected/peneded/cancelled.
         """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Phase 1: Validate order and check no active payment (read-only UoW)
         with UnitOfWork() as uow:
             uow.register_repository("orders", OrderRepository(uow.session))
             uow.register_repository("payments", PaymentRepository(uow.session))
@@ -89,40 +95,63 @@ class PaymentService:
                     code="conflict",
                 )
 
-            # Build payment payload for MP Checkout API
-            payment_data = {
-                "transaction_amount": float(pedido.total),
-                "token": card_token,
-                "installments": installments,
-                "payment_method_id": payment_method_id,
-                "description": f"Pedido #{pedido_id} — Food Store",
-                "external_reference": str(pedido_id),
-                "identification_type": identification_type,
-                "identification_number": identification_number,
-            }
+            order_total = float(pedido.total)
 
-            # Forward idempotency key to MP via custom headers in RequestOptions
-            request_options = RequestOptions(
-                access_token=settings.MP_ACCESS_TOKEN,
-                custom_headers={"X-Idempotency-Key": idempotency_key},
+        # Phase 2: Call MP API (outside UoW — no DB side effects yet)
+        payment_data = {
+            "transaction_amount": order_total,
+            "token": card_token,
+            "installments": installments,
+            "payment_method_id": payment_method_id,
+            "description": f"Pedido #{pedido_id} — Food Store",
+            "external_reference": str(pedido_id),
+            "identification_type": identification_type,
+            "identification_number": identification_number,
+        }
+
+        request_options = RequestOptions(
+            access_token=settings.MP_ACCESS_TOKEN,
+            custom_headers={"X-Idempotency-Key": idempotency_key},
+        )
+
+        sdk = self._get_sdk()
+        result = sdk.payment().create(payment_data, request_options)
+
+        response = result.get("response", {})
+        error = result.get("error", {})
+        mp_status = response.get("status", "")
+        mp_payment_id = response.get("id")
+        status_detail = response.get("status_detail", "")
+
+        # Log full MP response for debugging
+        if not mp_status:
+            logger.error(
+                "MP payment.create failed — response: %s, error: %s",
+                response,
+                error,
             )
 
-            sdk = self._get_sdk()
-            result = sdk.payment().create(payment_data, request_options)
-            response = result.get("response", {})
+        # Phase 3: Create Pago record and transition state
+        with UnitOfWork() as uow:
+            uow.register_repository("orders", OrderRepository(uow.session))
+            uow.register_repository("payments", PaymentRepository(uow.session))
 
-            mp_status = response.get("status", "")
-            mp_payment_id = response.get("id")
-            status_detail = response.get("status_detail", "")
+            # Re-check active payment (race condition guard)
+            active_pago = uow.payments.find_active_by_pedido_id(pedido_id)
+            if active_pago is not None:
+                raise BusinessRuleError(
+                    f"Ya existe un pago activo para este pedido (estado: {active_pago.mp_status}). "
+                    "Esperá a que se resuelva antes de reintentar.",
+                    code="conflict",
+                )
 
-            # Create Pago record
             pago = uow.payments.create_pago(
                 pedido_id=pedido_id,
-                monto=pedido.total,
-                forma_pago_codigo=pedido.forma_pago_codigo,
+                monto=order_total,
+                forma_pago_codigo="tarjeta",
                 idempotency_key=idempotency_key,
             )
-            # Update with MP response fields
+
             if mp_payment_id is not None:
                 uow.payments.update_mp_fields(
                     pago=pago,
@@ -132,7 +161,21 @@ class PaymentService:
 
             # UoW __exit__ commits the Pago record.
 
-        # D7 — trigger state transition OUTSIDE the payments UoW
+        # Phase 4: Handle MP result
+        if not mp_status or error:
+            # MP returned an error (e.g. 400 bad request)
+            error_msg = error.get("message", "Error desconocido de MercadoPago")
+            error_cause = error.get("cause", [])
+            if error_cause:
+                causes = ", ".join(
+                    c.get("description", str(c)) for c in error_cause if isinstance(c, dict)
+                )
+                error_msg = f"{error_msg}: {causes}"
+            raise BusinessRuleError(
+                f"Pago rechazado por MercadoPago: {error_msg}",
+                code="payment_error",
+            )
+
         if mp_status == "approved" and mp_payment_id is not None:
             try:
                 OrderService().transicionar_estado(
@@ -142,7 +185,6 @@ class PaymentService:
                     actor_id=None,
                 )
             except Exception:
-                # Order may already be CONFIRMADO on a duplicate call — swallow.
                 pass
             return {
                 "mp_status": mp_status,
