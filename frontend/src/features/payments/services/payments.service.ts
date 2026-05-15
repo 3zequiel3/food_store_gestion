@@ -22,7 +22,7 @@ export async function getPaymentByOrder(pedidoId: number): Promise<PagoRead> {
 export async function createInlinePayment(
   data: PaymentCreateRequest,
 ): Promise<PaymentResponse> {
-  const response = await apiClient.post<PaymentResponse>('/pagos', data);
+  const response = await apiClient.post<PaymentResponse>('/pagos/', data);
   return response.data;
 }
 
