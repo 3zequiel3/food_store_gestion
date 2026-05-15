@@ -12,7 +12,12 @@ interface PaymentFormProps {
 export function PaymentForm({ pedidoId, onSuccess, onError }: PaymentFormProps) {
   const [isProcessing, setIsProcessing] = useState(false);
 
-  async function handlePaymentSubmit(token: string, paymentMethodId: string) {
+  async function handlePaymentSubmit(
+    token: string,
+    paymentMethodId: string,
+    identificationType: string,
+    identificationNumber: string,
+  ) {
     setIsProcessing(true);
     try {
       const response = await createInlinePayment({
@@ -21,6 +26,8 @@ export function PaymentForm({ pedidoId, onSuccess, onError }: PaymentFormProps) 
         payment_method_id: paymentMethodId,
         installments: 1,
         idempotency_key: crypto.randomUUID(),
+        identification_type: identificationType,
+        identification_number: identificationNumber,
       });
 
       if (response.mp_status === 'approved') {

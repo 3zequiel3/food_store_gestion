@@ -9,14 +9,14 @@ vi.mock('../../services/payments.service', () => ({
 
 vi.mock('../SecureCardForm', () => ({
   SecureCardForm: ({ onSubmit, onError, isLoading }: {
-    onSubmit: (token: string, pmId: string) => void;
+    onSubmit: (token: string, pmId: string, idType: string, idNumber: string) => void;
     onError: (msg: string) => void;
     isLoading?: boolean;
   }) => (
     <div data-testid="mock-secure-card-form">
       <button
         data-testid="mock-submit"
-        onClick={() => onSubmit('tok_test', 'visa')}
+        onClick={() => onSubmit('tok_test', 'visa', 'DNI', '12345678')}
         disabled={isLoading}
       >
         Pay
@@ -65,6 +65,8 @@ describe('PaymentForm', () => {
           card_token: 'tok_test',
           payment_method_id: 'visa',
           installments: 1,
+          identification_type: 'DNI',
+          identification_number: '12345678',
         }),
       );
     });

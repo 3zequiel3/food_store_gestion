@@ -45,6 +45,8 @@ class PaymentService:
         payment_method_id: str,
         installments: int,
         idempotency_key: str,
+        identification_type: str = "DNI",
+        identification_number: str = "",
     ) -> dict:
         """
         Create a direct card charge via MercadoPago Checkout API.
@@ -95,6 +97,8 @@ class PaymentService:
                 "payment_method_id": payment_method_id,
                 "description": f"Pedido #{pedido_id} — Food Store",
                 "external_reference": str(pedido_id),
+                "identification_type": identification_type,
+                "identification_number": identification_number,
             }
 
             # Forward idempotency key to MP via custom headers in RequestOptions

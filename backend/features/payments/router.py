@@ -65,6 +65,8 @@ def crear_pago(
         payment_method_id=body.payment_method_id,
         installments=body.installments,
         idempotency_key=body.idempotency_key,
+        identification_type=body.identification_type,
+        identification_number=body.identification_number,
     )
     return result
 

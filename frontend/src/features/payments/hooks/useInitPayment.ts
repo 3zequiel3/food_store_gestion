@@ -9,17 +9,28 @@ interface InlinePaymentInput {
   cardToken: string;
   paymentMethodId: string;
   installments?: number;
+  identificationType?: string;
+  identificationNumber?: string;
 }
 
 export function useInitPayment() {
   return useMutation<PaymentResponse, unknown, InlinePaymentInput>({
-    mutationFn: async ({ pedidoId, cardToken, paymentMethodId, installments = 1 }) => {
+    mutationFn: async ({
+      pedidoId,
+      cardToken,
+      paymentMethodId,
+      installments = 1,
+      identificationType = 'DNI',
+      identificationNumber = '',
+    }) => {
       const data = await createInlinePayment({
         pedido_id: pedidoId,
         card_token: cardToken,
         payment_method_id: paymentMethodId,
         installments,
         idempotency_key: crypto.randomUUID(),
+        identification_type: identificationType,
+        identification_number: identificationNumber,
       });
       return data;
     },

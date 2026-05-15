@@ -14,10 +14,14 @@ describe('payment types shape', () => {
       payment_method_id: 'visa',
       installments: 1,
       idempotency_key: crypto.randomUUID(),
+      identification_type: 'DNI',
+      identification_number: '12345678',
     };
     expect(req.pedido_id).toBe(1);
     expect(req.card_token).toBe('tok_test_123');
     expect(req.payment_method_id).toBe('visa');
+    expect(req.identification_type).toBe('DNI');
+    expect(req.identification_number).toBe('12345678');
     expect(req.installments).toBe(1);
     expect(req.idempotency_key).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,

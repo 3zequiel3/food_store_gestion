@@ -3,7 +3,12 @@ import { loadMercadoPago } from '@mercadopago/sdk-js';
 import { Loader2, CreditCard } from 'lucide-react';
 
 interface SecureCardFormProps {
-  onSubmit: (token: string, paymentMethodId: string) => void;
+  onSubmit: (
+    token: string,
+    paymentMethodId: string,
+    identificationType: string,
+    identificationNumber: string,
+  ) => void;
   onError: (message: string) => void;
   isLoading?: boolean;
 }
@@ -15,8 +20,8 @@ type MercadoPagoInstance = {
     cardExpirationMonth: string;
     cardExpirationYear: string;
     securityCode: string;
-    identificationType?: string;
-    identificationNumber?: string;
+    identificationType: string;
+    identificationNumber: string;
   }) => Promise<{ id: string }>;
   getPaymentMethods: (params: { bin: string }) => Promise<{ results: Array<{ id: string }> }>;
   getIdentificationTypes: () => Promise<Array<{ id: string; name: string }>>;
@@ -45,6 +50,8 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
   const [expYear, setExpYear] = useState('');
   const [cvv, setCvv] = useState('');
   const [cardholderName, setCardholderName] = useState('');
+  const [docType, setDocType] = useState('DNI');
+  const [docNumber, setDocNumber] = useState('');
 
   // Initialize MP SDK via loadMercadoPago loader
   useEffect(() => {
@@ -87,8 +94,8 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
       e.preventDefault();
       if (!mpInstance || isLoading) return;
 
-      if (!cardNumber.trim() || !expMonth.trim() || !expYear.trim() || !cvv.trim() || !cardholderName.trim()) {
-        onError('Completá todos los campos de la tarjeta.');
+      if (!cardNumber.trim() || !expMonth.trim() || !expYear.trim() || !cvv.trim() || !cardholderName.trim() || !docNumber.trim()) {
+        onError('Completá todos los campos de la tarjeta y tu documento.');
         return;
       }
 
@@ -110,17 +117,19 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
           cardExpirationMonth: expMonth,
           cardExpirationYear: expYear,
           securityCode: cvv,
+          identificationType: docType,
+          identificationNumber: docNumber,
         });
 
-        console.log('[SecureCardForm] Token generated:', { token: token.slice(0, 8) + '...', paymentMethodId });
-        onSubmit(token, paymentMethodId);
+        console.log('[SecureCardForm] Token generated:', { token: token.slice(0, 8) + '...', paymentMethodId, docType, docNumber });
+        onSubmit(token, paymentMethodId, docType, docNumber);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[SecureCardForm] Card tokenization failed:', err);
         onError(`Error al tokenizar la tarjeta: ${message}`);
       }
     },
-    [mpInstance, isLoading, cardNumber, expMonth, expYear, cvv, cardholderName, onSubmit, onError],
+    [mpInstance, isLoading, cardNumber, expMonth, expYear, cvv, cardholderName, docType, docNumber, onSubmit, onError],
   );
 
   if (initError) {
@@ -221,6 +230,36 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
                 disabled={isLoading}
                 autoComplete="cc-name"
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
+                Documento
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={docType}
+                  onChange={(e) => setDocType(e.target.value)}
+                  className="w-20 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  disabled={isLoading}
+                >
+                  <option value="DNI">DNI</option>
+                  <option value="LC">LC</option>
+                  <option value="LE">LE</option>
+                  <option value="CUIT">CUIT</option>
+                  <option value="CUIL">CUIL</option>
+                </select>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Número de documento"
+                  value={docNumber}
+                  onChange={(e) => setDocNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                  maxLength={11}
+                  className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  disabled={isLoading}
+                />
+              </div>
             </div>
           </>
         )}
