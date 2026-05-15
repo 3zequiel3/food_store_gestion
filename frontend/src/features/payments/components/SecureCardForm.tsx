@@ -17,7 +17,7 @@ type MercadoPagoInstance = {
     securityCode: string;
     identificationType?: string;
     identificationNumber?: string;
-  }) => Promise<{ id: string; payment_method_id: string }>;
+  }) => Promise<{ id: string }>;
   getPaymentMethods: (params: { bin: string }) => Promise<{ results: Array<{ id: string }> }>;
   getIdentificationTypes: () => Promise<Array<{ id: string; name: string }>>;
 };
@@ -93,16 +93,26 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
       }
 
       try {
-        const { id: token, payment_method_id: paymentMethodId } =
-          await mpInstance.createCardToken({
-            cardNumber: cardNumber.replace(/\s/g, ''),
-            cardholderName: cardholderName,
-            cardExpirationMonth: expMonth,
-            cardExpirationYear: expYear,
-            securityCode: cvv,
-          });
+        const cleanCardNumber = cardNumber.replace(/\s/g, '');
+        const bin = cleanCardNumber.slice(0, 8);
 
-        console.log('[SecureCardForm] Token generated successfully:', { token: token.slice(0, 8) + '...', paymentMethodId });
+        // Get payment method ID from BIN before creating token
+        const pmResponse = await mpInstance.getPaymentMethods({ bin });
+        const paymentMethodId = pmResponse.results[0]?.id;
+        if (!paymentMethodId) {
+          onError('No se pudo identificar la tarjeta. Verificá el número e intentá de nuevo.');
+          return;
+        }
+
+        const { id: token } = await mpInstance.createCardToken({
+          cardNumber: cleanCardNumber,
+          cardholderName: cardholderName,
+          cardExpirationMonth: expMonth,
+          cardExpirationYear: expYear,
+          securityCode: cvv,
+        });
+
+        console.log('[SecureCardForm] Token generated:', { token: token.slice(0, 8) + '...', paymentMethodId });
         onSubmit(token, paymentMethodId);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
