@@ -22,14 +22,15 @@ describe('payments.service', () => {
   });
 
   describe('createInlinePayment', () => {
-    it('POSTs to /pagos with the correct payload', async () => {
+    it('POSTs to /pagos/ with the correct payload', async () => {
       const payload = {
         pedido_id: 1,
-        monto: 1500,
         card_token: 'tok_test',
         payment_method_id: 'visa',
         installments: 1,
         idempotency_key: 'uuid-123',
+        identification_type: 'DNI',
+        identification_number: '12345678',
       };
       mockPost.mockResolvedValueOnce({
         data: { mp_status: 'approved', mp_id: 'mp_1', status_detail: 'accredited', order_id: 1 },
@@ -37,7 +38,7 @@ describe('payments.service', () => {
 
       const result = await paymentsService.createInlinePayment(payload);
 
-      expect(mockPost).toHaveBeenCalledWith('/pagos', payload);
+      expect(mockPost).toHaveBeenCalledWith('/pagos/', payload);
       expect(result.mp_status).toBe('approved');
       expect(result.order_id).toBe(1);
     });
