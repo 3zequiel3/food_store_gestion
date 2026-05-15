@@ -13,13 +13,14 @@ type MercadoPagoConstructor = new (
   options?: { locale?: string },
 ) => {
   cardToken: {
-    createCardToken: (cardData: {
+    create: (cardData: {
       cardNumber: string;
-      expirationMonth: string;
-      expirationYear: string;
-      securityCode: string;
       cardholderName: string;
-      cardholderIdentification?: { type: string; number: string };
+      cardExpirationMonth: string;
+      cardExpirationYear: string;
+      securityCode: string;
+      identificationType?: string;
+      identificationNumber?: string;
     }) => Promise<{ id: string; payment_method_id: string }>;
   };
 };
@@ -87,12 +88,12 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
 
       try {
         const { id: token, payment_method_id: paymentMethodId } =
-          await mpInstance.cardToken.createCardToken({
+          await mpInstance.cardToken.create({
             cardNumber: cardNumber.replace(/\s/g, ''),
-            expirationMonth: expMonth,
-            expirationYear: expYear,
-            securityCode: cvv,
             cardholderName: cardholderName,
+            cardExpirationMonth: expMonth,
+            cardExpirationYear: expYear,
+            securityCode: cvv,
           });
 
         console.log('[SecureCardForm] Token generated successfully:', { token: token.slice(0, 8) + '...', paymentMethodId });
