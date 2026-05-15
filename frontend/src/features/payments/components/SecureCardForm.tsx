@@ -58,12 +58,16 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
     loadMP()
       .then((MercadoPago) => {
         if (cancelled || !MercadoPago) return;
+        console.log('[SecureCardForm] MP SDK loaded, initializing with public key:', publicKey.slice(0, 12) + '...');
         const mp = new MercadoPago(publicKey, { locale: 'es-AR' });
         setMpInstance(mp);
         setSdkReady(true);
       })
-      .catch(() => {
-        if (!cancelled) setInitError('Error al cargar MercadoPago SDK. Recargá la página.');
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('[SecureCardForm] Failed to load MP SDK:', err);
+          setInitError('Error al cargar MercadoPago SDK. Recargá la página.');
+        }
       });
 
     return () => {
@@ -91,9 +95,12 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
             cardholderName: cardholderName,
           });
 
+        console.log('[SecureCardForm] Token generated successfully:', { token: token.slice(0, 8) + '...', paymentMethodId });
         onSubmit(token, paymentMethodId);
-      } catch {
-        onError('Error al tokenizar la tarjeta. Verificá los datos e intentá de nuevo.');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[SecureCardForm] Card tokenization failed:', err);
+        onError(`Error al tokenizar la tarjeta: ${message}`);
       }
     },
     [mpInstance, isLoading, cardNumber, expMonth, expYear, cvv, cardholderName, onSubmit, onError],
