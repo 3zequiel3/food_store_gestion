@@ -5,12 +5,11 @@ import type { PaymentResponse } from '../types/payments.types';
 
 interface PaymentFormProps {
   pedidoId: number;
-  monto: number;
   onSuccess: (response: PaymentResponse) => void;
   onError: (message: string) => void;
 }
 
-export function PaymentForm({ pedidoId, monto, onSuccess, onError }: PaymentFormProps) {
+export function PaymentForm({ pedidoId, onSuccess, onError }: PaymentFormProps) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   async function handlePaymentSubmit(token: string, paymentMethodId: string) {
@@ -18,7 +17,6 @@ export function PaymentForm({ pedidoId, monto, onSuccess, onError }: PaymentForm
     try {
       const response = await createInlinePayment({
         pedido_id: pedidoId,
-        monto,
         card_token: token,
         payment_method_id: paymentMethodId,
         installments: 1,

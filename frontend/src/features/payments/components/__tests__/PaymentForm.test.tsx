@@ -51,7 +51,6 @@ describe('PaymentForm', () => {
     render(
       <PaymentForm
         pedidoId={1}
-        monto={1500}
         onSuccess={onSuccess}
         onError={onError}
       />,
@@ -63,7 +62,6 @@ describe('PaymentForm', () => {
       expect(mockCreateInlinePayment).toHaveBeenCalledWith(
         expect.objectContaining({
           pedido_id: 1,
-          monto: 1500,
           card_token: 'tok_test',
           payment_method_id: 'visa',
           installments: 1,
@@ -90,7 +88,6 @@ describe('PaymentForm', () => {
     render(
       <PaymentForm
         pedidoId={1}
-        monto={1500}
         onSuccess={onSuccess}
         onError={onError}
       />,
@@ -117,7 +114,6 @@ describe('PaymentForm', () => {
     render(
       <PaymentForm
         pedidoId={1}
-        monto={1500}
         onSuccess={onSuccess}
         onError={onError}
       />,
@@ -144,7 +140,6 @@ describe('PaymentForm', () => {
     render(
       <PaymentForm
         pedidoId={1}
-        monto={1500}
         onSuccess={onSuccess}
         onError={onError}
       />,
@@ -170,7 +165,6 @@ describe('PaymentForm', () => {
     render(
       <PaymentForm
         pedidoId={1}
-        monto={1500}
         onSuccess={onSuccess}
         onError={onError}
       />,
@@ -194,7 +188,6 @@ describe('PaymentForm', () => {
     render(
       <PaymentForm
         pedidoId={1}
-        monto={1500}
         onSuccess={onSuccess}
         onError={onError}
       />,

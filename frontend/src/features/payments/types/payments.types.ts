@@ -18,7 +18,6 @@ export interface PagoRead {
 /** Inline payment request for Secure Fields flow. */
 export interface PaymentCreateRequest {
   pedido_id: number;
-  monto: number;
   card_token: string;
   payment_method_id: string;
   installments: number;

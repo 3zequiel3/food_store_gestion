@@ -123,7 +123,6 @@ export function PaymentPage() {
 
         <PaymentForm
           pedidoId={pedidoId}
-          monto={monto}
           onSuccess={handleSuccess}
           onError={handleError}
         />
