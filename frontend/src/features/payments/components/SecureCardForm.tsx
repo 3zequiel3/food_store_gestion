@@ -30,6 +30,7 @@ async function loadMP(publicKey: string): Promise<MercadoPagoInstance> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const MercadoPago = sdk as any;
   const mp = new MercadoPago(publicKey, { locale: 'es-AR' });
+  
   return mp as MercadoPagoInstance;
 }
 
@@ -48,10 +49,7 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
   // Initialize MP SDK via loadMercadoPago loader
   useEffect(() => {
     const publicKey = import.meta.env.VITE_MP_PUBLIC_KEY;
-    if (!publicKey) {
-      setInitError('Falta la clave pública de MercadoPago (VITE_MP_PUBLIC_KEY).');
-      return;
-    }
+    if (!publicKey) return;
 
     let cancelled = false;
 
@@ -73,6 +71,16 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
       cancelled = true;
     };
   }, []);
+
+  // Early return for missing public key — computed during render, not in effect
+  const publicKey = import.meta.env.VITE_MP_PUBLIC_KEY;
+  if (!publicKey) {
+    return (
+      <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        Falta la clave pública de MercadoPago (VITE_MP_PUBLIC_KEY).
+      </div>
+    );
+  }
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
