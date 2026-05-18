@@ -51,12 +51,16 @@ function RootRedirect() {
  * Estructura:
  *   / → LandingPage (pública, sin guard)
  *   PublicRoute → /login, /register (redirige a / si ya auth)
+ *   AppLayout (auth-aware) → /cliente/catalogo, /cliente/catalogo/:id (públicas)
  *   PrivateRoute → AppLayout → {
  *     /dashboard → redirect inteligente según rol
  *     RoleGuard(ADMIN/STOCK/PEDIDOS) → /admin/*
- *     RoleGuard(CLIENTE) → /cliente/*
+ *     RoleGuard(CLIENTE) → /cliente/* (excepto catalogo, que es pública)
  *   }
  *   /401, /403, /* → páginas de error (sin AppLayout)
+ *
+ * D4 — Solo /cliente/catalogo y /cliente/catalogo/:id son públicas.
+ * El resto de /cliente/* sigue privado.
  */
 export default function AppRoute() {
   return (
@@ -70,6 +74,19 @@ export default function AppRoute() {
         <Route path="/register" element={<RegisterPage />} />
       </Route>
 
+      {/* ── Catálogo público (D4): accesible sin autenticación ──────────── */}
+      {/* AppLayout es auth-aware: Sidebar retorna null cuando user === null  */}
+      <Route element={<AppLayout />}>
+        <Route
+          path="/cliente/catalogo"
+          element={<div className="p-4 md:p-6"><CatalogPage /></div>}
+        />
+        <Route
+          path="/cliente/catalogo/:id"
+          element={<div className="p-4 md:p-6"><ProductDetailPage /></div>}
+        />
+      </Route>
+
       {/* ── Rutas privadas (requieren autenticación) ─────────────────────── */}
       <Route element={<PrivateRoute />}>
         {/* AppLayout envuelve TODAS las rutas autenticadas */}
@@ -77,9 +94,7 @@ export default function AppRoute() {
           {/* Dashboard → redirect role-aware (staff → /admin, cliente → /cliente) */}
           <Route path="/dashboard" element={<RootRedirect />} />
 
-          {/* Admin (roles operativos) — rutas hijas declaradas explícitamente.
-              Cada `element` se reemplaza por el componente real cuando llegue
-              el sprint correspondiente; el PlaceholderPage no se modifica. */}
+          {/* Admin (roles operativos) — rutas hijas declaradas explícitamente. */}
           <Route element={<RoleGuard roles={['ADMIN', 'STOCK', 'PEDIDOS']} />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="pedidos" replace />} />
@@ -98,11 +113,10 @@ export default function AppRoute() {
           </Route>
 
           {/* Cliente (código de rol del backend es CLIENT, no CLIENTE) */}
+          {/* /cliente/catalogo y /cliente/catalogo/:id quedan FUERA de este nest (ver arriba) */}
           <Route element={<RoleGuard roles={['CLIENT']} />}>
             <Route path="/cliente" element={<ClienteLayout />}>
               <Route index element={<Navigate to="catalogo" replace />} />
-              <Route path="catalogo" element={<CatalogPage />} />
-              <Route path="catalogo/:id" element={<ProductDetailPage />} />
               <Route
                 path="pedidos"
                 element={<MisPedidosPage />}
