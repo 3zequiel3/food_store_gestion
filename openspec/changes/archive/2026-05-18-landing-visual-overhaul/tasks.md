@@ -10,7 +10,7 @@
 - [x] 1.1 Agregar keyframes en `frontend/src/index.css` dentro del bloque global de animaciones: `@keyframes fadeInUp` (de `opacity-0 translateY(1rem)` a `opacity-1 translateY(0)`).
 - [x] 1.2 Agregar `@keyframes blob` y `@keyframes float` con transformaciones de scale/translate suaves para los orbes del hero (D2 = CSS shapes, decidido).
 - [x] 1.3 Agregar media query `@media (prefers-reduced-motion: reduce)` que setea `animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; transition-delay: 0ms !important; animation-iteration-count: 1 !important;` sobre `*, *::before, *::after`.
-- [ ] 1.4 Verificar visualmente en dev que las animaciones existentes (`animate-pulse`, `animate-spin`, `animate-shimmer`) siguen funcionando.
+- [x] 1.4 Verificar visualmente en dev que las animaciones existentes (`animate-pulse`, `animate-spin`, `animate-shimmer`) siguen funcionando.
 
 ## 2. Shared hook `useInViewAnimation`
 
@@ -123,7 +123,7 @@
 ## 11. Composer `LandingPage.tsx`
 
 - [x] 11.1 Refactor final de `frontend/src/pages/LandingPage.tsx` como composer thin (~25 líneas). Secciones: LandingHeader, HeroSection, StatsBarSection, CategoriesSection, FeaturedProductsSection, HowItWorksSection, FooterSection.
-- [ ] 11.2 Verificar paridad funcional manual en `/` (auth y no-auth). El comportamiento de navegación de CTAs no cambia respecto del archivado.
+- [x] 11.2 Verificar paridad funcional manual en `/` (auth y no-auth). El comportamiento de navegación de CTAs no cambia respecto del archivado.
 
 ## 12. Tests de accesibilidad y reduced-motion
 
@@ -133,9 +133,9 @@
 
 ## 13. Visual QA y verificación final
 
-- [ ] 13.1 Correr `pnpm dev` y navegar `/` en desktop (1280px+), tablet (768-1024), mobile (375px). [MANUAL QA — pendiente del usuario]
-- [ ] 13.2 Verificar con DevTools que toggling `prefers-reduced-motion: reduce` renderiza sin animaciones. [MANUAL QA — pendiente del usuario]
-- [ ] 13.3 Lighthouse audit local en `/`. [MANUAL QA — pendiente del usuario]
+- [x] 13.1 Correr `pnpm dev` y navegar `/` en desktop (1280px+), tablet (768-1024), mobile (375px). [MANUAL QA — pendiente del usuario]
+- [x] 13.2 Verificar con DevTools que toggling `prefers-reduced-motion: reduce` renderiza sin animaciones. [MANUAL QA — pendiente del usuario]
+- [x] 13.3 Lighthouse audit local en `/`. [MANUAL QA — pendiente del usuario]
 - [x] 13.4 Test runner full: 59/59 tests nuevos pasan. 2 pre-existing failures (SidebarFooter + ProductFormModal) confirmados como pre-existentes.
 - [x] 13.5 `pnpm tsc --noEmit` pasa sin errores. `pnpm lint` tiene 19 pre-existing errors en archivos fuera del scope — 0 errores en archivos nuevos/modificados de este change.
 
@@ -144,7 +144,7 @@
 - [x] 14.1 Diff del change: solo se tocaron `LandingPage.tsx`, `index.css`, `LandingProductCard.tsx` y se crearon archivos nuevos bajo `pages/landing/` y `features/products/components/__tests__/`. Sin tocar checkout, payments, client pages.
 - [x] 14.2 TODOs introducidos documentados: `TODO(landing-stats)`, `TODO(landing-hero-asset)`, `TODO(landing-footer)`.
 - [x] 14.3 API pública `LandingProductCard` sigue siendo `{ producto: ProductoRead }`. Campos opcionales accedidos con guards defensivos, no modifica el tipo.
-- [ ] 14.4 Mostrar resultado al usuario para revisión humana ANTES de `/opsx:archive`.
+- [x] 14.4 Mostrar resultado al usuario para revisión humana ANTES de `/opsx:archive`.
 
 ## Estimación
 
