@@ -10,6 +10,8 @@ const ESTADOS: { value: EstadoCodigo | ''; label: string }[] = [
   { value: 'TERMINADO', label: 'Listo para retirar/entregar' },
   { value: 'ENTREGADO', label: 'Entregado' },
   { value: 'CANCELADO', label: 'Cancelado' },
+  { value: 'CANCELADO_ADMIN', label: 'Cancelado (Admin)' },
+  { value: 'CANCELADO_CLIENTE', label: 'Cancelado (Cliente)' },
 ];
 
 export function OrderFilters() {

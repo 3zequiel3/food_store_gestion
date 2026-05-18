@@ -7,7 +7,9 @@ const ESTADO_CONFIG: Record<EstadoCodigo, { label: string; variant: 'success' | 
   EN_PREPARACION: { label: 'En preparación', variant: 'primary' },
   TERMINADO: { label: 'Listo para retirar/entregar', variant: 'info' },
   ENTREGADO: { label: 'Entregado', variant: 'success' },
-  CANCELADO: { label: 'Cancelado', variant: 'neutral' },
+  CANCELADO: { label: 'Cancelado', variant: 'destructive' },
+  CANCELADO_ADMIN: { label: 'Cancelado (Admin)', variant: 'destructive' },
+  CANCELADO_CLIENTE: { label: 'Cancelado (Cliente)', variant: 'destructive' },
 };
 
 interface OrderStatusBadgeProps {

@@ -29,7 +29,7 @@ function formatDate(iso: string): string {
 
 const FORMA_PAGO_LABELS: Record<string, string> = {
   EFECTIVO: 'Efectivo',
-  MERCADOPAGO: 'MercadoPago',
+  TARJETA: 'Tarjeta',
 };
 
 const CANCELLED_STATES = ['CANCELADO_ADMIN', 'CANCELADO_CLIENTE', 'CANCELADO'];
