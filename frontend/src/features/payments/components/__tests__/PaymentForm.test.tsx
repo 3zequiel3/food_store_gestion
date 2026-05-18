@@ -2,6 +2,11 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PaymentForm } from '../PaymentForm';
 import * as paymentsService from '../../services/payments.service';
+import type { PaymentResponse } from '../../types/payments.types';
+
+type OnSuccessHandler = (response: PaymentResponse) => void;
+type OnPendingHandler = (response: PaymentResponse, message: string) => void;
+type OnErrorHandler = (message: string) => void;
 
 vi.mock('../../services/payments.service', () => ({
   createInlinePayment: vi.fn(),
@@ -35,14 +40,14 @@ vi.mock('../SecureCardForm', () => ({
 const mockCreateInlinePayment = vi.mocked(paymentsService.createInlinePayment);
 
 // Helper: renderiza PaymentForm con todos los callbacks
-function renderPaymentForm(overrides?: Partial<{
-  onSuccess: ReturnType<typeof vi.fn>;
-  onPending: ReturnType<typeof vi.fn>;
-  onError: ReturnType<typeof vi.fn>;
-}>) {
-  const onSuccess = overrides?.onSuccess ?? vi.fn();
-  const onPending = overrides?.onPending ?? vi.fn();
-  const onError = overrides?.onError ?? vi.fn();
+function renderPaymentForm(overrides?: {
+  onSuccess?: ReturnType<typeof vi.fn<OnSuccessHandler>>;
+  onPending?: ReturnType<typeof vi.fn<OnPendingHandler>>;
+  onError?: ReturnType<typeof vi.fn<OnErrorHandler>>;
+}) {
+  const onSuccess = overrides?.onSuccess ?? vi.fn<OnSuccessHandler>();
+  const onPending = overrides?.onPending ?? vi.fn<OnPendingHandler>();
+  const onError = overrides?.onError ?? vi.fn<OnErrorHandler>();
   render(
     <PaymentForm
       pedidoId={1}
