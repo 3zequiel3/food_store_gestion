@@ -21,6 +21,7 @@ import { LandingProductCard } from '../features/products/components/LandingProdu
 import { ProductCardSkeleton } from '../features/products/components/ProductCardSkeleton';
 import type { CategoriaRead } from '../features/categorias/types/categorias.types';
 
+/** Map category names to lucide icons */
 const categoryIconMap: Record<string, React.ElementType> = {
   pizza: Pizza,
   hamburguesa: Beef,
