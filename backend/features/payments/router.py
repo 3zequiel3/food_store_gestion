@@ -20,7 +20,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, Request
 
 from features.auth.dependencies import require_role
-from features.payments.schemas import PagoCreate, PagoRead
+from features.payments.schemas import PagoCreate, PagoCreateResponse, PagoRead
 from features.payments.service import PaymentService
 from features.users.models import Usuario
 
@@ -48,17 +48,19 @@ def _extract_mp_payment_id(
     return None
 
 
-@router.post("/", status_code=201)
+@router.post("/", status_code=200, response_model=PagoCreateResponse)
 def crear_pago(
     body: PagoCreate,
     current_user: Usuario = Depends(require_role("CLIENT")),
-) -> dict:
+) -> PagoCreateResponse:
     """
     Process a direct card charge via MercadoPago Checkout API.
 
-    Returns dict with mp_status, mp_id, status_detail.
+    Returns PagoCreateResponse with mp_status, mp_id, status_detail, pago_id.
+    Any MP status (approved, pending, in_process, rejected, cancelled) returns 200.
+    Only 502 when MP did not respond (mp_unreachable).
     """
-    result = PaymentService().crear_pago_api(
+    return PaymentService().crear_pago_api(
         user_id=current_user.id,
         pedido_id=body.pedido_id,
         card_token=body.card_token,
@@ -68,7 +70,6 @@ def crear_pago(
         identification_type=body.identification_type,
         identification_number=body.identification_number,
     )
-    return result
 
 
 @router.post("/webhook/mercadopago", status_code=200)

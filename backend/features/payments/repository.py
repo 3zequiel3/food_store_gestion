@@ -32,18 +32,21 @@ class PaymentRepository(BaseRepository[Pago]):
         monto: Decimal,
         forma_pago_codigo: str,
         idempotency_key: str,
+        mp_status: str = "pending",
     ) -> Pago:
         """
         Insert a new Pago row and flush (NO commit — caller's UoW commits).
 
-        mp_status starts as "pending" — updated by webhook once MP processes payment.
+        mp_status: the real status returned by MercadoPago. Pass it explicitly
+        so the first INSERT reflects the actual result, not a temporary "pending".
+        Default "pending" kept for backward-compat with tests that don't pass it.
         """
         pago = Pago(
             pedido_id=pedido_id,
             monto=monto,
             forma_pago_codigo=forma_pago_codigo,
             idempotency_key=idempotency_key,
-            mp_status="pending",
+            mp_status=mp_status,
         )
         self.session.add(pago)
         self.session.flush()

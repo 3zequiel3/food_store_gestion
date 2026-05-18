@@ -24,7 +24,7 @@ from features.orders.repository import OrderRepository
 from features.orders.service import OrderService
 from features.payments.models import Pago
 from features.payments.repository import PaymentRepository
-from shared.exceptions import BusinessRuleError, ForbiddenError, NotFoundError
+from shared.exceptions import BusinessRuleError, ForbiddenError, NotFoundError, UpstreamError
 from shared.unit_of_work import UnitOfWork
 
 
@@ -47,26 +47,29 @@ class PaymentService:
         idempotency_key: str,
         identification_type: str = "DNI",
         identification_number: str = "",
-    ) -> dict:
+    ) -> "PagoCreateResponse":
         """
         Create a direct card charge via MercadoPago Checkout API.
 
         Validates order ownership, state, and no active payment.
         Calls MP API BEFORE creating the Pago record to avoid
-        leaving orphan pending payments on MP errors.
-        On approval, transitions order PENDIENTE → CONFIRMADO.
+        leaving orphan pending payments on MP errors (D2).
 
         Returns:
-            {"mp_status": status, "mp_id": mp_payment_id, "status_detail": status_detail}
+            PagoCreateResponse with mp_status, mp_id, status_detail, pago_id.
+            Status can be any MP status (approved, pending, in_process, rejected, cancelled, etc.).
 
         Raises:
             NotFoundError: pedido_id not found.
             ForbiddenError: pedido belongs to another user (D8).
-            BusinessRuleError: pedido is not PENDIENTE, or an active payment exists,
-                or MP payment was rejected/peneded/cancelled.
+            BusinessRuleError (409): pedido is not PENDIENTE, or an active payment exists.
+            UpstreamError (502): MP did not return a status (mp_unreachable).
         """
         import logging
         logger = logging.getLogger(__name__)
+
+        # Lazy import to avoid circular — schema lives in features.payments.schemas
+        from features.payments.schemas import PagoCreateResponse
 
         # Phase 1: Validate order and check no active payment (read-only UoW)
         with UnitOfWork() as uow:
@@ -119,19 +122,34 @@ class PaymentService:
 
         response = result.get("response", {})
         error = result.get("error", {})
-        mp_status = response.get("status", "")
+        mp_status: str = response.get("status", "") or ""
         mp_payment_id = response.get("id")
-        status_detail = response.get("status_detail", "")
+        status_detail: str = response.get("status_detail", "") or ""
 
-        # Log full MP response for debugging
+        # Phase 3a: MP did not return a status → 502 UpstreamError, DO NOT touch DB (D2)
         if not mp_status:
+            error_msg = ""
+            if isinstance(error, dict):
+                error_msg = error.get("message", "Error desconocido de MercadoPago")
+                error_cause = error.get("cause", [])
+                if error_cause:
+                    causes = ", ".join(
+                        c.get("description", str(c)) for c in error_cause if isinstance(c, dict)
+                    )
+                    error_msg = f"{error_msg}: {causes}"
+            else:
+                error_msg = "MercadoPago no respondió con un estado de pago"
             logger.error(
-                "MP payment.create failed — response: %s, error: %s",
+                "MP payment.create did not return status — response: %s, error: %s",
                 response,
                 error,
             )
+            raise UpstreamError(
+                f"MercadoPago no respondió correctamente: {error_msg}",
+                code="mp_unreachable",
+            )
 
-        # Phase 3: Create Pago record and transition state
+        # Phase 3b: MP returned a status — persist Pago with the real status (D3)
         with UnitOfWork() as uow:
             uow.register_repository("orders", OrderRepository(uow.session))
             uow.register_repository("payments", PaymentRepository(uow.session))
@@ -145,11 +163,13 @@ class PaymentService:
                     code="conflict",
                 )
 
+            # Insert Pago with the REAL mp_status from MP (not the default "pending")
             pago = uow.payments.create_pago(
                 pedido_id=pedido_id,
                 monto=order_total,
                 forma_pago_codigo="TARJETA",
                 idempotency_key=idempotency_key,
+                mp_status=mp_status,
             )
 
             if mp_payment_id is not None:
@@ -159,23 +179,10 @@ class PaymentService:
                     mp_status=mp_status,
                 )
 
+            pago_id = pago.id
             # UoW __exit__ commits the Pago record.
 
-        # Phase 4: Handle MP result
-        if not mp_status or error:
-            # MP returned an error (e.g. 400 bad request)
-            error_msg = error.get("message", "Error desconocido de MercadoPago")
-            error_cause = error.get("cause", [])
-            if error_cause:
-                causes = ", ".join(
-                    c.get("description", str(c)) for c in error_cause if isinstance(c, dict)
-                )
-                error_msg = f"{error_msg}: {causes}"
-            raise BusinessRuleError(
-                f"Pago rechazado por MercadoPago: {error_msg}",
-                code="payment_error",
-            )
-
+        # Phase 4: If approved, try to transition order PENDIENTE → CONFIRMADO (D8)
         if mp_status == "approved" and mp_payment_id is not None:
             try:
                 OrderService().transicionar_estado(
@@ -185,17 +192,21 @@ class PaymentService:
                     actor_id=None,
                 )
             except Exception:
-                pass
-            return {
-                "mp_status": mp_status,
-                "mp_id": str(mp_payment_id),
-                "status_detail": status_detail,
-            }
+                # D8: log but do NOT re-raise — payment is already charged.
+                # Webhook will reconcile the order transition.
+                logger.exception(
+                    "Fallo al transicionar pedido %s a CONFIRMADO tras pago aprobado %s. "
+                    "El webhook intentará reconciliarlo.",
+                    pedido_id,
+                    mp_payment_id,
+                )
 
-        # Non-approved statuses: return error without state change
-        raise BusinessRuleError(
-            f"Pago rechazado por MercadoPago: status={mp_status}, detail={status_detail}",
-            code=f"payment_{mp_status}",
+        # Phase 5: Return PagoCreateResponse with the real MP status (D1, D4)
+        return PagoCreateResponse(
+            mp_status=mp_status,
+            mp_id=str(mp_payment_id) if mp_payment_id is not None else None,
+            status_detail=status_detail,
+            pago_id=pago_id,
         )
 
     def procesar_webhook(self, mp_payment_id: str) -> None:
