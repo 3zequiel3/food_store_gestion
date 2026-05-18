@@ -52,8 +52,8 @@ class PaymentUnexpectedStatusError(BusinessRuleError):
         self.status_detail = status_detail
 
 
-class UpstreamError(BusinessRuleError):
-    """Raised when upstream service (MP) is unreachable."""
-    
-    def __init__(self, code: str, detail: str):
-        super().__init__(detail, code=code)
+# NOTE: UpstreamError is intentionally NOT defined here. Use the canonical
+# `shared.exceptions.UpstreamError` whose 502 handler is registered in
+# `main.py`. Defining a parallel UpstreamError under features/checkout breaks
+# the handler lookup (`isinstance(exc, UpstreamError)` resolves the wrong
+# class) and surfaces as 500 instead of 502.
