@@ -102,4 +102,60 @@ describe('OrderTimeline', () => {
     expect(screen.getByText('Listo')).toBeInTheDocument();
     expect(screen.getByText('Entregado')).toBeInTheDocument();
   });
+
+  it('shows CANCELADO_ADMIN in red with explicit label', () => {
+    const adminCancelHistorial: HistorialEstado[] = [
+      ...baseHistorial,
+      {
+        id: 3,
+        estado_anterior_codigo: 'CONFIRMADO',
+        estado_nuevo_codigo: 'CANCELADO_ADMIN',
+        cambiado_por_id: 1,
+        motivo: 'Sin stock',
+        creado_en: '2025-01-01T00:02:00Z',
+      },
+    ];
+
+    render(
+      <OrderTimeline
+        historial={adminCancelHistorial}
+        currentEstado="CANCELADO_ADMIN"
+      />,
+    );
+
+    const cancelElements = screen.getAllByText('Cancelado (Admin)');
+    expect(cancelElements.length).toBeGreaterThan(0);
+    const hasDestructive = cancelElements.some(
+      (el) => el.className.includes('text-destructive'),
+    );
+    expect(hasDestructive).toBe(true);
+  });
+
+  it('shows CANCELADO_CLIENTE in red with explicit label', () => {
+    const clientCancelHistorial: HistorialEstado[] = [
+      ...baseHistorial,
+      {
+        id: 3,
+        estado_anterior_codigo: 'CONFIRMADO',
+        estado_nuevo_codigo: 'CANCELADO_CLIENTE',
+        cambiado_por_id: null,
+        motivo: 'Cliente cambió de opinión',
+        creado_en: '2025-01-01T00:02:00Z',
+      },
+    ];
+
+    render(
+      <OrderTimeline
+        historial={clientCancelHistorial}
+        currentEstado="CANCELADO_CLIENTE"
+      />,
+    );
+
+    const cancelElements = screen.getAllByText('Cancelado (Cliente)');
+    expect(cancelElements.length).toBeGreaterThan(0);
+    const hasDestructive = cancelElements.some(
+      (el) => el.className.includes('text-destructive'),
+    );
+    expect(hasDestructive).toBe(true);
+  });
 });

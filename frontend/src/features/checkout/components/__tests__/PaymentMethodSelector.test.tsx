@@ -11,7 +11,7 @@ const mockUsePaymentMethods = vi.mocked(usePaymentMethodsHook.usePaymentMethods)
 
 const paymentMethods = [
   { codigo: 'EFECTIVO', descripcion: 'Efectivo', habilitada: true },
-  { codigo: 'MERCADOPAGO', descripcion: 'MercadoPago', habilitada: true },
+  { codigo: 'TARJETA', descripcion: 'Tarjeta', habilitada: true },
 ];
 
 describe('PaymentMethodSelector', () => {
@@ -30,7 +30,7 @@ describe('PaymentMethodSelector', () => {
     );
 
     expect(screen.getByText('Efectivo')).toBeInTheDocument();
-    expect(screen.getByText('MercadoPago')).toBeInTheDocument();
+    expect(screen.getByText('Tarjeta')).toBeInTheDocument();
   });
 
   it('filters out EFECTIVO when isDelivery is true', () => {
@@ -48,7 +48,7 @@ describe('PaymentMethodSelector', () => {
     );
 
     expect(screen.queryByText('Efectivo')).not.toBeInTheDocument();
-    expect(screen.getByText('MercadoPago')).toBeInTheDocument();
+    expect(screen.getByText('Tarjeta')).toBeInTheDocument();
   });
 
   it('shows delivery info message when isDelivery is true', () => {
