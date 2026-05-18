@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { CartDrawer } from './CartDrawer';
 import { MobileMoreDrawer } from './MobileMoreDrawer';
+import { useAuthStore } from '../../features/auth/stores/authStore';
 
 /**
  * D3 — AppLayout: orquestador del layout dual.
@@ -29,6 +30,9 @@ export function AppLayout() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [sidebarLockedOpen, setSidebarLockedOpen] = useState(false);
   const location = useLocation();
+  // D1 — Sidebar only renders for authenticated users; skip left offset when anonymous
+  const user = useAuthStore((s) => s.user);
+  const hasSidebar = user !== null;
 
   // 7.C.3 — Cerrar drawers al navegar.
   // Pattern: sincronizar UI (drawers) con el sistema externo (router).
@@ -55,7 +59,7 @@ export function AppLayout() {
           transition-all duration-150 ease-out
           pt-14
           pb-16 md:pb-0
-          ${sidebarLockedOpen ? 'md:pl-60' : 'md:pl-16'}
+          ${hasSidebar ? (sidebarLockedOpen ? 'md:pl-60' : 'md:pl-16') : ''}
         `}
       >
         <Outlet />

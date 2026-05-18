@@ -189,9 +189,14 @@ export function Sidebar({ onLockChange }: SidebarProps) {
   const isExpanded =
     mode === 'locked-open' || (mode === 'hover' && mouseInside);
 
+  // D1 — Guard temprano: Sidebar no se renderiza para visitantes anónimos.
+  const user = useAuthStore((s) => s.user);
   const hasAdmin = useAuthStore((s) => s.hasRole('ADMIN'));
   const hasPedidos = useAuthStore((s) => s.hasRole('PEDIDOS'));
   const hasStock = useAuthStore((s) => s.hasRole('STOCK'));
+
+  // If no authenticated user, render nothing (avoid user.roles access crash)
+  if (!user) return null;
 
   const navItems =
     hasAdmin || hasPedidos || hasStock ? ADMIN_NAV : CLIENT_NAV;
