@@ -3,6 +3,7 @@ import { PublicRoute } from './guards/PublicRoute';
 import { PrivateRoute } from './guards/PrivateRoute';
 import { RoleGuard } from './guards/RoleGuard';
 import { AppLayout } from '../components/layout/AppLayout';
+import { LandingPage } from '../pages/LandingPage';
 import { LoginPage } from '../pages/LoginPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { NotFound } from '../pages/errors/NotFound';
@@ -27,7 +28,7 @@ import { AdminProfilePage } from '../pages/admin/AdminProfilePage';
 import { MisPedidosPage } from '../pages/client/MisPedidosPage';
 
 /**
- * Redirige la raíz `/` según el rol del usuario:
+ * Redirige `/dashboard` según el rol del usuario:
  *  - Si tiene rol staff (ADMIN/STOCK/PEDIDOS) → `/admin`
  *  - Si tiene rol CLIENT → `/cliente`
  *  - Si no tiene rol (caso raro) → `/403`
@@ -48,9 +49,10 @@ function RootRedirect() {
  * Árbol de rutas nested con guards (D9).
  *
  * Estructura:
+ *   / → LandingPage (pública, sin guard)
  *   PublicRoute → /login, /register (redirige a / si ya auth)
  *   PrivateRoute → AppLayout → {
- *     / → redirect inteligente según rol
+ *     /dashboard → redirect inteligente según rol
  *     RoleGuard(ADMIN/STOCK/PEDIDOS) → /admin/*
  *     RoleGuard(CLIENTE) → /cliente/*
  *   }
@@ -59,6 +61,9 @@ function RootRedirect() {
 export default function AppRoute() {
   return (
     <Routes>
+      {/* ── Ruta pública — landing page (accesible para todos) ──────────── */}
+      <Route path="/" element={<LandingPage />} />
+
       {/* ── Rutas públicas (solo para no-autenticados) ──────────────────── */}
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<LoginPage />} />
@@ -69,8 +74,8 @@ export default function AppRoute() {
       <Route element={<PrivateRoute />}>
         {/* AppLayout envuelve TODAS las rutas autenticadas */}
         <Route element={<AppLayout />}>
-          {/* Raíz → redirect role-aware (staff → /admin, cliente → /cliente) */}
-          <Route path="/" element={<RootRedirect />} />
+          {/* Dashboard → redirect role-aware (staff → /admin, cliente → /cliente) */}
+          <Route path="/dashboard" element={<RootRedirect />} />
 
           {/* Admin (roles operativos) — rutas hijas declaradas explícitamente.
               Cada `element` se reemplaza por el componente real cuando llegue
