@@ -99,8 +99,13 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
         return;
       }
 
+      const cleanCardNumber = cardNumber.replace(/\s/g, '');
+      if (cleanCardNumber.length < 13 || cleanCardNumber.length > 19) {
+        onError(`Número de tarjeta inválido (${cleanCardNumber.length} dígitos). Debe tener entre 13 y 19 dígitos.`);
+        return;
+      }
+
       try {
-        const cleanCardNumber = cardNumber.replace(/\s/g, '');
         const bin = cleanCardNumber.slice(0, 8);
 
         // Get payment method ID from BIN before creating token
