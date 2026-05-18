@@ -21,6 +21,16 @@ function mockMatchMedia(matches: boolean) {
   });
 }
 
+const mockNavigate = vi.fn();
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
 vi.mock('../../../../features/auth/stores/authStore', () => ({
   useAuthStore: vi.fn((selector: (s: { isAuthenticated: () => boolean }) => unknown) =>
     selector({ isAuthenticated: () => false }),
@@ -57,6 +67,7 @@ function renderCard(producto: ProductoRead) {
 describe('LandingProductCard', () => {
   beforeEach(() => {
     mockMatchMedia(false);
+    mockNavigate.mockReset();
   });
 
   afterEach(() => {
@@ -128,5 +139,30 @@ describe('LandingProductCard', () => {
   it('does NOT render "Nuevo" badge when created_at is absent', () => {
     renderCard(makeProduct());
     expect(screen.queryByLabelText('Producto nuevo')).not.toBeInTheDocument();
+  });
+
+  // ---- Group 3 — Navigation (RED/GREEN) ------------------------------------
+
+  // 3.1 — RED: anonymous user clicking "Ver más" should navigate to /cliente/catalogo/:id
+  // Currently LandingProductCard navigates to /login when user is not authenticated.
+  it('3.1 anonymous user clicking "Ver más" navigates to /cliente/catalogo/:id', () => {
+    renderCard(makeProduct({ id: 42 }));
+    const button = screen.getByRole('button', { name: /ver más/i });
+    button.click();
+    expect(mockNavigate).toHaveBeenCalledWith('/cliente/catalogo/42');
+  });
+
+  // 3.2 — authenticated user clicking "Ver más" also navigates to /cliente/catalogo/:id
+  it('3.2 authenticated user clicking "Ver más" navigates to /cliente/catalogo/:id', async () => {
+    // Re-mock to return authenticated
+    const authModule = await import('../../../../features/auth/stores/authStore');
+    vi.mocked(authModule.useAuthStore).mockImplementation(
+      (selector: (s: { isAuthenticated: () => boolean }) => unknown) =>
+        selector({ isAuthenticated: () => true }),
+    );
+    renderCard(makeProduct({ id: 99 }));
+    const button = screen.getByRole('button', { name: /ver más/i });
+    button.click();
+    expect(mockNavigate).toHaveBeenCalledWith('/cliente/catalogo/99');
   });
 });

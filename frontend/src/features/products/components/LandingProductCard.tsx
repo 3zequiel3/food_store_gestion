@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { ProductImage } from './ProductImage';
-import { useAuthStore } from '../../../features/auth/stores/authStore';
 import type { ProductoRead } from '../types/products.types';
 
 interface LandingProductCardProps {
@@ -46,7 +45,6 @@ function ProductBadge({
 
 export function LandingProductCard({ producto }: LandingProductCardProps) {
   const navigate = useNavigate();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
 
   const precio = new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -60,12 +58,9 @@ export function LandingProductCard({ producto }: LandingProductCardProps) {
       : producto.descripcion
     : '';
 
+  // D4 — Navigate always to product detail; catalog is public (no auth check needed).
   function handleVerMas() {
-    if (isAuthenticated) {
-      navigate(`/cliente/catalogo/${producto.id}`);
-    } else {
-      navigate('/login');
-    }
+    navigate(`/cliente/catalogo/${producto.id}`);
   }
 
   const showNuevo = isNuevo(producto);
