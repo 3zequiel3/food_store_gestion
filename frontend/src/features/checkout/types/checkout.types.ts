@@ -6,6 +6,16 @@
  */
 
 /**
+ * Payment method available at checkout.
+ * Mirrors backend's FormaPago serialized via GET /api/v1/formas-pago.
+ */
+export interface PaymentMethodRead {
+  codigo: string;
+  descripcion: string;
+  habilitada: boolean;
+}
+
+/**
  * Single line item for checkout request.
  * Mirrors backend's CheckoutItem schema.
  */

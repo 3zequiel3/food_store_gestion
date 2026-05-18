@@ -6,7 +6,6 @@ import { useCartStore } from '../../cart/stores/cartStore';
 import type {
   CheckoutOnlineRequest,
   CheckoutOnlineResponse,
-  CheckoutErrorResponse,
 } from '../types/checkout.types';
 import { ApiError } from '../../../api/interceptors/error';
 
@@ -33,7 +32,7 @@ export function useCheckoutOnline(options?: UseCheckoutOnlineOptions) {
   const cartItems = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
 
-  return useMutation<CheckoutOnlineResponse, ApiError<CheckoutErrorResponse>, CheckoutOnlineRequest>({
+  return useMutation<CheckoutOnlineResponse, ApiError, CheckoutOnlineRequest>({
     mutationFn: (payload) => createCheckoutOnline(payload),
     onSuccess(data) {
       // Capture items BEFORE clearing cart
@@ -45,21 +44,25 @@ export function useCheckoutOnline(options?: UseCheckoutOnlineOptions) {
       options?.onSuccess?.(data);
     },
     onError(error) {
-      // RFC 7807 error handling (D7)
+      // RFC 7807 error handling (D7).
+      // ApiError exposes the parsed Problem Details body in `detail`. The
+      // backend's CheckoutErrorResponse uses `detail` as the user-facing
+      // message; specific MP statuses are reflected in the wording, not in
+      // a separate machine-readable field reachable from this hook.
       if (error instanceof ApiError) {
         const status = error.status;
         const detail = error.detail;
-        const mpStatus = (error.data as CheckoutErrorResponse | undefined)?.mp_status;
+        const lowerDetail = detail?.toLowerCase() ?? '';
 
         // 402 Payment Required — MP rejected/pending/cancelled
         if (status === 402) {
-          if (mpStatus === 'rejected') {
+          if (lowerDetail.includes('rechaz')) {
             toast.error('Pago rechazado', {
               description: detail || 'Tu tarjeta fue rechazada. Probá con otra.',
             });
             return;
           }
-          if (mpStatus === 'pending' || mpStatus === 'in_process') {
+          if (lowerDetail.includes('revisi') || lowerDetail.includes('pending') || lowerDetail.includes('in_process')) {
             toast.error('Pago en revisión', {
               description:
                 'Tu pago quedó en revisión y no podemos confirmar el pedido. ' +
@@ -67,7 +70,7 @@ export function useCheckoutOnline(options?: UseCheckoutOnlineOptions) {
             });
             return;
           }
-          if (mpStatus === 'cancelled') {
+          if (lowerDetail.includes('cancel')) {
             toast.error('Pago cancelado', {
               description: 'El pago fue cancelado. Probá con otro método.',
             });
