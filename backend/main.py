@@ -88,11 +88,18 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Log level: {settings.LOG_LEVEL}")
 
-    from shared.database import get_engine
+    from shared.database import Base, get_engine
     from scripts.seed import run_seed
 
     engine = get_engine()
-    # Schema managed by Alembic — create_all removed to avoid conflicts
+
+    # En development local, crear el schema directo desde los models para
+    # iterar rápido sin migraciones. En testing/production Alembic se encarga
+    # del schema (ver Procfile: bootstrap → upgrade head → uvicorn).
+    if settings.ENVIRONMENT == "development":
+        Base.metadata.create_all(bind=engine)
+        logger.info("Schema sincronizado con Base.metadata.create_all (development)")
+
     run_seed()
 
     yield
