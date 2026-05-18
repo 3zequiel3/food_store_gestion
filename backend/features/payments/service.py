@@ -218,9 +218,13 @@ class PaymentService:
         Reconciliation strategy:
         - D6: On duplicate webhooks, find by mp_payment_id — if already approved, return.
         - D5: Always verify status via MP API (never trust the IPN payload alone).
-        - Reconcile order via external_reference (pedido_id) returned by the MP API.
+        - D6-D12: Reconcile order via external_reference (now = idempotency_key, not pedido_id).
         - D7: Trigger PENDIENTE→CONFIRMADO in a separate UoW after payments UoW commits.
+        - 5.7: Handle case where payment doesn't exist in DB (orphan/incident).
         """
+        import logging
+        logger = logging.getLogger(__name__)
+
         if not mp_payment_id:
             return
 
@@ -245,15 +249,20 @@ class PaymentService:
             if not external_reference:
                 return
 
-            try:
-                pedido_id = int(external_reference)
-            except (ValueError, TypeError):
+            # D6-D12: external_reference is now idempotency_key (UUID4), not pedido_id
+            # Look up the payment by external_reference to find the associated order
+            pago = existing or uow.payments.find_by_external_reference(external_reference)
+            if pago is None:
+                # 5.7: Webhook arrived but no payment in DB — log warning, respond 200
+                logger.warning(
+                    "Webhook received for mp_payment_id=%s with external_reference=%s "
+                    "but no Pago found in DB. Possible orphan payment or timing issue.",
+                    mp_payment_id,
+                    external_reference
+                )
                 return
 
-            # Use the already-found pago (second+ call) or look up by pedido_id (first call).
-            pago = existing or uow.payments.find_latest_by_pedido_id(pedido_id)
-            if pago is None:
-                return
+            pedido_id = pago.pedido_id
 
             uow.payments.update_mp_fields(
                 pago=pago,

@@ -1,25 +1,93 @@
 /**
- * Checkout types — domain types for the checkout flow.
+ * Checkout types — domain types for the new checkout API (checkout-pay-first-flow).
  *
- * Mirrors the backend's CrearPedidoRequest and related types.
- * All monetary values are numbers (backend uses Decimal, but JSON converts to string;
- * the API client handles the conversion).
+ * These types mirror the backend's CheckoutOnlineRequest, CheckoutPickupEfectivoRequest,
+ * and response schemas. Created as part of the checkout-pay-first-flow change.
  */
 
 /**
- * Single line item for the order payload.
- * Mirrors backend's ItemPedidoRequest.
+ * Single line item for checkout request.
+ * Mirrors backend's CheckoutItem schema.
  */
-export interface ItemPedidoPayload {
+export interface CheckoutItem {
   producto_id: number;
   cantidad: number;
   personalizacion: number[] | null;
 }
 
 /**
- * Request payload for creating a new order.
- * Mirrors backend's CrearPedidoRequest.
+ * Request payload for online checkout (with MercadoPago payment).
+ * Mirrors backend's CheckoutOnlineRequest.
  */
+export interface CheckoutOnlineRequest {
+  items: CheckoutItem[];
+  tipo_entrega: 'DELIVERY' | 'PICKUP';
+  direccion_id: number | null;
+  notas: string | null;
+  
+  // Payment fields (MercadoPago)
+  card_token: string;
+  payment_method_id: string;
+  installments: number;
+  idempotency_key: string; // UUID4
+  identification_type: string;
+  identification_number: string;
+}
+
+/**
+ * Request payload for pickup+efectivo checkout (no online payment).
+ * Mirrors backend's CheckoutPickupEfectivoRequest.
+ */
+export interface CheckoutPickupEfectivoRequest {
+  items: CheckoutItem[];
+  notas: string | null;
+  // Note: no direccion_id, no payment fields
+}
+
+/**
+ * Response for successful online checkout.
+ * Mirrors backend's CheckoutOnlineResponse.
+ */
+export interface CheckoutOnlineResponse {
+  pedido_id: number;
+  pago_id: number;
+  mp_status: string;
+  mp_id: string;
+  status_detail: string;
+}
+
+/**
+ * Response for successful pickup+efectivo checkout.
+ * Mirrors backend's CheckoutPickupEfectivoResponse.
+ */
+export interface CheckoutPickupEfectivoResponse {
+  pedido_id: number;
+}
+
+/**
+ * Error response for checkout failures.
+ * Mirrors backend's CheckoutErrorResponse.
+ */
+export interface CheckoutErrorResponse {
+  code: string;
+  detail: string;
+  mp_status?: string;
+  status_detail?: string;
+}
+
+/**
+ * Legacy types — DEPRECATED.
+ * These are kept for backward compatibility during migration.
+ * Remove after checkout-pay-first-flow is fully merged.
+ */
+/** @deprecated Use CheckoutItem instead */
+export interface ItemPedidoPayload {
+  producto_id: number;
+  cantidad: number;
+  personalizacion: number[] | null;
+}
+
+/** @deprecated Use CheckoutOnlineRequest or CheckoutPickupEfectivoRequest instead */
 export interface CrearPedidoRequest {
   items: ItemPedidoPayload[];
   forma_pago_codigo: string;
@@ -27,23 +95,10 @@ export interface CrearPedidoRequest {
   notas: string | null;
 }
 
-/**
- * Payment method read from backend.
- * Mirrors backend's FormaPagoRead.
- */
-export interface PaymentMethodRead {
-  codigo: string;
-  descripcion: string;
-  habilitada: boolean;
-}
-
-/**
- * Order read response after creation.
- * Mirrors backend's PedidoRead.
- */
+/** @deprecated Use CheckoutOnlineResponse or CheckoutPickupEfectivoResponse instead */
 export interface PedidoRead {
   id: number;
   estado_codigo: string;
-  total: string; // Decimal as string from backend
-  creado_en: string; // ISO datetime string
+  total: string;
+  creado_en: string;
 }

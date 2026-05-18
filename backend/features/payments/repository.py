@@ -80,6 +80,15 @@ class PaymentRepository(BaseRepository[Pago]):
         )
         return self.session.execute(stmt).scalar_one_or_none()
 
+    def find_by_external_reference(self, external_reference: str) -> Optional[Pago]:
+        """
+        Return the Pago whose external_reference matches, or None.
+
+        Used for idempotency checks (D12) and webhook reconciliation (D6).
+        """
+        stmt = select(Pago).where(Pago.external_reference == external_reference)
+        return self.session.execute(stmt).scalar_one_or_none()
+
     def update_mp_fields(
         self,
         pago: Pago,

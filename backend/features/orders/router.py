@@ -11,6 +11,10 @@ D12: Requires CLIENT role via Depends(require_role("CLIENT")).
 
 D3: Service-driven UoW — the router does NOT open a UnitOfWork.
     OrderService.crear_pedido() owns the transaction boundary.
+
+NOTE: POST / (crear pedido) has been removed. Order creation now happens
+via POST /api/v1/checkout/online and POST /api/v1/checkout/pickup-efectivo
+(checkout-pay-first-flow change).
 """
 
 from typing import Annotated
@@ -89,32 +93,9 @@ async def get_pedido_detalle(
     return service.get_pedido_detalle(current_user, pedido_id)
 
 
-@router.post(
-    "/",
-    response_model=PedidoRead,
-    status_code=status.HTTP_201_CREATED,
-    summary="Crear pedido",
-    description=(
-        "Crea un nuevo pedido atómico a partir del carrito del cliente. "
-        "Valida stock (SELECT FOR UPDATE), forma de pago, ownership de dirección "
-        "y calcula el total con Decimal precision. "
-        "Requiere rol CLIENT."
-    ),
-)
-async def crear_pedido(
-    payload: CrearPedidoRequest,
-    current_user: Usuario = Depends(require_role("CLIENT")),
-) -> PedidoRead:
-    """
-    POST /api/v1/pedidos — create a new order (spec §7.1, 9-step UoW).
-
-    Authentication: cookie-backed session required (401 if missing/invalid).
-    Authorization: CLIENT role required (403 if user lacks CLIENT role).
-    """
-    service = OrderService()
-    pedido = service.crear_pedido(current_user.id, payload)
-    return PedidoRead.model_validate(pedido)
-
+# NOTE: POST / (crear pedido) has been removed.
+# Order creation now happens via POST /api/v1/checkout/online
+# and POST /api/v1/checkout/pickup-efectivo (checkout-pay-first-flow change).
 
 @router.patch(
     "/{pedido_id}/estado",

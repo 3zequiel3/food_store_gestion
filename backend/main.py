@@ -78,6 +78,7 @@ from features.ingredients.router import router as ingredients_router
 from features.catalog.router import router as catalog_router
 from features.admin_users.router import router as admin_users_router
 from features.admin_metrics.router import router as admin_metrics_router
+from features.checkout.router import router as checkout_router
 
 
 @asynccontextmanager
@@ -219,6 +220,7 @@ app.include_router(users_router, prefix="/api/v1/usuarios", tags=["users"])
 app.include_router(products_router, prefix="/api/v1/productos", tags=["products"])
 app.include_router(orders_router, prefix="/api/v1/pedidos", tags=["orders"])
 app.include_router(payments_router, prefix="/api/v1/pagos", tags=["payments"])
+app.include_router(checkout_router, prefix="/api/v1/checkout", tags=["checkout"])
 app.include_router(addresses_router, prefix="/api/v1/direcciones", tags=["addresses"])
 app.include_router(categories_router, prefix="/api/v1/categorias", tags=["categories"])
 app.include_router(

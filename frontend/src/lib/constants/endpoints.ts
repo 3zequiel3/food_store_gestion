@@ -45,9 +45,15 @@ export const ENDPOINTS = {
   },
 
   pagos: {
-    create: '/pagos/',
+    // NOTE: create endpoint deprecated — use checkout.endpoints instead
+    // create: '/pagos/',
     webhookMercadopago: '/pagos/webhook/mercadopago',
     porPedido: (pedidoId: number) => `/pagos/pedido/${pedidoId}`,
+  },
+
+  checkout: {
+    online: '/checkout/online',
+    pickupEfectivo: '/checkout/pickup-efectivo',
   },
 
   direcciones: {
