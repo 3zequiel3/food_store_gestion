@@ -44,8 +44,61 @@ export function OrderConfirmationPage() {
   const isOnlinePayment = 'mp_status' in (pedido || {});
   const isPickupEfectivo = paymentMethod === 'efectivo';
 
-  // Fallback si no hay location state (ej: refresh)
+  // Fallback si no hay location state (ej: refresh) pero orderDetail cargó
   if (!pedido) {
+    if (orderDetail) {
+      return (
+        <div className="max-w-2xl mx-auto py-8 px-4">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-success/10 mb-4">
+              <CheckCircle className="h-8 w-8 text-success" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground mb-2">
+              Pedido #{orderDetail.id}
+            </h1>
+            <p className="text-muted-foreground mb-1">
+              Estado: {orderDetail.estado_codigo}
+            </p>
+          </div>
+
+          <div className="bg-card border border-border rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Estado</p>
+                <p className="font-semibold text-foreground mt-1">
+                  {orderDetail.estado_codigo}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Total</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {formatCurrency(orderDetail.total)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => navigate('/cliente/catalogo')}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              Seguir comprando
+            </button>
+            <button
+              onClick={() => navigate('/cliente/pedidos')}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg hover:bg-accent transition-colors"
+            >
+              <Package className="h-4 w-4" />
+              Ver mis pedidos
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // orderDetail aún no cargó — loading state
     return (
       <div className="max-w-2xl mx-auto py-12 px-4">
         <div className="text-center space-y-4">
