@@ -17,7 +17,7 @@ class TestAvanzarEstadoRequest:
         """Schema accepts all valid manual transition targets."""
         from features.orders.schemas import AvanzarEstadoRequest
 
-        for estado in {"CANCELADO", "EN_PREPARACION", "EN_CAMINO", "ENTREGADO"}:
+        for estado in {"CANCELADO", "EN_PREPARACION", "TERMINADO", "ENTREGADO"}:
             req = AvanzarEstadoRequest(nuevo_estado=estado)
             assert req.nuevo_estado == estado
 

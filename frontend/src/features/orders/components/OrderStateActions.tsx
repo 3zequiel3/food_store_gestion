@@ -27,10 +27,10 @@ function getTransitions(estado: EstadoCodigo): Transition[] {
       ];
     case 'EN_PREPARACION':
       return [
-        { estado_codigo_destino: 'EN_CAMINO', label: 'Marcar en camino', variant: 'primary', requiresMotivo: false },
+        { estado_codigo_destino: 'TERMINADO', label: 'Marcar listo', variant: 'primary', requiresMotivo: false },
         { estado_codigo_destino: 'CANCELADO_ADMIN', label: 'Cancelar', variant: 'danger', requiresMotivo: true },
       ];
-    case 'EN_CAMINO':
+    case 'TERMINADO':
       return [
         { estado_codigo_destino: 'ENTREGADO', label: 'Marcar entregado', variant: 'primary', requiresMotivo: false },
       ];

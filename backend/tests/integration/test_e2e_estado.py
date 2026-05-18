@@ -108,7 +108,7 @@ class TestFlowEstados:
         test_db_session: Session, sample_user, sample_formas_pago, sample_estados_pedido
     ):
         """
-        Flow: CONFIRMADO → EN_PREPARACION → EN_CAMINO → ENTREGADO (PEDIDOS role).
+        Flow: CONFIRMADO → EN_PREPARACION → TERMINADO → ENTREGADO (PEDIDOS role).
         Each transition returns 200 with updated estado_codigo.
         """
         from features.orders.models import HistorialEstadoPedido, Pedido
@@ -133,12 +133,12 @@ class TestFlowEstados:
         assert r1.status_code == 200
         assert r1.json()["estado_codigo"] == "EN_PREPARACION"
 
-        # EN_PREPARACION → EN_CAMINO
-        r2 = client.patch(url, json={"nuevo_estado": "EN_CAMINO"}, headers=auth_headers_pedidos_e2e)
+        # EN_PREPARACION → TERMINADO
+        r2 = client.patch(url, json={"nuevo_estado": "TERMINADO"}, headers=auth_headers_pedidos_e2e)
         assert r2.status_code == 200
-        assert r2.json()["estado_codigo"] == "EN_CAMINO"
+        assert r2.json()["estado_codigo"] == "TERMINADO"
 
-        # EN_CAMINO → ENTREGADO
+        # TERMINADO → ENTREGADO
         r3 = client.patch(url, json={"nuevo_estado": "ENTREGADO"}, headers=auth_headers_pedidos_e2e)
         assert r3.status_code == 200
         assert r3.json()["estado_codigo"] == "ENTREGADO"

@@ -29,9 +29,9 @@ class TestAllowedTransitions:
         assert "CANCELADO_CLIENTE" in ALLOWED_TRANSITIONS["PENDIENTE"]
         assert "EN_PREPARACION" in ALLOWED_TRANSITIONS["CONFIRMADO"]
         assert "CANCELADO_ADMIN" in ALLOWED_TRANSITIONS["CONFIRMADO"]
-        assert "EN_CAMINO" in ALLOWED_TRANSITIONS["EN_PREPARACION"]
+        assert "TERMINADO" in ALLOWED_TRANSITIONS["EN_PREPARACION"]
         assert "CANCELADO_ADMIN" in ALLOWED_TRANSITIONS["EN_PREPARACION"]
-        assert "ENTREGADO" in ALLOWED_TRANSITIONS["EN_CAMINO"]
+        assert "ENTREGADO" in ALLOWED_TRANSITIONS["TERMINADO"]
 
         # Terminal states have no outgoing transitions
         assert ALLOWED_TRANSITIONS["ENTREGADO"] == set()
@@ -40,7 +40,7 @@ class TestAllowedTransitions:
         assert ALLOWED_TRANSITIONS["CANCELADO_CLIENTE"] == set()
 
         # Total outgoing transitions: PENDIENTE(3) + CONFIRMADO(2) + EN_PREPARACION(2)
-        # + EN_CAMINO(1) = 8 edges
+        # + TERMINADO(1) = 8 edges
         total = sum(len(v) for v in ALLOWED_TRANSITIONS.values())
         assert total == 8  # 3+2+2+1+0+0+0+0
 
@@ -73,11 +73,11 @@ class TestTransitionRoles:
             "PEDIDOS",
             "ADMIN",
         }
-        assert TRANSITION_ROLES[("EN_PREPARACION", "EN_CAMINO")] == {"PEDIDOS", "ADMIN"}
+        assert TRANSITION_ROLES[("EN_PREPARACION", "TERMINADO")] == {"PEDIDOS", "ADMIN"}
         assert TRANSITION_ROLES[("EN_PREPARACION", "CANCELADO_ADMIN")] == {
             "ADMIN"
         }  # RN-RB08
-        assert TRANSITION_ROLES[("EN_CAMINO", "ENTREGADO")] == {"PEDIDOS", "ADMIN"}
+        assert TRANSITION_ROLES[("TERMINADO", "ENTREGADO")] == {"PEDIDOS", "ADMIN"}
 
         # PENDIENTE→CONFIRMADO must NOT be in TRANSITION_ROLES (webhook-only)
         assert ("PENDIENTE", "CONFIRMADO") not in TRANSITION_ROLES
@@ -146,7 +146,7 @@ class TestValidateTransition:
         from features.orders.state_machine import validate_transition
 
         with pytest.raises(BusinessRuleError):
-            validate_transition("ENTREGADO", "EN_CAMINO", {"ADMIN"})
+            validate_transition("ENTREGADO", "TERMINADO", {"ADMIN"})
 
     def test_validate_transition_estado_terminal_cancelado(self):
         """CANCELADO is terminal — no outgoing transitions allowed."""

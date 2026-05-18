@@ -169,7 +169,7 @@ class TestPatchEstado:
         url = ESTADO_URL.format(pedido_id=pedido_pendiente.id)
         response = client.patch(
             url,
-            json={"nuevo_estado": "EN_CAMINO"},  # PENDIENTE → EN_CAMINO not allowed
+            json={"nuevo_estado": "TERMINADO"},  # PENDIENTE → TERMINADO not allowed
             headers=auth_headers_pedidos,
         )
         assert response.status_code == 422

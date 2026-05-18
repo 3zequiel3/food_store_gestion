@@ -57,7 +57,7 @@ class TestAllowedTransitionsNewStates:
         assert ALLOWED_TRANSITIONS["CANCELADO"] == set()
 
     def test_total_edges_updated(self):
-        """Total outgoing transitions: PENDIENTE(3) + CONFIRMADO(2) + EN_PREPARACION(2) + EN_CAMINO(1) = 8."""
+        """Total outgoing transitions: PENDIENTE(3) + CONFIRMADO(2) + EN_PREPARACION(2) + TERMINADO(1) = 8."""
         from features.orders.state_machine import ALLOWED_TRANSITIONS
 
         total = sum(len(v) for v in ALLOWED_TRANSITIONS.values())

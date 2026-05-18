@@ -72,7 +72,7 @@ def seed_estados_pedido(session) -> None:
         {"codigo": "PENDIENTE",       "descripcion": "Pedido recibido, aguardando confirmación", "orden": 1, "es_terminal": False},
         {"codigo": "CONFIRMADO",      "descripcion": "Pedido confirmado por el local",           "orden": 2, "es_terminal": False},
         {"codigo": "EN_PREPARACION",  "descripcion": "Pedido en cocina",                        "orden": 3, "es_terminal": False},
-        {"codigo": "EN_CAMINO",       "descripcion": "Pedido en camino al cliente",              "orden": 4, "es_terminal": False},
+        {"codigo": "TERMINADO",       "descripcion": "Pedido listo para ser retirado o entregado",   "orden": 4, "es_terminal": False},
         {"codigo": "ENTREGADO",       "descripcion": "Pedido entregado al cliente",              "orden": 5, "es_terminal": True},
         {"codigo": "CANCELADO",       "descripcion": "Pedido cancelado",                        "orden": 6, "es_terminal": True},
     ]

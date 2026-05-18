@@ -483,12 +483,12 @@ class TestAvanzarEstado:
         """Transition not allowed by FSM raises BusinessRuleError."""
         from shared.exceptions import BusinessRuleError
 
-        # PENDIENTE → EN_CAMINO is not a valid FSM transition
+        # PENDIENTE → TERMINADO is not a valid FSM transition
         with pytest.raises(BusinessRuleError):
             order_service.avanzar_estado(
                 user_id=user_pedidos.id,
                 pedido_id=pedido_pendiente_sin_items.id,
-                nuevo_estado="EN_CAMINO",
+                nuevo_estado="TERMINADO",
                 motivo=None,
             )
 

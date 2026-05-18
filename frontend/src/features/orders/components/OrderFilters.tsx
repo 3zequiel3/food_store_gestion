@@ -7,7 +7,7 @@ const ESTADOS: { value: EstadoCodigo | ''; label: string }[] = [
   { value: 'PENDIENTE', label: 'Pendiente' },
   { value: 'CONFIRMADO', label: 'Confirmado' },
   { value: 'EN_PREPARACION', label: 'En preparación' },
-  { value: 'EN_CAMINO', label: 'En camino' },
+  { value: 'TERMINADO', label: 'Listo para retirar/entregar' },
   { value: 'ENTREGADO', label: 'Entregado' },
   { value: 'CANCELADO', label: 'Cancelado' },
 ];

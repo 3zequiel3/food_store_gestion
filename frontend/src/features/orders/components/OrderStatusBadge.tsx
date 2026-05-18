@@ -5,7 +5,7 @@ const ESTADO_CONFIG: Record<EstadoCodigo, { label: string; variant: 'success' | 
   PENDIENTE: { label: 'Pendiente', variant: 'warning' },
   CONFIRMADO: { label: 'Confirmado', variant: 'info' },
   EN_PREPARACION: { label: 'En preparación', variant: 'primary' },
-  EN_CAMINO: { label: 'En camino', variant: 'info' },
+  TERMINADO: { label: 'Listo para retirar/entregar', variant: 'info' },
   ENTREGADO: { label: 'Entregado', variant: 'success' },
   CANCELADO: { label: 'Cancelado', variant: 'neutral' },
 };

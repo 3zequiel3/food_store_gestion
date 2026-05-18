@@ -259,7 +259,7 @@ def sample_estados_pedido(test_db_session: Session):
 
     States match the seed data defined in database-schema-seed:
     PENDIENTE(1), CONFIRMADO(2), EN_PREPARACION(3),
-    EN_CAMINO(4), ENTREGADO(5, terminal), CANCELADO(6, terminal).
+    TERMINADO(4), ENTREGADO(5, terminal), CANCELADO(6, terminal).
     """
     from features.catalog.models import EstadoPedido
 
@@ -267,7 +267,7 @@ def sample_estados_pedido(test_db_session: Session):
         EstadoPedido(codigo="PENDIENTE", descripcion="Pendiente de confirmación", orden=1, es_terminal=False),
         EstadoPedido(codigo="CONFIRMADO", descripcion="Confirmado", orden=2, es_terminal=False),
         EstadoPedido(codigo="EN_PREPARACION", descripcion="En preparación", orden=3, es_terminal=False),
-        EstadoPedido(codigo="EN_CAMINO", descripcion="En camino", orden=4, es_terminal=False),
+        EstadoPedido(codigo="TERMINADO", descripcion="Listo para retirar/entregar", orden=4, es_terminal=False),
         EstadoPedido(codigo="ENTREGADO", descripcion="Entregado", orden=5, es_terminal=True),
         EstadoPedido(codigo="CANCELADO", descripcion="Cancelado", orden=6, es_terminal=True),
     ]

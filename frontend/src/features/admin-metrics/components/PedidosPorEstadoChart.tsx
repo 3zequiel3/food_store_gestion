@@ -10,7 +10,7 @@ const STATE_COLORS: Record<string, string> = {
   PENDIENTE: '#eab308',
   CONFIRMADO: '#3b82f6',
   EN_PREPARACION: '#f97316',
-  EN_CAMINO: '#6366f1',
+  TERMINADO: '#6366f1',
   ENTREGADO: '#22c55e',
   CANCELADO: '#ef4444',
 };

@@ -234,7 +234,7 @@ Customer orders with state machine.
 class Order(BaseModel):
     user_id: UUID (FK)
     total: Decimal
-    estado: Enum(PENDIENTE, CONFIRMADO, EN_PREPARACIÓN, EN_CAMINO, ENTREGADO, CANCELADO)
+    estado: Enum(PENDIENTE, CONFIRMADO, EN_PREPARACIÓN, TERMINADO, ENTREGADO, CANCELADO)
     delivery_address: str
     user: User
     payment: Payment

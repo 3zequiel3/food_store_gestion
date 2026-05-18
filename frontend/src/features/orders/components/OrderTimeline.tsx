@@ -1,14 +1,14 @@
 import { Check, X } from 'lucide-react';
 import type { HistorialEstado } from '../types/orders.types';
 
-const STATE_ORDER = ['PENDIENTE', 'CONFIRMADO', 'EN_PREPARACION', 'EN_CAMINO', 'ENTREGADO'] as const;
+const STATE_ORDER = ['PENDIENTE', 'CONFIRMADO', 'EN_PREPARACION', 'TERMINADO', 'ENTREGADO'] as const;
 const CANCEL_STATES = ['CANCELADO_ADMIN', 'CANCELADO_CLIENTE', 'CANCELADO'] as const;
 
 const ESTADO_LABELS: Record<string, string> = {
   PENDIENTE: 'Pendiente',
   CONFIRMADO: 'Confirmado',
   EN_PREPARACION: 'En preparación',
-  EN_CAMINO: 'En camino',
+  TERMINADO: 'Listo',
   ENTREGADO: 'Entregado',
   CANCELADO: 'Cancelado',
   CANCELADO_ADMIN: 'Cancelado (Admin)',
