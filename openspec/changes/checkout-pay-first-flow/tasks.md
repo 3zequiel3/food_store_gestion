@@ -192,7 +192,7 @@ Este grupo se puede ejecutar en paralelo a los Grupos 3, 5 y 6 (no comparten arc
 
 - [x] 15.1 Borrar código muerto: `useCreateOrder`, `useInitPayment` independiente, `PaymentPage`, `PaymentResultPage` (si aplica), `orders.service.ts` viejo, `payments.service.ts` viejo
 - [x] 15.2 Borrar tests obsoletos correspondientes
-- [ ] 15.3 Commits agrupados por capa (conventional commits, SIN "Co-Authored-By"):
+- [x] 15.3 Commits agrupados por capa (conventional commits, SIN "Co-Authored-By"):
   - `feat(checkout): add CheckoutService with pay-first atomic flow`
   - `feat(checkout): add POST /api/v1/checkout/online and /pickup-efectivo endpoints`
   - `refactor(orders): rename EN_CAMINO state to TERMINADO for unified pickup/delivery vocabulary`
