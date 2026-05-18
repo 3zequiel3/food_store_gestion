@@ -258,9 +258,6 @@ class CheckoutService:
             },
             "external_reference": str(request.idempotency_key),
         }
-            },
-            "external_reference": str(request.idempotency_key),
-        }
 
         try:
             mp_response = sdk.payment().create(payment_data, request_options)
