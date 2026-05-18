@@ -11,16 +11,11 @@ interface LandingProductCardProps {
 const NUEVO_THRESHOLD_DAYS = 14;
 
 function isNuevo(producto: ProductoRead): boolean {
-  const raw = (producto as Record<string, unknown>).created_at;
-  if (!raw || typeof raw !== 'string') return false;
-  const createdAt = new Date(raw);
+  if (!producto.creado_en) return false;
+  const createdAt = new Date(producto.creado_en);
   const diffMs = Date.now() - createdAt.getTime();
   const diffDays = diffMs / (1000 * 60 * 60 * 24);
   return diffDays < NUEVO_THRESHOLD_DAYS;
-}
-
-function isDestacado(producto: ProductoRead): boolean {
-  return (producto as Record<string, unknown>).destacado === true;
 }
 
 /** Badge pill displayed over the product image */
@@ -64,7 +59,6 @@ export function LandingProductCard({ producto }: LandingProductCardProps) {
   }
 
   const showNuevo = isNuevo(producto);
-  const showDestacado = isDestacado(producto);
   const showSinStock = producto.disponible === false;
 
   return (
@@ -78,13 +72,6 @@ export function LandingProductCard({ producto }: LandingProductCardProps) {
             label="Nuevo"
             ariaLabel="Producto nuevo"
             className="bg-success text-success-foreground"
-          />
-        )}
-        {showDestacado && !showNuevo && (
-          <ProductBadge
-            label="Destacado"
-            ariaLabel="Producto destacado"
-            className="bg-primary text-primary-foreground"
           />
         )}
         {showSinStock && (

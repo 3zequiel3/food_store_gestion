@@ -40,6 +40,7 @@ export interface ProductoRead {
   stock_cantidad: number;
   categoria_id: number | null;
   imagenes: ImagenRead[];
+  creado_en?: string;
 }
 
 /** Producto completo para la página de detalle */
