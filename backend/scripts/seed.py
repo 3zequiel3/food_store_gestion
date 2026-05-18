@@ -86,9 +86,14 @@ def seed_estados_pedido(session) -> None:
 
 
 def seed_formas_pago(session) -> None:
-    """Insert the 3 canonical payment methods (idempotent)."""
+    """Insert the 3 canonical payment methods (idempotent).
+
+    TARJETA replaces the legacy MERCADOPAGO code (renamed in migration
+    20260514_1200_payment_order_state_refactor). Seeding MERCADOPAGO again
+    each boot is what produced the duplicate row visible in the checkout UI.
+    """
     formas = [
-        {"codigo": "MERCADOPAGO",   "descripcion": "Pago online vía MercadoPago",  "habilitada": True},
+        {"codigo": "TARJETA",       "descripcion": "Pago online vía MercadoPago",    "habilitada": True},
         {"codigo": "EFECTIVO",      "descripcion": "Pago en efectivo al repartidor", "habilitada": True},
         {"codigo": "TRANSFERENCIA", "descripcion": "Transferencia bancaria",         "habilitada": True},
     ]
