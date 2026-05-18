@@ -1,10 +1,16 @@
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
+  Beef,
+  Coffee,
+  IceCream,
+  Pizza,
+  Salad,
+  Sandwich,
   ShieldCheck,
+  Soup,
   Sparkles,
   Truck,
-  Utensils,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -15,35 +21,14 @@ import { LandingProductCard } from '../features/products/components/LandingProdu
 import { ProductCardSkeleton } from '../features/products/components/ProductCardSkeleton';
 import type { CategoriaRead } from '../features/categorias/types/categorias.types';
 
-/** Map category names to lucide icons */
 const categoryIconMap: Record<string, React.ElementType> = {
-  pizza: Utensils,
-  hamburguesa: Utensils,
-  sandwich: Utensils,
-  cafe: ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 8h1a4 4 0 1 1 0 8h-1" /><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
-      <line x1="6" x2="6" y1="2" y2="4" /><line x1="10" x2="10" y1="2" y2="4" /><line x1="14" x2="14" y1="2" y2="4" />
-    </svg>
-  ),
-  postre: ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2C6.48 2 2 6 2 10c0 2 1 4 3 5v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5c2-1 3-3 3-5 0-4-4.48-8-10-8z" />
-      <path d="M12 2v8" /><path d="M8 6c1.5 1 3 1.5 4 1.5s2.5-.5 4-1.5" />
-    </svg>
-  ),
-  ensalada: ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M7 21h10" /><path d="M12 21V11" /><path d="M22 11c-1.5-3-5-5-10-5S3.5 8 2 11" />
-      <path d="M12 11c-2 0-4 1-5 3" /><path d="M12 11c2 0 4 1 5 3" />
-    </svg>
-  ),
-  sopa: ({ className }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 12h20" /><path d="M4 12v4a8 8 0 0 0 16 0v-4" />
-      <path d="M8 6c.5-1 1.5-2 2-2s1.5 1 2 2" /><path d="M14 6c.5-1 1.5-2 2-2s1.5 1 2 2" />
-    </svg>
-  ),
+  pizza: Pizza,
+  hamburguesa: Beef,
+  sandwich: Sandwich,
+  cafe: Coffee,
+  postre: IceCream,
+  ensalada: Salad,
+  sopa: Soup,
 };
 
 function getCategoryIcon(nombre: string): React.ElementType {
@@ -310,8 +295,8 @@ function InfoSection() {
   const infoCards = [
     {
       icon: Truck,
-      title: 'Delivery r&aacute;pido',
-      description: 'Recib&iacute; tu pedido en la puerta de tu casa en tiempo r&eacute;cord.',
+      title: 'Delivery rápido',
+      description: 'Recibí tu pedido en la puerta de tu casa en tiempo récord.',
     },
     {
       icon: Sparkles,
@@ -321,7 +306,7 @@ function InfoSection() {
     {
       icon: ShieldCheck,
       title: 'Pago seguro',
-      description: 'Tus datos est&aacute;n protegidos con encriptaci&oacute;n de punta a punta.',
+      description: 'Tus datos están protegidos con encriptación de punta a punta.',
     },
   ];
 
