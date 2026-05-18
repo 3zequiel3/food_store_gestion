@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -38,11 +38,9 @@ export function CheckoutPage() {
   // Idempotency key — generated once per checkout session
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() => crypto.randomUUID());
 
-  // Card token state (for online payment)
-  const [cardToken, setCardToken] = useState<string | null>(null);
-  const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
-  const [identificationType, setIdentificationType] = useState<string>('DNI');
-  const [identificationNumber, setIdentificationNumber] = useState<string>('');
+  // Form ref for triggering card tokenization from the main submit button
+  const cardFormRef = useRef<HTMLFormElement | null>(null);
+
 
   const checkoutOnlineMutation = useCheckoutOnline();
   const checkoutPickupMutation = useCheckoutPickupEfectivo();
@@ -97,23 +95,18 @@ export function CheckoutPage() {
     }));
   }
 
-  function handleCheckoutOnline() {
-    if (!cardToken || !paymentMethodId) {
-      toast.error('Completá los datos de la tarjeta');
-      return;
-    }
-
+  function handleCheckoutOnline(token: string, methodId: string, idType: string, idNumber: string) {
     const payload: CheckoutOnlineRequest = {
       items: buildCheckoutItems(),
       tipo_entrega: isDelivery ? 'DELIVERY' : 'PICKUP',
       direccion_id: selectedAddressId,
       notas: notas.trim() || null,
-      card_token: cardToken,
-      payment_method_id: paymentMethodId,
+      card_token: token,
+      payment_method_id: methodId,
       installments: 1,
       idempotency_key: idempotencyKey,
-      identification_type: identificationType,
-      identification_number: identificationNumber,
+      identification_type: idType,
+      identification_number: idNumber,
       payer_email: userEmail,
     };
 
@@ -136,18 +129,15 @@ export function CheckoutPage() {
     }
 
     if (selectedPaymentMethod === 'TARJETA') {
-      handleCheckoutOnline();
+      // Trigger the card form's submit — SecureCardForm tokenizes and calls onCardToken
+      cardFormRef.current?.requestSubmit();
     } else if (selectedPaymentMethod === 'EFECTIVO') {
       handleCheckoutPickupEfectivo();
     }
   }
 
   const isProcessing = checkoutOnlineMutation.isPending || checkoutPickupMutation.isPending;
-  const isOnlinePaymentReady = cardToken && paymentMethodId && identificationNumber;
-  const isSubmitDisabled =
-    !selectedPaymentMethod ||
-    isProcessing ||
-    (selectedPaymentMethod === 'TARJETA' && !isOnlinePaymentReady);
+  const isSubmitDisabled = !selectedPaymentMethod || isProcessing;
 
   // Show PaymentForm when TARJETA is selected
   const showPaymentForm = selectedPaymentMethod === 'TARJETA';
@@ -192,11 +182,9 @@ export function CheckoutPage() {
             <div className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-5 shadow-sm">
               <h3 className="text-lg font-semibold mb-4">Datos de la tarjeta</h3>
               <SecureCardForm
+                formRef={cardFormRef}
                 onSubmit={(token, methodId, idType, idNumber) => {
-                  setCardToken(token);
-                  setPaymentMethodId(methodId);
-                  setIdentificationType(idType);
-                  setIdentificationNumber(idNumber);
+                  handleCheckoutOnline(token, methodId, idType, idNumber);
                 }}
                 onError={(message) => {
                   toast.error('Error en la tarjeta', { description: message });
@@ -236,11 +224,6 @@ export function CheckoutPage() {
             </p>
           )}
 
-          {selectedPaymentMethod === 'TARJETA' && !isOnlinePaymentReady && (
-            <p className="text-xs text-center text-muted-foreground">
-              Completá los datos de la tarjeta para continuar
-            </p>
-          )}
         </div>
       </div>
     </div>

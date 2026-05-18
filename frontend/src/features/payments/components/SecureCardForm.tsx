@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { loadMercadoPago } from '@mercadopago/sdk-js';
-import { Loader2, CreditCard } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 interface SecureCardFormProps {
+  formRef?: React.Ref<HTMLFormElement>;
   onSubmit: (
     token: string,
     paymentMethodId: string,
@@ -39,7 +40,7 @@ async function loadMP(publicKey: string): Promise<MercadoPagoInstance> {
   return mp as MercadoPagoInstance;
 }
 
-export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormProps) {
+export function SecureCardForm({ formRef, onSubmit, onError, isLoading }: SecureCardFormProps) {
   const [mpInstance, setMpInstance] = useState<MercadoPagoInstance | null>(null);
   const [sdkReady, setSdkReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
@@ -146,7 +147,7 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="rounded-lg border border-border bg-card p-4 space-y-3">
         {!sdkReady && (
           <div className="flex items-center justify-center py-8">
@@ -270,23 +271,6 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
         )}
       </div>
 
-      <button
-        type="submit"
-        disabled={!sdkReady || isLoading}
-        className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Procesando pago…
-          </>
-        ) : (
-          <>
-            <CreditCard className="h-4 w-4" />
-            Pagar ahora
-          </>
-        )}
-      </button>
     </form>
   );
 }
