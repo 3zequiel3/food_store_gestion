@@ -9,15 +9,11 @@ interface Transition {
   requiresMotivo: boolean;
 }
 
-/**
- * Admin-facing transitions only.
- * PENDIENTE → CONFIRMADO is webhook-only (MercadoPago payment confirmation).
- * CANCELADO_ADMIN is the admin cancellation target (not legacy CANCELADO).
- */
 function getTransitions(estado: EstadoCodigo): Transition[] {
   switch (estado) {
     case 'PENDIENTE':
       return [
+        { estado_codigo_destino: 'CONFIRMADO', label: 'Confirmar pedido', variant: 'primary', requiresMotivo: false },
         { estado_codigo_destino: 'CANCELADO_ADMIN', label: 'Rechazar', variant: 'danger', requiresMotivo: true },
       ];
     case 'CONFIRMADO':
