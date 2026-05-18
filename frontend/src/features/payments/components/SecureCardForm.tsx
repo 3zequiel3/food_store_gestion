@@ -169,7 +169,7 @@ export function SecureCardForm({ onSubmit, onError, isLoading }: SecureCardFormP
                 placeholder="4111 1111 1111 1111"
                 value={cardNumber}
                 onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
-                maxLength={16}
+                maxLength={22}
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 disabled={isLoading}
                 autoComplete="cc-number"
