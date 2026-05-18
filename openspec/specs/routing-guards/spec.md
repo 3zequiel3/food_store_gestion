@@ -15,11 +15,23 @@ The system SHALL configure react-router-dom v6 with a centralized route configur
 - **THEN** the browser URL updates and the correct page component renders without full page reload
 
 ### Requirement: Public route access
-The system SHALL allow unauthenticated users to access public routes (home, login, register, product catalog).
+The system SHALL allow unauthenticated users to access public routes (home at `/`, login, register, product catalog). The home route `/` SHALL NOT be wrapped by any auth guard.
 
 #### Scenario: Unauthenticated user accesses public route
 - **WHEN** an unauthenticated user navigates to `/products`
 - **THEN** the products page renders normally
+
+#### Scenario: Unauthenticated user accesses home page
+- **GIVEN** a user is not authenticated
+- **WHEN** they visit `/`
+- **THEN** they see the full landing page with Hero, Categories, Featured Products, Info, and Footer sections
+- **AND** they are NOT redirected to `/login`
+
+#### Scenario: Authenticated user accesses home page
+- **GIVEN** a user is authenticated
+- **WHEN** they visit `/`
+- **THEN** they see the same landing page
+- **AND** they are NOT redirected to `/admin` or `/cliente`
 
 #### Scenario: Authenticated user accesses login page
 - **WHEN** an authenticated user navigates to `/login`
