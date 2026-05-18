@@ -1,5 +1,6 @@
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle, ShoppingBag, Package, CreditCard, Truck } from 'lucide-react';
+import { useOrderDetail } from '../hooks/useOrderDetail';
 import type {
   CheckoutOnlineResponse,
   CheckoutPickupEfectivoResponse,
@@ -21,6 +22,10 @@ interface LocationState {
  * - Pickup+efectivo: shows "Pagás al retirar" message
  * - PENDIENTE semántica: "esperando que el local acepte" (D4)
  */
+function formatCurrency(value: string): string {
+  return `$${parseFloat(value).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+}
+
 export function OrderConfirmationPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -30,6 +35,10 @@ export function OrderConfirmationPage() {
   const cartItems = state?.cartItems ?? [];
   const paymentStatus = state?.paymentStatus;
   const paymentMethod = state?.paymentMethod;
+
+  // Fetch authoritative order detail for total and refresh support
+  const pedidoId = pedido?.pedido_id ?? (id ? Number(id) : null);
+  const { data: orderDetail } = useOrderDetail(pedidoId);
 
   // Determine payment type
   const isOnlinePayment = 'mp_status' in (pedido || {});
@@ -139,7 +148,7 @@ export function OrderConfirmationPage() {
           <div className="text-right">
             <p className="text-sm text-muted-foreground">Total</p>
             <p className="text-2xl font-bold text-foreground">
-              ${isOnlinePayment ? 'Pagado' : 'Pendiente'}
+              {orderDetail ? formatCurrency(orderDetail.total) : (isOnlinePayment ? '$Pagado' : '$Pendiente')}
             </p>
           </div>
         </div>
