@@ -1,7 +1,3 @@
-export interface PagoCreate {
-  pedido_id: number;
-}
-
 export interface PagoRead {
   id: number;
   pedido_id: number;
@@ -32,6 +28,7 @@ export interface PaymentResponse {
   mp_id: string | null;
   status_detail: string | null;
   order_id?: number;
+  pago_id?: number;
 }
 
 /** Request to transition an order state via FSM. */
