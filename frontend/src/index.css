@@ -88,6 +88,51 @@
   100% { background-position: 200% 0; }
 }
 
+/* Landing page animation keyframes */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes blob {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(1.5rem, -1rem) scale(1.05);
+  }
+  66% {
+    transform: translate(-1rem, 1rem) scale(0.97);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-0.75rem) scale(1.03);
+  }
+}
+
+/* Respect user's motion preferences — disable all animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
 /* ============================================================
    DARK MODE — class-based, solo si <html class="dark">
    ============================================================ */

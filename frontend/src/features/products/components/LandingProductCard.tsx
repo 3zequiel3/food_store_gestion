@@ -8,6 +8,42 @@ interface LandingProductCardProps {
   producto: ProductoRead;
 }
 
+/** Days threshold to consider a product "new" */
+const NUEVO_THRESHOLD_DAYS = 14;
+
+function isNuevo(producto: ProductoRead): boolean {
+  const raw = (producto as Record<string, unknown>).created_at;
+  if (!raw || typeof raw !== 'string') return false;
+  const createdAt = new Date(raw);
+  const diffMs = Date.now() - createdAt.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  return diffDays < NUEVO_THRESHOLD_DAYS;
+}
+
+function isDestacado(producto: ProductoRead): boolean {
+  return (producto as Record<string, unknown>).destacado === true;
+}
+
+/** Badge pill displayed over the product image */
+function ProductBadge({
+  label,
+  ariaLabel,
+  className,
+}: {
+  label: string;
+  ariaLabel: string;
+  className: string;
+}) {
+  return (
+    <span
+      aria-label={ariaLabel}
+      className={`absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full text-xs font-semibold ${className}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function LandingProductCard({ producto }: LandingProductCardProps) {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
@@ -32,14 +68,52 @@ export function LandingProductCard({ producto }: LandingProductCardProps) {
     }
   }
 
+  const showNuevo = isNuevo(producto);
+  const showDestacado = isDestacado(producto);
+  const showSinStock = producto.disponible === false;
+
   return (
-    <div className="flex flex-col rounded-xl bg-glass backdrop-blur-xl border border-glass-border overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
-      <div className="aspect-square w-full bg-muted overflow-hidden">
-        <ProductImage
-          src={producto.imagenes?.[0]?.url ?? producto.imagen_url}
-          alt={producto.nombre}
-          className="w-full h-full object-cover"
-          placeholder={<FoodPlaceholder />}
+    <div className="group flex flex-col rounded-xl bg-glass backdrop-blur-xl border border-glass-border overflow-hidden
+      hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
+      {/* Image with overlay and zoom */}
+      <div className="relative aspect-square w-full bg-muted overflow-hidden">
+        {/* Badges */}
+        {showNuevo && (
+          <ProductBadge
+            label="Nuevo"
+            ariaLabel="Producto nuevo"
+            className="bg-success text-success-foreground"
+          />
+        )}
+        {showDestacado && !showNuevo && (
+          <ProductBadge
+            label="Destacado"
+            ariaLabel="Producto destacado"
+            className="bg-primary text-primary-foreground"
+          />
+        )}
+        {showSinStock && (
+          <ProductBadge
+            label="Sin stock"
+            ariaLabel="Sin stock"
+            className="bg-destructive text-destructive-foreground"
+          />
+        )}
+
+        {/* Image with zoom on hover */}
+        <div className="w-full h-full transition-transform duration-500 group-hover:scale-105">
+          <ProductImage
+            src={producto.imagenes?.[0]?.url ?? producto.imagen_url}
+            alt={producto.nombre}
+            className="w-full h-full object-cover"
+            placeholder={<FoodPlaceholder />}
+          />
+        </div>
+
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent
+          opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+          aria-hidden="true"
         />
       </div>
 
