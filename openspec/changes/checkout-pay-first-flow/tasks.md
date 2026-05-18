@@ -7,7 +7,7 @@
 - [x] 1.3 Reproducir y localizar el bug visual de opciones de pago duplicadas. **Análisis**: `PaymentMethodSelector.tsx` código limpio, bug probablemente por React Strict Mode (doble montaje en dev) o backend devolviendo duplicados. Se abordará en task 10.8.
 - [x] 1.4 Escribir script SQL idempotente `backend/scripts/cleanup_orphan_orders.sql` que elimine pedidos en `PENDIENTE` sin Pago asociado activo (`mp_status IN ('approved')`). **Creado**: Script con tabla temporal de log, DELETEs en orden correcto (items → historial → orders).
 - [ ] 1.5 Ejecutar el script en dev local y validar que no rompe otros pedidos legítimos (los que ya están `CONFIRMADO`, `EN_PREPARACION`, etc., sobreviven)
-- [ ] 1.6 Confirmar con el usuario: ¿se ejecuta cleanup en CI antes de cada suite o solo manual? Default: manual
+- [x] 1.6 Confirmar con el usuario: ¿se ejecuta cleanup en CI antes de cada suite o solo manual? **Decisión: manual**. El script `cleanup_orphan_orders.sql` es una herramienta de dev/mantenimiento, NO un step de CI. Justificación: el cleanup es destructivo y requiere revisión humana antes de ejecutarse contra cualquier base de datos no efímera. En CI la DB de test se recrea desde cero en cada run (sin datos reales), por lo que el cleanup carece de sentido ahí.
 
 ## 2. Schemas backend (TDD) — COMPLETADO
 
@@ -34,7 +34,7 @@ Este grupo se puede ejecutar en paralelo a los Grupos 3, 5 y 6 (no comparten arc
 ### 4.1 Migración Alembic
 
 - [x] 4.1.1 Crear nueva migración `backend/alembic/versions/20260518_0100_rename_en_camino_to_terminado.py` con `upgrade()` y `downgrade()` — **Creada** ✅
-- [ ] 4.1.2 Tests de migración: aplicar en DB de prueba con filas `EN_CAMINO` existentes, verificar todas migraron. Hacer downgrade, verificar reversión correcta
+- [x] 4.1.2 Tests de migración: aplicar en DB de prueba con filas `EN_CAMINO` existentes, verificar todas migraron. Hacer downgrade, verificar reversión correcta — **10 tests en `backend/tests/unit/test_migration_rename_en_camino.py`, todos GREEN** ✅
 - [ ] 4.1.3 Ejecutar la migración en dev local con `alembic upgrade head` y validar que `psql` ya no reporta filas con `codigo = 'EN_CAMINO'`
 
 ### 4.2 Backend código
@@ -66,8 +66,8 @@ Este grupo se puede ejecutar en paralelo a los Grupos 3, 5 y 6 (no comparten arc
 
 ### 4.5 Frontend tests
 
-- [ ] 4.5.1 Grep en `frontend/src/**/*.test.{ts,tsx}` por `'EN_CAMINO'` o `"EN_CAMINO"` y actualizar a `'TERMINADO'`
-- [ ] 4.5.2 Si hay tests de snapshot que congelan el label "En camino", regenerarlos con `pnpm test --update-snapshots` (revisar diff antes de commitear)
+- [x] 4.5.1 Grep en `frontend/src/**/*.test.{ts,tsx}` por `'EN_CAMINO'` o `"EN_CAMINO"` y actualizar a `'TERMINADO'` — **No había referencias a `EN_CAMINO` como código en tests. Sí había referencia al label display `"En camino"` en `OrderTimeline.test.tsx` línea 101 — actualizado a `"Listo"` (el nuevo label de `TERMINADO` en `ESTADO_LABELS`).** ✅
+- [x] 4.5.2 Si hay tests de snapshot que congelan el label "En camino", regenerarlos con `pnpm test --update-snapshots` (revisar diff antes de commitear) — **N/A: no existen directorios `__snapshots__` ni archivos con el label "En camino" en el frontend.** ✅
 
 ### 4.6 Validación del rename
 
@@ -186,7 +186,7 @@ Este grupo se puede ejecutar en paralelo a los Grupos 3, 5 y 6 (no comparten arc
 - [ ] 14.7 (Archive) Crear `openspec/specs/checkout/spec.md` con los requirements del nuevo capability
 - [x] 14.8 Crear `docs/decisions/2026-05-18-checkout-strict-mode.md` documentando D3 (modo estricto MP) con rationale del usuario y trade-offs
 - [x] 14.9 Crear `docs/decisions/2026-05-18-rename-en-camino-to-terminado.md` documentando D13 (vocabulario unificado retiro/envío) con justificación
-- [ ] 14.10 Actualizar `docs/CHANGES.md` mencionando este change como "refactor transversal" fuera del slot del roadmap original
+- [x] 14.10 Actualizar `docs/CHANGES.md` mencionando este change como "refactor transversal" fuera del slot del roadmap original — **Línea añadida en sección "Estado actual"** ✅
 
 ## 15. Cleanup y commits
 

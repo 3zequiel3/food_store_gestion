@@ -24,6 +24,7 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 - **Refactors**: ✅ Archivados — `refactor-uow-to-context-manager` (68/68), `refactor-auth-to-uow`, `refactor-users-route-to-spanish`
 - **Frontend rebuild**: 🔄 En progreso — `frontend-rebuild-on-feature-first` (BLOQUEANTE de Fase B). Changes #2/#5/#7/#8 marcados como refactored — su código fue reemplazado por este change.
 - **Sprint 5**: 🔄 En progreso — `order-creation-backend` (#14) ✅ archivado, `payment-mercadopago-backend` (#15) ✅ archivado, `order-state-machine-fsm` (#16) 🔄 En implementación
+- **Refactor transversal (fuera de slot)**: `checkout-pay-first-flow` — unifica la creación de pedidos + pago en un único `POST /checkout/online` atómico, elimina los endpoints separados `POST /pedidos/` y `POST /pagos/`, renombra `EN_CAMINO → TERMINADO` en toda la pila, e integra `PaymentForm` inline en `CheckoutPage`. Aplica sobre Sprint 5 (post #15, pre-#17).
 
 ---
 

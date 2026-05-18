@@ -96,9 +96,10 @@ describe('OrderTimeline', () => {
       />,
     );
 
-    // Future states should be visible in the progress bar
+    // Future states should be visible in the progress bar.
+    // Note: TERMINADO is now labeled 'Listo' (renamed from EN_CAMINO as per D13).
     expect(screen.getByText('En preparación')).toBeInTheDocument();
-    expect(screen.getByText('En camino')).toBeInTheDocument();
+    expect(screen.getByText('Listo')).toBeInTheDocument();
     expect(screen.getByText('Entregado')).toBeInTheDocument();
   });
 });
