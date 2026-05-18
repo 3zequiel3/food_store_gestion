@@ -19,7 +19,6 @@ from features.checkout.exceptions import (
     PaymentPendingNotAcceptedError,
     PaymentRejectedError,
     PaymentUnexpectedStatusError,
-    UpstreamError,
 )
 from features.checkout.schemas import (
     CheckoutErrorResponse,
@@ -30,7 +29,7 @@ from features.checkout.schemas import (
 )
 from features.checkout.service import CheckoutService
 from features.users.models import Usuario
-from shared.exceptions import BusinessRuleError, NotFoundError
+from shared.exceptions import BusinessRuleError, NotFoundError, UpstreamError
 
 router = APIRouter()
 

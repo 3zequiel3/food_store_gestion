@@ -30,7 +30,6 @@ from features.checkout.exceptions import (
     PaymentPendingNotAcceptedError,
     PaymentRejectedError,
     PaymentUnexpectedStatusError,
-    UpstreamError,
 )
 from features.checkout.schemas import (
     CheckoutOnlineRequest,
@@ -43,7 +42,7 @@ from features.orders.repository import OrderRepository
 from features.payments.models import Pago
 from features.payments.repository import PaymentRepository
 from features.products.repository import ProductRepository
-from shared.exceptions import BusinessRuleError, NotFoundError
+from shared.exceptions import BusinessRuleError, NotFoundError, UpstreamError
 from shared.unit_of_work import UnitOfWork
 
 if TYPE_CHECKING:
@@ -190,7 +189,10 @@ class CheckoutService:
                 request.idempotency_key,
             )
             if existing_pago is not None:
-                # Return cached result without re-calling MP
+                # Return cached result without re-calling MP. The Pago model
+                # does not persist status_detail (only mp_status, mp_payment_id
+                # and external_reference are stored), so we return an empty
+                # string for status_detail on retries.
                 logger.info(
                     "Returning cached checkout result for idempotency_key=%s",
                     request.idempotency_key
@@ -198,9 +200,9 @@ class CheckoutService:
                 return CheckoutOnlineResponse(
                     pedido_id=existing_pago.pedido_id,
                     pago_id=existing_pago.id,
-                    mp_status=existing_pago.mp_status,
+                    mp_status=existing_pago.mp_status or "approved",
                     mp_id=str(existing_pago.mp_payment_id) if existing_pago.mp_payment_id else "",
-                    status_detail=existing_pago.status_detail or "",
+                    status_detail="",
                 )
 
         # Phase 2: Call MercadoPago (outside UoW as it's external)
@@ -230,8 +232,8 @@ class CheckoutService:
         except Exception as e:
             logger.exception("MercadoPago unreachable: %s", e)
             raise UpstreamError(
+                "MercadoPago no respondió. Intentá de nuevo en un momento.",
                 code="mp_unreachable",
-                detail="MercadoPago no respondió. Intentá de nuevo en un momento."
             )
 
         # Check if MP returned a status
@@ -244,8 +246,8 @@ class CheckoutService:
             error_msg = mp_result.get("message", "Error desconocido")
             logger.error("MP error without status: %s", mp_result)
             raise UpstreamError(
+                f"MercadoPago no devolvió estado: {error_msg}",
                 code="mp_unreachable",
-                detail=f"MercadoPago no devolvió estado: {error_msg}"
             )
 
         # Phase 3: Handle MP status (strict mode - only approved creates order)
@@ -286,15 +288,15 @@ class CheckoutService:
         """
         try:
             with UnitOfWork() as uow:
-                # Create repositories
-                order_repo = OrderRepository(uow.session)
-                payment_repo = PaymentRepository(uow.session)
-
-                # Create Pedido
+                # Create Pedido. forma_pago_codigo is the FK to payment_methods
+                # — for online MP checkout it is always 'TARJETA' (renamed from
+                # MERCADOPAGO in migration 20260514_1200). The request's
+                # payment_method_id is the MP-specific card brand identifier
+                # ('visa', 'master', etc.) and is NOT a valid catalog code.
                 pedido = Pedido(
                     user_id=user_id,
                     estado_codigo="PENDIENTE",
-                    forma_pago_codigo=request.payment_method_id.upper(),
+                    forma_pago_codigo="TARJETA",
                     total=total,
                     direccion_entrega_id=request.direccion_id,
                     costo_envio=COSTO_ENVIO if request.direccion_id else Decimal("0.00"),
@@ -303,15 +305,17 @@ class CheckoutService:
                 uow.session.add(pedido)
                 uow.session.flush()  # Get pedido.id
 
-                # Create DetallePedido items
+                # Create DetallePedido items. The model only persists
+                # nombre/precio snapshots and cantidad — there is no
+                # precio_unitario column.
                 for producto, cantidad, precio_unitario, personalizacion in validated_items:
                     detalle = DetallePedido(
                         pedido_id=pedido.id,
                         producto_id=producto.id,
                         cantidad=cantidad,
-                        precio_unitario=precio_unitario,
                         precio_snapshot=precio_unitario,
                         nombre_snapshot=producto.nombre,
+                        personalizacion=personalizacion or None,
                     )
                     uow.session.add(detalle)
 
@@ -325,13 +329,18 @@ class CheckoutService:
                 )
                 uow.session.add(historial)
 
-                # Create Pago
+                # Create Pago. Required NOT NULL fields per the model:
+                # pedido_id, monto, forma_pago_codigo, idempotency_key.
+                # status_detail is NOT a column on the Pago model — it lives
+                # only in the API response, not in the DB.
                 pago = Pago(
                     pedido_id=pedido.id,
+                    monto=total,
+                    forma_pago_codigo="TARJETA",
+                    idempotency_key=str(request.idempotency_key),
                     mp_status="approved",
                     mp_payment_id=str(mp_payment_id),
                     external_reference=str(request.idempotency_key),
-                    status_detail=status_detail,
                 )
                 uow.session.add(pago)
                 uow.session.flush()  # Get pago.id
@@ -363,11 +372,13 @@ class CheckoutService:
                 user_id,
                 e,
             )
-            # Re-raise as upstream error to indicate system failure
+            # Re-raise as upstream error to indicate system failure.
+            # Uses shared.exceptions.UpstreamError which has a registered
+            # 502 handler in main.py.
             raise UpstreamError(
+                "El pago fue procesado pero hubo un error al guardar el pedido. "
+                "Contactá a soporte con tu comprobante de pago.",
                 code="persistence_failed",
-                detail="El pago fue procesado pero hubo un error al guardar el pedido. "
-                      "Contactá a soporte con tu comprobante de pago."
             )
 
     def crear_pedido_pickup_efectivo(
@@ -390,8 +401,6 @@ class CheckoutService:
             NotFoundError: Product not found
         """
         with UnitOfWork() as uow:
-            order_repo = OrderRepository(uow.session)
-
             # Validate cart and calculate total
             validated_items, total = self._validar_y_calcular_carrito(
                 uow.session,
@@ -415,15 +424,16 @@ class CheckoutService:
             uow.session.add(pedido)
             uow.session.flush()  # Get pedido.id
 
-            # Create DetallePedido items
+            # Create DetallePedido items. The model only persists snapshots
+            # + cantidad — there is no precio_unitario column.
             for producto, cantidad, precio_unitario, personalizacion in validated_items:
                 detalle = DetallePedido(
                     pedido_id=pedido.id,
                     producto_id=producto.id,
                     cantidad=cantidad,
-                    precio_unitario=precio_unitario,
                     precio_snapshot=precio_unitario,
                     nombre_snapshot=producto.nombre,
+                    personalizacion=personalizacion or None,
                 )
                 uow.session.add(detalle)
 
