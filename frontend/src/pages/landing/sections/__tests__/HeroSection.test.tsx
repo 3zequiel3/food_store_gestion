@@ -59,11 +59,14 @@ describe('HeroSection', () => {
     expect(screen.getByTestId('hero-visual')).toBeInTheDocument();
   });
 
-  it('has a two-column grid class at lg breakpoint', () => {
+  it('renders the hero photo as a full-bleed background via <picture> with WebP source', () => {
     renderHero();
-    // The grid container uses lg:grid-cols-[3fr_2fr]
-    const grid = screen.getByTestId('hero-copy').parentElement;
-    expect(grid?.className).toContain('lg:grid-cols-');
+    const picture = screen.getByTestId('hero-visual');
+    expect(picture.tagName).toBe('PICTURE');
+    const webpSource = picture.querySelector('source[type="image/webp"]');
+    expect(webpSource).toBeTruthy();
+    const img = picture.querySelector('img');
+    expect(img?.getAttribute('src')).toMatch(/\/hero\//);
   });
 
   it('does NOT render the old centered Card variant="glass" inline-block pattern', () => {
