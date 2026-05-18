@@ -64,6 +64,35 @@ class CheckoutService:
         """Get configured MercadoPago SDK instance."""
         return mercadopago.SDK(settings.MP_ACCESS_TOKEN)
 
+    @staticmethod
+    def _format_mp_error(mp_result: dict) -> str:
+        """Extract a useful MercadoPago error message from an SDK response body."""
+        causes = mp_result.get("cause")
+        if isinstance(causes, list) and causes:
+            descriptions = []
+            for cause in causes:
+                if not isinstance(cause, dict):
+                    descriptions.append(str(cause))
+                    continue
+
+                code = cause.get("code")
+                description = cause.get("description") or cause.get("message")
+                if code and description:
+                    descriptions.append(f"{code}: {description}")
+                elif description:
+                    descriptions.append(str(description))
+                elif code:
+                    descriptions.append(str(code))
+            if descriptions:
+                return "; ".join(descriptions)
+
+        for key in ("message", "error", "status_detail"):
+            value = mp_result.get(key)
+            if value:
+                return str(value)
+
+        return "Error desconocido"
+
     def _validar_y_calcular_carrito(
         self,
         session: Session,
@@ -149,6 +178,7 @@ class CheckoutService:
         self,
         user_id: int,
         request: CheckoutOnlineRequest,
+        user_email: str | None = None,
     ) -> CheckoutOnlineResponse:
         """
         Create an order with online payment via MercadoPago.
@@ -159,6 +189,7 @@ class CheckoutService:
         Args:
             user_id: Authenticated user ID
             request: CheckoutOnlineRequest with payment details
+            user_email: Authenticated buyer email to send as payer.email to MP
         
         Returns:
             CheckoutOnlineResponse with order and payment IDs
@@ -211,6 +242,7 @@ class CheckoutService:
             custom_headers={"X-Idempotency-Key": str(request.idempotency_key)}
         )
 
+        payer_email = request.payer_email or user_email or ""
         payment_data = {
             "transaction_amount": float(total),
             "token": request.card_token,
@@ -218,6 +250,7 @@ class CheckoutService:
             "installments": request.installments,
             "payment_method_id": request.payment_method_id,
             "payer": {
+                "email": payer_email,
                 "identification": {
                     "type": request.identification_type,
                     "number": request.identification_number,
@@ -225,10 +258,12 @@ class CheckoutService:
             },
             "external_reference": str(request.idempotency_key),
         }
+            },
+            "external_reference": str(request.idempotency_key),
+        }
 
         try:
             mp_response = sdk.payment().create(payment_data, request_options)
-            mp_result = mp_response["response"]
         except Exception as e:
             logger.exception("MercadoPago unreachable: %s", e)
             raise UpstreamError(
@@ -236,17 +271,35 @@ class CheckoutService:
                 code="mp_unreachable",
             )
 
-        # Check if MP returned a status
+        # Check for HTTP-level errors first (400, 401, 403, etc.)
+        http_status = mp_response.get("status")
+        mp_result = mp_response.get("response", {})
+
+        if http_status and http_status >= 400:
+            causes = mp_result.get("cause", [])
+            error_msg = mp_result.get("message", f"MercadoPago error: HTTP {http_status}")
+            if causes:
+                causes_str = ", ".join(
+                    c.get("description", str(c)) for c in causes if isinstance(c, dict)
+                )
+                error_msg = f"{error_msg}: {causes_str}"
+            logger.error("MP API error: http_status=%d, response=%s", http_status, mp_result)
+            raise UpstreamError(
+                f"MercadoPago no procesó la solicitud: {error_msg}",
+                code="mp_bad_request",
+            )
+
+        # Normal flow: check payment status in response body
         mp_status = mp_result.get("status")
         status_detail = mp_result.get("status_detail", "")
         mp_payment_id = mp_result.get("id")
 
-        if mp_status is None:
-            # MP responded but without status (error case)
-            error_msg = mp_result.get("message", "Error desconocido")
-            logger.error("MP error without status: %s", mp_result)
+        if not isinstance(mp_status, str) or not mp_status:
+            # MP responded but without a payment status (error case)
+            error_msg = self._format_mp_error(mp_result)
+            logger.error("MP response without payment status: %s", mp_result)
             raise UpstreamError(
-                f"MercadoPago no devolvió estado: {error_msg}",
+                f"MercadoPago no devolvió estado de pago: {error_msg}",
                 code="mp_unreachable",
             )
 

@@ -9,6 +9,7 @@ import { SecureCardForm } from '../../payments/components/SecureCardForm';
 import { useCheckoutOnline } from '../hooks/useCheckoutOnline';
 import { useCheckoutPickupEfectivo } from '../hooks/useCheckoutPickupEfectivo';
 import { useCartStore } from '../../cart/stores/cartStore';
+import { useAuthStore } from '../../auth/stores/authStore';
 import type {
   CheckoutItem,
   CheckoutOnlineRequest,
@@ -27,6 +28,7 @@ import { Button } from '../../../components/ui/Button';
 export function CheckoutPage() {
   const navigate = useNavigate();
   const items = useCartStore((s) => s.items);
+  const userEmail = useAuthStore((s) => s.user?.email ?? '');
 
   // Local state for selectors
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
@@ -112,6 +114,7 @@ export function CheckoutPage() {
       idempotency_key: idempotencyKey,
       identification_type: identificationType,
       identification_number: identificationNumber,
+      payer_email: userEmail,
     };
 
     checkoutOnlineMutation.mutate(payload);

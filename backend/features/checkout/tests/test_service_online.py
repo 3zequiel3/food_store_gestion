@@ -216,7 +216,7 @@ class TestApprovedCreatesOrder:
             uow_create.session.add.side_effect = added_objects.append
 
             service = CheckoutService()
-            result = service.crear_pedido_online(user_id=1, request=request)
+            result = service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
 
         assert result.mp_status == "approved"
         assert result.mp_id == "mp_123"
@@ -265,7 +265,11 @@ class TestApprovedCreatesOrder:
 
             service = CheckoutService()
             try:
-                service.crear_pedido_online(user_id=1, request=request)
+                service.crear_pedido_online(
+                    user_id=1,
+                    request=request,
+                    user_email="buyer@testuser.com",
+                )
             except Exception:
                 pass  # We only care that SDK was called
 
@@ -273,6 +277,7 @@ class TestApprovedCreatesOrder:
         assert call_args is not None
         payment_data = call_args[0][0]
         assert payment_data["transaction_amount"] == expected_total
+        assert payment_data["payer"]["email"] == "buyer@testuser.com"
 
 
 # ---------------------------------------------------------------------------
@@ -313,7 +318,7 @@ class TestRejectedPayment:
 
             service = CheckoutService()
             with pytest.raises(PaymentRejectedError):
-                service.crear_pedido_online(user_id=1, request=request)
+                service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
 
 
 # ---------------------------------------------------------------------------
@@ -352,7 +357,7 @@ class TestPendingStrictMode:
 
             service = CheckoutService()
             with pytest.raises(PaymentPendingNotAcceptedError):
-                service.crear_pedido_online(user_id=1, request=request)
+                service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
 
     def test_in_process_raises_error(self):
         """Task 3.6 — MP in_process status raises PaymentPendingNotAcceptedError."""
@@ -385,7 +390,7 @@ class TestPendingStrictMode:
 
             service = CheckoutService()
             with pytest.raises(PaymentPendingNotAcceptedError):
-                service.crear_pedido_online(user_id=1, request=request)
+                service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
 
 
 # ---------------------------------------------------------------------------
@@ -424,7 +429,7 @@ class TestCancelledPayment:
 
             service = CheckoutService()
             with pytest.raises(PaymentCancelledError):
-                service.crear_pedido_online(user_id=1, request=request)
+                service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
 
 
 # ---------------------------------------------------------------------------
@@ -463,7 +468,7 @@ class TestUnknownStatus:
 
             service = CheckoutService()
             with pytest.raises(PaymentUnexpectedStatusError):
-                service.crear_pedido_online(user_id=1, request=request)
+                service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
 
 
 # ---------------------------------------------------------------------------
@@ -502,7 +507,7 @@ class TestMPUnreachable:
 
             service = CheckoutService()
             with pytest.raises(UpstreamError) as exc_info:
-                service.crear_pedido_online(user_id=1, request=request)
+                service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
 
         assert exc_info.value.code == "mp_unreachable"
 
@@ -540,9 +545,57 @@ class TestMPUnreachable:
 
             service = CheckoutService()
             with pytest.raises(UpstreamError) as exc_info:
-                service.crear_pedido_online(user_id=1, request=request)
+                service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
 
         assert exc_info.value.code == "mp_unreachable"
+
+    def test_mp_http_400_raises_upstream_error_not_payment_status(self):
+        """MP HTTP 400 must not be interpreted as payment status=400."""
+        producto = _make_producto()
+        request = _make_request()
+
+        with (
+            patch(_UOW_PATH) as MockUoW,
+            patch(_PRODUCT_REPO_PATH) as MockProductRepo,
+            patch(_PAYMENT_REPO_PATH) as MockPaymentRepo,
+            patch(_SDK_PATH) as mock_get_sdk,
+        ):
+            uow_instance = MagicMock()
+            uow_instance.__enter__ = MagicMock(return_value=uow_instance)
+            uow_instance.__exit__ = MagicMock(return_value=False)
+            uow_instance.session = MagicMock()
+            MockUoW.return_value = uow_instance
+
+            prod_repo = MagicMock()
+            prod_repo.read.return_value = producto
+            MockProductRepo.return_value = prod_repo
+
+            pay_repo = MagicMock()
+            pay_repo.find_by_external_reference.return_value = None
+            MockPaymentRepo.return_value = pay_repo
+
+            sdk_mock = MagicMock()
+            sdk_mock.payment.return_value.create.return_value = {
+                "status": 400,
+                "response": {
+                    "status": 400,
+                    "message": "bad_request",
+                    "cause": [
+                        {
+                            "code": 4000,
+                            "description": "Token attribute can't be null",
+                        }
+                    ],
+                },
+            }
+            mock_get_sdk.return_value = sdk_mock
+
+            service = CheckoutService()
+            with pytest.raises(UpstreamError) as exc_info:
+                service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
+
+        assert exc_info.value.code == "mp_bad_request"
+        assert "4000" in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------
@@ -587,7 +640,7 @@ class TestIdempotency:
             mock_get_sdk.return_value = sdk_mock
 
             service = CheckoutService()
-            result = service.crear_pedido_online(user_id=1, request=request)
+            result = service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
 
         # MP SDK should NOT have been called
         sdk_mock.payment.return_value.create.assert_not_called()
@@ -627,7 +680,7 @@ class TestProductValidation:
 
             service = CheckoutService()
             with pytest.raises(NotFoundError):
-                service.crear_pedido_online(user_id=1, request=request)
+                service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
 
     def test_unavailable_product_raises_business_rule(self):
         """Task 3.13 — product with disponible=False raises BusinessRuleError."""
@@ -655,7 +708,7 @@ class TestProductValidation:
 
             service = CheckoutService()
             with pytest.raises(BusinessRuleError) as exc_info:
-                service.crear_pedido_online(user_id=1, request=request)
+                service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
 
         assert exc_info.value.code == "product_not_available"
 
@@ -685,6 +738,6 @@ class TestProductValidation:
 
             service = CheckoutService()
             with pytest.raises(BusinessRuleError) as exc_info:
-                service.crear_pedido_online(user_id=1, request=request)
+                service.crear_pedido_online(user_id=1, request=request, user_email="buyer@testuser.com")
 
         assert exc_info.value.code == "insufficient_stock"

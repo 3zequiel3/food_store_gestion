@@ -48,6 +48,7 @@ export interface CheckoutOnlineRequest {
   idempotency_key: UUIDString;
   identification_type: string;
   identification_number: string;
+  payer_email: string;
 }
 
 /**
