@@ -4,9 +4,11 @@ export type EstadoCodigo =
   | 'EN_PREPARACION'
   | 'TERMINADO'
   | 'ENTREGADO'
-  | 'CANCELADO';
+  | 'CANCELADO'
+  | 'CANCELADO_ADMIN'
+  | 'CANCELADO_CLIENTE';
 
-export type FormaPagoCodigo = 'EFECTIVO' | 'MERCADOPAGO';
+export type FormaPagoCodigo = 'EFECTIVO' | 'TARJETA';
 
 export interface PedidoListItem {
   id: number;

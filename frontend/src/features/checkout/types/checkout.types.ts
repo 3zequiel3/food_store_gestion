@@ -6,6 +6,12 @@
  */
 
 /**
+ * Semantic alias for UUID strings.
+ * Runtime validation comes from backend Pydantic and crypto.randomUUID() generation.
+ */
+export type UUIDString = string;
+
+/**
  * Payment method available at checkout.
  * Mirrors backend's FormaPago serialized via GET /api/v1/formas-pago.
  */
@@ -35,11 +41,11 @@ export interface CheckoutOnlineRequest {
   direccion_id: number | null;
   notas: string | null;
   
-  // Payment fields (MercadoPago)
+  // Payment fields (Tarjeta)
   card_token: string;
   payment_method_id: string;
   installments: number;
-  idempotency_key: string; // UUID4
+  idempotency_key: UUIDString;
   identification_type: string;
   identification_number: string;
 }

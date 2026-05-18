@@ -132,7 +132,7 @@ export function CheckoutPage() {
       return;
     }
 
-    if (selectedPaymentMethod === 'MERCADOPAGO') {
+    if (selectedPaymentMethod === 'TARJETA') {
       handleCheckoutOnline();
     } else if (selectedPaymentMethod === 'EFECTIVO') {
       handleCheckoutPickupEfectivo();
@@ -144,10 +144,10 @@ export function CheckoutPage() {
   const isSubmitDisabled =
     !selectedPaymentMethod ||
     isProcessing ||
-    (selectedPaymentMethod === 'MERCADOPAGO' && !isOnlinePaymentReady);
+    (selectedPaymentMethod === 'TARJETA' && !isOnlinePaymentReady);
 
-  // Show PaymentForm when MERCADOPAGO is selected
-  const showPaymentForm = selectedPaymentMethod === 'MERCADOPAGO';
+  // Show PaymentForm when TARJETA is selected
+  const showPaymentForm = selectedPaymentMethod === 'TARJETA';
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
@@ -184,7 +184,7 @@ export function CheckoutPage() {
             />
           </div>
 
-          {/* Inline PaymentForm for MERCADOPAGO */}
+          {/* Inline PaymentForm for TARJETA */}
           {showPaymentForm && (
             <div className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-5 shadow-sm">
               <h3 className="text-lg font-semibold mb-4">Datos de la tarjeta</h3>
@@ -222,7 +222,7 @@ export function CheckoutPage() {
           >
             {isProcessing
               ? 'Procesando...'
-              : selectedPaymentMethod === 'MERCADOPAGO'
+              : selectedPaymentMethod === 'TARJETA'
               ? 'Confirmar y pagar'
               : 'Confirmar pedido'}
           </Button>
@@ -233,7 +233,7 @@ export function CheckoutPage() {
             </p>
           )}
 
-          {selectedPaymentMethod === 'MERCADOPAGO' && !isOnlinePaymentReady && (
+          {selectedPaymentMethod === 'TARJETA' && !isOnlinePaymentReady && (
             <p className="text-xs text-center text-muted-foreground">
               Completá los datos de la tarjeta para continuar
             </p>
