@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CreditCard, Loader2, AlertCircle, ArrowLeft, CheckCircle } from 'lucide-react';
+import { CreditCard, Loader2, AlertCircle, ArrowLeft, CheckCircle, Clock } from 'lucide-react';
 import { PaymentForm } from '../../features/payments/components/PaymentForm';
 import { useOrderDetail } from '../../features/orders/hooks/useOrderDetail';
 import type { PaymentResponse } from '../../features/payments/types/payments.types';
+
+interface PendingState {
+  response: PaymentResponse;
+  message: string;
+}
 
 export function PaymentPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +19,7 @@ export function PaymentPage() {
 
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState<PaymentResponse | null>(null);
+  const [paymentPending, setPaymentPending] = useState<PendingState | null>(null);
 
   if (!pedidoId) {
     return (
@@ -74,8 +80,32 @@ export function PaymentPage() {
     );
   }
 
+  // D9: Static pending panel — no auto-polling (deferred to payments-pending-polling change)
+  if (paymentPending) {
+    return (
+      <div className="max-w-md mx-auto py-20 px-4 text-center space-y-4">
+        <Clock className="h-12 w-12 text-amber-500 mx-auto" />
+        <h1 className="text-xl font-semibold text-foreground">Pago en revisión</h1>
+        <p className="text-muted-foreground text-sm">{paymentPending.message}</p>
+        <p className="text-muted-foreground text-xs">
+          Te avisaremos por mail cuando se confirme el pago.
+        </p>
+        <button
+          onClick={() => navigate(`/cliente/pedidos/${pedidoId}/confirmacion`)}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+        >
+          Ver estado del pedido
+        </button>
+      </div>
+    );
+  }
+
   function handleSuccess(response: PaymentResponse) {
     setPaymentSuccess(response);
+  }
+
+  function handlePending(response: PaymentResponse, message: string) {
+    setPaymentPending({ response, message });
   }
 
   function handleError(message: string) {
@@ -124,6 +154,7 @@ export function PaymentPage() {
         <PaymentForm
           pedidoId={pedidoId}
           onSuccess={handleSuccess}
+          onPending={handlePending}
           onError={handleError}
         />
       </div>

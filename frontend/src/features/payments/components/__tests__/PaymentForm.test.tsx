@@ -8,7 +8,11 @@ vi.mock('../../services/payments.service', () => ({
 }));
 
 vi.mock('../SecureCardForm', () => ({
-  SecureCardForm: ({ onSubmit, onError, isLoading }: {
+  SecureCardForm: ({
+    onSubmit,
+    onError,
+    isLoading,
+  }: {
     onSubmit: (token: string, pmId: string, idType: string, idNumber: string) => void;
     onError: (msg: string) => void;
     isLoading?: boolean;
@@ -21,10 +25,7 @@ vi.mock('../SecureCardForm', () => ({
       >
         Pay
       </button>
-      <button
-        data-testid="mock-error"
-        onClick={() => onError('Card declined')}
-      >
+      <button data-testid="mock-error" onClick={() => onError('Card declined')}>
         Simulate Error
       </button>
     </div>
@@ -32,6 +33,26 @@ vi.mock('../SecureCardForm', () => ({
 }));
 
 const mockCreateInlinePayment = vi.mocked(paymentsService.createInlinePayment);
+
+// Helper: renderiza PaymentForm con todos los callbacks
+function renderPaymentForm(overrides?: Partial<{
+  onSuccess: ReturnType<typeof vi.fn>;
+  onPending: ReturnType<typeof vi.fn>;
+  onError: ReturnType<typeof vi.fn>;
+}>) {
+  const onSuccess = overrides?.onSuccess ?? vi.fn();
+  const onPending = overrides?.onPending ?? vi.fn();
+  const onError = overrides?.onError ?? vi.fn();
+  render(
+    <PaymentForm
+      pedidoId={1}
+      onSuccess={onSuccess}
+      onPending={onPending}
+      onError={onError}
+    />,
+  );
+  return { onSuccess, onPending, onError };
+}
 
 describe('PaymentForm', () => {
   beforeEach(() => {
@@ -43,18 +64,10 @@ describe('PaymentForm', () => {
       mp_status: 'approved',
       mp_id: 'mp_1',
       status_detail: 'accredited',
+      pago_id: 7,
     });
 
-    const onSuccess = vi.fn();
-    const onError = vi.fn();
-
-    render(
-      <PaymentForm
-        pedidoId={1}
-        onSuccess={onSuccess}
-        onError={onError}
-      />,
-    );
+    const { onSuccess } = renderPaymentForm();
 
     fireEvent.click(screen.getByTestId('mock-submit'));
 
@@ -70,7 +83,6 @@ describe('PaymentForm', () => {
         }),
       );
     });
-    // idempotency_key should be a valid UUID
     expect(mockCreateInlinePayment).toHaveBeenCalledWith(
       expect.objectContaining({
         idempotency_key: expect.stringMatching(
@@ -78,126 +90,195 @@ describe('PaymentForm', () => {
         ),
       }),
     );
+    expect(onSuccess).toHaveBeenCalled();
   });
 
-  it('calls onSuccess when payment is approved', async () => {
-    const response = { mp_status: 'approved', mp_id: 'mp_1', status_detail: 'accredited' };
+  // Task 8.3 — dispara onSuccess cuando mp_status es approved
+  it('dispara onSuccess cuando mp_status es approved', async () => {
+    const response = {
+      mp_status: 'approved',
+      mp_id: 'mp_1',
+      status_detail: 'accredited',
+      pago_id: 7,
+    };
     mockCreateInlinePayment.mockResolvedValueOnce(response);
 
-    const onSuccess = vi.fn();
-    const onError = vi.fn();
-
-    render(
-      <PaymentForm
-        pedidoId={1}
-        onSuccess={onSuccess}
-        onError={onError}
-      />,
-    );
+    const { onSuccess, onPending, onError } = renderPaymentForm();
 
     fireEvent.click(screen.getByTestId('mock-submit'));
 
     await waitFor(() => {
       expect(onSuccess).toHaveBeenCalledWith(response);
     });
+    expect(onPending).not.toHaveBeenCalled();
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it('calls onError when payment is rejected', async () => {
+  // Task 8.4 — dispara onPending cuando mp_status es pending con mensaje user-friendly
+  it('dispara onPending cuando mp_status es pending con mensaje user-friendly', async () => {
     mockCreateInlinePayment.mockResolvedValueOnce({
-      mp_status: 'rejected',
-      mp_id: null,
-      status_detail: 'cc_rejected_bad_filled_card_number',
+      mp_status: 'pending',
+      mp_id: 'mp_2',
+      status_detail: 'pending_review_manual',
+      pago_id: 8,
     });
 
-    const onSuccess = vi.fn();
-    const onError = vi.fn();
-
-    render(
-      <PaymentForm
-        pedidoId={1}
-        onSuccess={onSuccess}
-        onError={onError}
-      />,
-    );
+    const { onSuccess, onPending, onError } = renderPaymentForm();
 
     fireEvent.click(screen.getByTestId('mock-submit'));
 
     await waitFor(() => {
-      expect(onError).toHaveBeenCalledWith('cc_rejected_bad_filled_card_number');
+      expect(onPending).toHaveBeenCalledWith(
+        expect.objectContaining({ mp_status: 'pending' }),
+        'Tu pago está en revisión. Te avisaremos cuando se confirme.',
+      );
     });
     expect(onSuccess).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
   });
 
-  it('calls onError with default message when rejected without detail', async () => {
+  // Task 8.5 — dispara onPending cuando mp_status es in_process
+  it('dispara onPending cuando mp_status es in_process', async () => {
     mockCreateInlinePayment.mockResolvedValueOnce({
-      mp_status: 'rejected',
-      mp_id: null,
-      status_detail: null,
+      mp_status: 'in_process',
+      mp_id: 'mp_3',
+      status_detail: 'pending_waiting_payment',
+      pago_id: 9,
     });
 
-    const onSuccess = vi.fn();
-    const onError = vi.fn();
-
-    render(
-      <PaymentForm
-        pedidoId={1}
-        onSuccess={onSuccess}
-        onError={onError}
-      />,
-    );
+    const { onPending, onSuccess, onError } = renderPaymentForm();
 
     fireEvent.click(screen.getByTestId('mock-submit'));
 
     await waitFor(() => {
-      expect(onError).toHaveBeenCalledWith('Pago rechazado. Intentá con otra tarjeta.');
+      expect(onPending).toHaveBeenCalledWith(
+        expect.objectContaining({ mp_status: 'in_process' }),
+        'Tu pago está pendiente de procesamiento.',
+      );
+    });
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  // Task 8.6 — dispara onPending cuando mp_status es authorized
+  it('dispara onPending cuando mp_status es authorized', async () => {
+    mockCreateInlinePayment.mockResolvedValueOnce({
+      mp_status: 'authorized',
+      mp_id: 'mp_4',
+      status_detail: null,
+      pago_id: 10,
+    });
+
+    const { onPending, onSuccess, onError } = renderPaymentForm();
+
+    fireEvent.click(screen.getByTestId('mock-submit'));
+
+    await waitFor(() => {
+      expect(onPending).toHaveBeenCalled();
+    });
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  // Task 8.7 — dispara onError con status_detail mapeado cuando rejected
+  it('dispara onError con status_detail mapeado cuando rejected y status_detail es cc_rejected_insufficient_amount', async () => {
+    mockCreateInlinePayment.mockResolvedValueOnce({
+      mp_status: 'rejected',
+      mp_id: null,
+      status_detail: 'cc_rejected_insufficient_amount',
+      pago_id: 11,
+    });
+
+    const { onError, onSuccess, onPending } = renderPaymentForm();
+
+    fireEvent.click(screen.getByTestId('mock-submit'));
+
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledWith('Saldo insuficiente. Probá con otra tarjeta.');
+    });
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(onPending).not.toHaveBeenCalled();
+  });
+
+  // Task 8.8 — dispara onError con status_detail crudo cuando not mapped
+  it('dispara onError con status_detail crudo cuando rejected y status_detail no está mapeado', async () => {
+    mockCreateInlinePayment.mockResolvedValueOnce({
+      mp_status: 'rejected',
+      mp_id: null,
+      status_detail: 'cc_some_new_detail_unknown',
+      pago_id: 12,
+    });
+
+    const { onError } = renderPaymentForm();
+
+    fireEvent.click(screen.getByTestId('mock-submit'));
+
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledWith('cc_some_new_detail_unknown');
     });
   });
 
-  it('calls onError when payment is cancelled', async () => {
+  // Task 8.9 — dispara onError cuando mp_status es cancelled
+  it('dispara onError cuando mp_status es cancelled', async () => {
     mockCreateInlinePayment.mockResolvedValueOnce({
       mp_status: 'cancelled',
       mp_id: null,
       status_detail: null,
+      pago_id: 13,
     });
 
-    const onSuccess = vi.fn();
-    const onError = vi.fn();
-
-    render(
-      <PaymentForm
-        pedidoId={1}
-        onSuccess={onSuccess}
-        onError={onError}
-      />,
-    );
+    const { onError, onSuccess, onPending } = renderPaymentForm();
 
     fireEvent.click(screen.getByTestId('mock-submit'));
 
     await waitFor(() => {
-      expect(onError).toHaveBeenCalledWith('Pago rechazado. Intentá con otra tarjeta.');
+      expect(onError).toHaveBeenCalledWith('Sin información adicional.');
     });
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(onPending).not.toHaveBeenCalled();
   });
 
-  it('disables submit during processing', async () => {
-    mockCreateInlinePayment.mockImplementation(
-      () => new Promise(() => {}),
-    );
+  // Task 8.10 — dispara onError con "Resultado inesperado" cuando mp_status es refunded
+  it('dispara onError con mensaje "Resultado inesperado" cuando mp_status es refunded', async () => {
+    mockCreateInlinePayment.mockResolvedValueOnce({
+      mp_status: 'refunded',
+      mp_id: null,
+      status_detail: null,
+      pago_id: 14,
+    });
 
-    const onSuccess = vi.fn();
-    const onError = vi.fn();
-
-    render(
-      <PaymentForm
-        pedidoId={1}
-        onSuccess={onSuccess}
-        onError={onError}
-      />,
-    );
+    const { onError } = renderPaymentForm();
 
     fireEvent.click(screen.getByTestId('mock-submit'));
 
-    // The button should be disabled because isLoading=true
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledWith('Resultado inesperado: refunded');
+    });
+  });
+
+  // Task 8.11 — cae al catch y dispara onError cuando createInlinePayment rechaza con ApiError
+  it('cae al catch y dispara onError cuando createInlinePayment rechaza con ApiError', async () => {
+    const error = new Error('502 mp_unreachable');
+    mockCreateInlinePayment.mockRejectedValueOnce(error);
+
+    const { onError, onSuccess, onPending } = renderPaymentForm();
+
+    fireEvent.click(screen.getByTestId('mock-submit'));
+
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledWith('502 mp_unreachable');
+    });
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(onPending).not.toHaveBeenCalled();
+  });
+
+  it('disables submit during processing', async () => {
+    mockCreateInlinePayment.mockImplementation(() => new Promise(() => {}));
+
+    renderPaymentForm();
+
+    fireEvent.click(screen.getByTestId('mock-submit'));
+
     expect(screen.getByTestId('mock-submit')).toBeDisabled();
   });
 });

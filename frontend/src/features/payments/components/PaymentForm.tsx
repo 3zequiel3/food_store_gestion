@@ -1,15 +1,23 @@
 import { useState } from 'react';
 import { SecureCardForm } from './SecureCardForm';
 import { createInlinePayment } from '../services/payments.service';
+import { friendlyMessageFor } from '../lib/statusDetailMessages';
 import type { PaymentResponse } from '../types/payments.types';
+
+// Design decision D6: classify MP statuses into 4 semantic buckets.
+const TERMINAL_SUCCESS = ['approved'] as const;
+const PENDING_REVIEW = ['pending', 'in_process', 'authorized'] as const;
+const TERMINAL_FAILURE = ['rejected', 'cancelled'] as const;
 
 interface PaymentFormProps {
   pedidoId: number;
   onSuccess: (response: PaymentResponse) => void;
+  /** Called when MP returns a pending/in_process/authorized status. */
+  onPending: (response: PaymentResponse, message: string) => void;
   onError: (message: string) => void;
 }
 
-export function PaymentForm({ pedidoId, onSuccess, onError }: PaymentFormProps) {
+export function PaymentForm({ pedidoId, onSuccess, onPending, onError }: PaymentFormProps) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   async function handlePaymentSubmit(
@@ -30,13 +38,19 @@ export function PaymentForm({ pedidoId, onSuccess, onError }: PaymentFormProps) 
         identification_number: identificationNumber,
       });
 
-      if (response.mp_status === 'approved') {
+      const status = response.mp_status;
+
+      if ((TERMINAL_SUCCESS as readonly string[]).includes(status)) {
         onSuccess(response);
-      } else if (response.mp_status === 'rejected' || response.mp_status === 'cancelled') {
-        const detail = response.status_detail ?? 'Pago rechazado. Intentá con otra tarjeta.';
-        onError(detail);
+      } else if ((PENDING_REVIEW as readonly string[]).includes(status)) {
+        const message = friendlyMessageFor(response.status_detail);
+        onPending(response, message);
+      } else if ((TERMINAL_FAILURE as readonly string[]).includes(status)) {
+        const message = friendlyMessageFor(response.status_detail);
+        onError(message);
       } else {
-        onError(`Estado de pago inesperado: ${response.mp_status}`);
+        // Unexpected status (e.g. refunded, charged_back)
+        onError(`Resultado inesperado: ${status}`);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error al procesar el pago.';
