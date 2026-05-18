@@ -25,8 +25,6 @@ import { AdminCategoriasPage } from '../pages/admin/AdminCategoriasPage';
 import { AdminIngredientesPage } from '../pages/admin/AdminIngredientesPage';
 import { AdminProfilePage } from '../pages/admin/AdminProfilePage';
 import { MisPedidosPage } from '../pages/client/MisPedidosPage';
-import { PaymentPage } from '../pages/client/PaymentPage';
-import { PaymentResultPage } from '../pages/client/PaymentResultPage';
 
 /**
  * Redirige la raíz `/` según el rol del usuario:
@@ -105,8 +103,6 @@ export default function AppRoute() {
                 element={<MisPedidosPage />}
               />
               <Route path="pedidos/:id/confirmacion" element={<OrderConfirmationPage />} />
-              <Route path="pedidos/:id/pago" element={<PaymentPage />} />
-              <Route path="pago/resultado" element={<PaymentResultPage />} />
               <Route path="direcciones" element={<AddressesPage />} />
               <Route path="perfil" element={<ProfilePage />} />
               <Route path="checkout" element={<CheckoutPage />} />
