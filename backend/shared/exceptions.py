@@ -64,3 +64,14 @@ class InvalidStateTransitionError(ConflictError):
     def __init__(self, detail: str = "Invalid state transition") -> None:
         super().__init__(detail)
         self.code = "state_transition_conflict"
+
+
+class UpstreamError(FoodStoreError):
+    """External upstream service (e.g. MercadoPago) did not respond or returned an error.
+
+    Maps to HTTP 502 Bad Gateway.
+    The code field identifies the upstream: e.g. "mp_unreachable".
+    """
+
+    def __init__(self, detail: str, code: str = "upstream_error") -> None:
+        super().__init__(detail, code=code)

@@ -31,6 +31,7 @@ from shared.exceptions import (
     ValidationError,
     BusinessRuleError,
     ConflictError,
+    UpstreamError,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,17 @@ async def validation_error_handler(request: Request, exc: ValidationError) -> JS
     if exc.field:
         extra["errors"] = [{"field": exc.field, "message": exc.detail}]
     return _problem_response(422, "Validation Error", "Invalid input data", str(request.url.path), extra)
+
+
+async def upstream_error_handler(request: Request, exc: UpstreamError) -> JSONResponse:
+    """Map UpstreamError (e.g. mp_unreachable) to HTTP 502 Bad Gateway with Problem Details."""
+    return _problem_response(
+        502,
+        "Bad Gateway",
+        exc.detail,
+        str(request.url.path),
+        {"code": exc.code},
+    )
 
 
 async def business_rule_handler(request: Request, exc: BusinessRuleError) -> JSONResponse:

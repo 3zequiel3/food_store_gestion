@@ -52,6 +52,23 @@ class PagoCreate(BaseModel):
         return v
 
 
+class PagoCreateResponse(BaseModel):
+    """
+    Response body for POST /api/v1/pagos/ (Checkout API).
+
+    Returned whenever MercadoPago responds with a status, regardless of
+    whether the payment was approved, pending, rejected, or cancelled.
+    Never returned when MP fails to respond (502 mp_unreachable instead).
+    """
+
+    mp_status: str
+    mp_id: Optional[str] = None
+    status_detail: str
+    pago_id: int
+
+    model_config = ConfigDict(from_attributes=False)
+
+
 class PagoRead(BaseModel):
     id: int
     pedido_id: int

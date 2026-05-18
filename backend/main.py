@@ -29,6 +29,7 @@ from shared.exceptions import (
     ConflictError,
     ValidationError,
     BusinessRuleError,
+    UpstreamError,
 )
 from shared.error_handler import (
     not_found_handler,
@@ -37,6 +38,7 @@ from shared.error_handler import (
     conflict_handler,
     validation_error_handler,
     business_rule_handler,
+    upstream_error_handler,
     request_validation_handler,
     http_exception_handler,
     generic_exception_handler,
@@ -116,6 +118,7 @@ app.add_exception_handler(ForbiddenError, forbidden_handler)
 app.add_exception_handler(UnauthorizedError, unauthorized_handler)
 app.add_exception_handler(ConflictError, conflict_handler)
 app.add_exception_handler(ValidationError, validation_error_handler)
+app.add_exception_handler(UpstreamError, upstream_error_handler)  # 502 for MP/upstream failures
 app.add_exception_handler(BusinessRuleError, business_rule_handler)
 app.add_exception_handler(RequestValidationError, request_validation_handler)
 # HTTPException covers both manually raised FastAPI HTTPException AND
