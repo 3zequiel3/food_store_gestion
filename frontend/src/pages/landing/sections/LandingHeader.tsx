@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ShoppingBag } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { useAuthStore } from '../../../features/auth/stores/authStore';
 
@@ -20,6 +20,15 @@ export function LandingHeader() {
         </button>
 
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/cliente/catalogo')}
+            leftIcon={<ShoppingBag className="h-4 w-4" />}
+          >
+            Shop
+          </Button>
+
           {isAuthenticated ? (
             <Button
               variant="primary"

@@ -9,10 +9,12 @@ import {
   ListOrdered,
   MapPin,
   User,
+  Home,
   ChevronRight,
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
+  LogIn,
 } from 'lucide-react';
 import { useAuthStore } from '../../features/auth/stores/authStore';
 import { SidebarFooter } from './SidebarFooter';
@@ -59,6 +61,11 @@ const ADMIN_NAV: NavItem[] = [
 
 const CLIENT_NAV: NavItem[] = [
   {
+    label: 'Inicio',
+    path: '/',
+    icon: <Home className="h-5 w-5" />,
+  },
+  {
     label: 'Catálogo',
     path: '/cliente/catalogo',
     icon: <ShoppingBag className="h-5 w-5" />,
@@ -91,7 +98,9 @@ function SidebarItem({ item, isExpanded }: SidebarItemProps) {
 
   const isActive = hasSubItems
     ? item.subItems!.some((sub) => location.pathname.startsWith(sub.path))
-    : location.pathname.startsWith(item.path);
+    : item.path === '/'
+      ? location.pathname === '/'
+      : location.pathname.startsWith(item.path);
 
   const [subMenuOpen, setSubMenuOpen] = useState(isActive);
 
@@ -189,17 +198,19 @@ export function Sidebar({ onLockChange }: SidebarProps) {
   const isExpanded =
     mode === 'locked-open' || (mode === 'hover' && mouseInside);
 
-  // D1 — Guard temprano: Sidebar no se renderiza para visitantes anónimos.
   const user = useAuthStore((s) => s.user);
   const hasAdmin = useAuthStore((s) => s.hasRole('ADMIN'));
   const hasPedidos = useAuthStore((s) => s.hasRole('PEDIDOS'));
   const hasStock = useAuthStore((s) => s.hasRole('STOCK'));
 
-  // If no authenticated user, render nothing (avoid user.roles access crash)
-  if (!user) return null;
-
-  const navItems =
-    hasAdmin || hasPedidos || hasStock ? ADMIN_NAV : CLIENT_NAV;
+  const navItems = !user
+    ? [
+        { label: 'Inicio', path: '/', icon: <Home className="h-5 w-5" /> },
+        { label: 'Catálogo', path: '/cliente/catalogo', icon: <ShoppingBag className="h-5 w-5" /> },
+      ]
+    : hasAdmin || hasPedidos || hasStock
+      ? ADMIN_NAV
+      : CLIENT_NAV;
 
   const handleToggle = () => {
     const next: SidebarMode =
@@ -264,7 +275,20 @@ export function Sidebar({ onLockChange }: SidebarProps) {
         </div>
       </nav>
 
-      <SidebarFooter isExpanded={isExpanded} />
+      {user ? (
+        <SidebarFooter isExpanded={isExpanded} />
+      ) : (
+        <div className="border-t border-chrome-border/50 p-2">
+          <Link
+            to="/login"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors ${!isExpanded ? 'justify-center' : ''}`}
+            title={!isExpanded ? 'Acceder' : undefined}
+          >
+            <LogIn className="h-4 w-4 flex-shrink-0" />
+            {isExpanded && <span>Acceder</span>}
+          </Link>
+        </div>
+      )}
     </aside>
   );
 }

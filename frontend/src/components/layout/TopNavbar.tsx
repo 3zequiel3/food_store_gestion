@@ -61,23 +61,6 @@ export function TopNavbar({ onCartOpen }: TopNavbarProps) {
             </button>
           )}
 
-          {/* D2 — Anonymous variant: Login + Register CTAs */}
-          {!user && (
-            <div className="flex items-center gap-1">
-              <Link
-                to="/login"
-                className="flex h-8 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground hover:bg-glass-hover hover:text-primary transition-all duration-150"
-              >
-                Iniciar sesión
-              </Link>
-              <Link
-                to="/register"
-                className="flex h-8 items-center rounded-lg px-3 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-150 shadow-sm shadow-primary/20"
-              >
-                Registrarse
-              </Link>
-            </div>
-          )}
 
           {/* D2 — Authenticated variant: avatar/initials (mobile-only, sm+ handled by Sidebar/BottomNav) */}
           {user && (
