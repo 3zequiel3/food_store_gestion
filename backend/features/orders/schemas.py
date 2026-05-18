@@ -93,7 +93,7 @@ class AvanzarEstadoRequest(BaseModel):
     cancellations from CONFIRMADO or EN_PREPARACION.
     """
 
-    nuevo_estado: Literal["CANCELADO", "EN_PREPARACION", "TERMINADO", "ENTREGADO"]
+    nuevo_estado: Literal["CANCELADO", "CANCELADO_ADMIN", "CANCELADO_CLIENTE", "EN_PREPARACION", "TERMINADO", "ENTREGADO"]
     motivo: Optional[str] = Field(
         default=None,
         max_length=500,

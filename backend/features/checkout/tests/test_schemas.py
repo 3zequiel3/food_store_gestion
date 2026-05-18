@@ -5,7 +5,7 @@ import uuid
 import pytest
 from pydantic import ValidationError
 
-from backend.features.checkout.schemas import (
+from features.checkout.schemas import (
     CheckoutErrorResponse,
     CheckoutItem,
     CheckoutOnlineRequest,

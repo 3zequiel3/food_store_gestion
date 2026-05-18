@@ -96,10 +96,10 @@ class CheckoutService:
 
         for item in items:
             # Validate product exists and is available
-            producto = product_repo.find_by_id(item.producto_id)
+            producto = product_repo.read(item.producto_id)
             if producto is None:
                 raise NotFoundError(f"Producto no encontrado: id={item.producto_id}")
-            
+
             if not producto.disponible:
                 raise BusinessRuleError(
                     f"El producto '{producto.nombre}' no está disponible",
@@ -107,11 +107,11 @@ class CheckoutService:
                 )
 
             # Validate stock
-            if producto.stock is not None and producto.stock >= 0:
-                if item.cantidad > producto.stock:
+            if producto.stock_cantidad is not None and producto.stock_cantidad >= 0:
+                if item.cantidad > producto.stock_cantidad:
                     raise BusinessRuleError(
                         f"Stock insuficiente para '{producto.nombre}': "
-                        f"disponible {producto.stock}, solicitado {item.cantidad}",
+                        f"disponible {producto.stock_cantidad}, solicitado {item.cantidad}",
                         code="insufficient_stock"
                     )
 

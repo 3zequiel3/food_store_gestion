@@ -177,17 +177,17 @@ class TestFlowEstados:
         url = ESTADO_URL.format(pedido_id=pedido.id)
         r = client.patch(
             url,
-            json={"nuevo_estado": "CANCELADO", "motivo": "Problema con el proveedor"},
+            json={"nuevo_estado": "CANCELADO_ADMIN", "motivo": "Problema con el proveedor"},
             headers=auth_headers_admin_e2e,
         )
         assert r.status_code == 200
-        assert r.json()["estado_codigo"] == "CANCELADO"
+        assert r.json()["estado_codigo"] == "CANCELADO_ADMIN"
 
         test_db_session.expire_all()
         historial = test_db_session.execute(
             select(HistorialEstadoPedido).where(
                 HistorialEstadoPedido.pedido_id == pedido.id,
-                HistorialEstadoPedido.estado_nuevo_codigo == "CANCELADO",
+                HistorialEstadoPedido.estado_nuevo_codigo == "CANCELADO_ADMIN",
             )
         ).scalar_one_or_none()
         assert historial is not None
@@ -233,7 +233,7 @@ class TestFlowEstados:
         # Without motivo → 422
         r_no_motivo = client.patch(
             url,
-            json={"nuevo_estado": "CANCELADO"},
+            json={"nuevo_estado": "CANCELADO_ADMIN"},
             headers=auth_headers_admin_e2e,
         )
         assert r_no_motivo.status_code == 422
@@ -241,7 +241,7 @@ class TestFlowEstados:
         # With motivo → 200
         r_con_motivo = client.patch(
             url,
-            json={"nuevo_estado": "CANCELADO", "motivo": "Cierre anticipado del local"},
+            json={"nuevo_estado": "CANCELADO_ADMIN", "motivo": "Cierre anticipado del local"},
             headers=auth_headers_admin_e2e,
         )
         assert r_con_motivo.status_code == 200

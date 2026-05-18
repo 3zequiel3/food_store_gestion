@@ -13,17 +13,17 @@ BEGIN;
 CREATE TEMP TABLE IF NOT EXISTS orphan_orders_log AS
 SELECT 
     o.id as pedido_id,
-    o.usuario_id,
+    o.user_id,
     o.estado_codigo,
-    o.created_at,
+    o.creado_en,
     o.total,
     (SELECT COUNT(*) FROM order_items oi WHERE oi.pedido_id = o.id) as cantidad_items
 FROM orders o
 WHERE o.estado_codigo = 'PENDIENTE'
     AND NOT EXISTS (
         SELECT 1 
-        FROM pagos p 
-        WHERE p.pedido_id = o.id 
+        FROM payments p
+        WHERE p.pedido_id = o.id
             AND p.mp_status = 'approved'
     );
 
@@ -45,13 +45,13 @@ END $$;
 -- Eliminar items de pedidos huérfanos (referencias en order_items)
 DELETE FROM order_items oi
 WHERE oi.pedido_id IN (
-    SELECT o.id 
+    SELECT o.id
     FROM orders o
     WHERE o.estado_codigo = 'PENDIENTE'
         AND NOT EXISTS (
-            SELECT 1 
-            FROM pagos p 
-            WHERE p.pedido_id = o.id 
+            SELECT 1
+            FROM payments p
+            WHERE p.pedido_id = o.id
                 AND p.mp_status = 'approved'
         )
 );
@@ -59,13 +59,13 @@ WHERE oi.pedido_id IN (
 -- Eliminar historial de estado de pedidos huérfanos
 DELETE FROM order_state_history osh
 WHERE osh.pedido_id IN (
-    SELECT o.id 
+    SELECT o.id
     FROM orders o
     WHERE o.estado_codigo = 'PENDIENTE'
         AND NOT EXISTS (
-            SELECT 1 
-            FROM pagos p 
-            WHERE p.pedido_id = o.id 
+            SELECT 1
+            FROM payments p
+            WHERE p.pedido_id = o.id
                 AND p.mp_status = 'approved'
         )
 );
@@ -75,8 +75,8 @@ DELETE FROM orders o
 WHERE o.estado_codigo = 'PENDIENTE'
     AND NOT EXISTS (
         SELECT 1 
-        FROM pagos p 
-        WHERE p.pedido_id = o.id 
+        FROM payments p
+        WHERE p.pedido_id = o.id
             AND p.mp_status = 'approved'
     );
 
@@ -89,7 +89,7 @@ BEGIN
     
     IF deleted_count > 0 THEN
         RAISE NOTICE 'Limpieza completada: % pedidos huérfanos eliminados.', deleted_count;
-        RAISE NOTICE 'Detalles guardados en tabla temporal orphan_orders_log (solo para esta sesión).'
+        RAISE NOTICE 'Detalles guardados en tabla temporal orphan_orders_log (solo para esta sesión).';
     ELSE
         RAISE NOTICE 'Limpieza completada: No había pedidos huérfanos.';
     END IF;

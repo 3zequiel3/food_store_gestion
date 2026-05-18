@@ -255,11 +255,12 @@ def auth_headers(client, sample_user):
 @pytest.fixture(scope="function")
 def sample_estados_pedido(test_db_session: Session):
     """
-    Seed the 6 order states required by FK constraints in the orders table.
+    Seed all 8 order states required by FK constraints in the orders table.
 
     States match the seed data defined in database-schema-seed:
     PENDIENTE(1), CONFIRMADO(2), EN_PREPARACION(3),
-    TERMINADO(4), ENTREGADO(5, terminal), CANCELADO(6, terminal).
+    TERMINADO(4), ENTREGADO(5, terminal), CANCELADO(6, terminal),
+    CANCELADO_ADMIN(7, terminal), CANCELADO_CLIENTE(8, terminal).
     """
     from features.catalog.models import EstadoPedido
 
@@ -270,6 +271,8 @@ def sample_estados_pedido(test_db_session: Session):
         EstadoPedido(codigo="TERMINADO", descripcion="Listo para retirar/entregar", orden=4, es_terminal=False),
         EstadoPedido(codigo="ENTREGADO", descripcion="Entregado", orden=5, es_terminal=True),
         EstadoPedido(codigo="CANCELADO", descripcion="Cancelado", orden=6, es_terminal=True),
+        EstadoPedido(codigo="CANCELADO_ADMIN", descripcion="Cancelado por administrador", orden=7, es_terminal=True),
+        EstadoPedido(codigo="CANCELADO_CLIENTE", descripcion="Cancelado por el cliente", orden=8, es_terminal=True),
     ]
     for estado in estados:
         test_db_session.add(estado)
