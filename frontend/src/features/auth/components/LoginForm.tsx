@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useLogin } from '../hooks/useLogin';
 import { loginSchema } from '../schemas/loginSchema';
 import { ApiError } from '../../../api/interceptors/error';
@@ -8,6 +8,7 @@ import { Input } from '../../../components/ui/Input';
 
 export function LoginForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { mutate: loginMutate, isPending, error } = useLogin();
 
   const form = useForm({
@@ -17,7 +18,13 @@ export function LoginForm() {
     },
     onSubmit: async ({ value }) => {
       loginMutate(value, {
-        onSuccess: () => navigate('/'),
+        onSuccess: () => {
+          // D5 — Consume location.state.from for post-login redirect.
+          // PrivateRoute sets state.from = location.pathname on redirect.
+          // Fallback to '/' if no saved destination (e.g. direct /login visit).
+          const from = (location.state as { from?: string } | null)?.from ?? '/';
+          navigate(from, { replace: true });
+        },
       });
     },
   });
