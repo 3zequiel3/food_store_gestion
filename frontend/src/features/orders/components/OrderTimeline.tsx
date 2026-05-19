@@ -7,12 +7,12 @@ const CANCEL_STATES = ['CANCELADO_ADMIN', 'CANCELADO_CLIENTE', 'CANCELADO'] as c
 const ESTADO_LABELS: Record<string, string> = {
   PENDIENTE: 'Pendiente',
   CONFIRMADO: 'Confirmado',
-  EN_PREPARACION: 'En preparación',
+  EN_PREPARACION: 'Preparando',
   TERMINADO: 'Listo',
   ENTREGADO: 'Entregado',
   CANCELADO: 'Cancelado',
-  CANCELADO_ADMIN: 'Cancelado (Admin)',
-  CANCELADO_CLIENTE: 'Cancelado (Cliente)',
+  CANCELADO_ADMIN: 'Cancelado',
+  CANCELADO_CLIENTE: 'Cancelado',
 };
 
 function isCancelState(estado: string): boolean {
@@ -39,58 +39,48 @@ export function OrderTimeline({ historial, currentEstado }: OrderTimelineProps) 
     return <p className="text-sm text-muted-foreground">Sin historial de estados.</p>;
   }
 
-  // Determine the current state from the last history entry or the prop
   const currentState = currentEstado ?? historial[historial.length - 1]?.estado_nuevo_codigo ?? '';
   const isCancelled = isCancelState(currentState);
-
-  // Build the state sequence — cancelled orders show only their terminal state
-
-  // Find the index of the current state in the standard order
   const currentIdx = isCancelled
     ? -1
-    : STATE_ORDER.indexOf(currentState as typeof STATE_ORDER[number]);
+    : STATE_ORDER.indexOf(currentState as (typeof STATE_ORDER)[number]);
 
   return (
-    <div className="flex flex-col gap-0">
-      {/* State progression bar */}
-      <div className="flex items-center gap-1 mb-4">
+    <div className="flex flex-col gap-5">
+      {/* Progress bar */}
+      <div className="flex items-start gap-0">
         {STATE_ORDER.map((state, idx) => {
           const isCompleted = !isCancelled && idx < currentIdx;
           const isCurrent = !isCancelled && idx === currentIdx;
-          const isFuture = !isCancelled && idx > currentIdx;
+          const isFuture = isCancelled || idx > currentIdx;
 
           return (
-            <div key={state} className="flex items-center flex-1">
+            <div key={state} className="flex items-start flex-1">
               <div className="flex flex-col items-center flex-1">
                 <div
-                  className={`
-                    h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0
-                    ${isCompleted ? 'bg-green-500 text-white' : ''}
-                    ${isCurrent ? 'bg-primary text-primary-foreground ring-4 ring-primary/20' : ''}
-                    ${isFuture ? 'bg-muted text-muted-foreground' : ''}
-                    ${isCancelled && state === currentState ? 'bg-destructive text-white' : ''}
-                  `}
+                  className={[
+                    'h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all',
+                    isCompleted ? 'bg-green-500 text-white' : '',
+                    isCurrent ? 'bg-primary text-primary-foreground ring-4 ring-primary/20' : '',
+                    isFuture && !isCancelled ? 'bg-muted/50 border border-glass-border text-muted-foreground' : '',
+                    isCancelled ? 'bg-muted/50 border border-glass-border text-muted-foreground' : '',
+                  ].join(' ')}
                 >
-                  {isCompleted ? (
-                    <Check className="h-4 w-4" />
-                  ) : isCancelled && state === currentState ? (
-                    <X className="h-4 w-4" />
-                  ) : (
-                    idx + 1
-                  )}
+                  {isCompleted ? <Check className="h-3.5 w-3.5" /> : idx + 1}
                 </div>
-                <span className="text-[10px] mt-1 text-center text-muted-foreground hidden sm:block">
+                <span className="text-[9px] mt-1.5 text-center leading-tight text-muted-foreground w-full px-0.5">
                   {ESTADO_LABELS[state]}
                 </span>
               </div>
               {idx < STATE_ORDER.length - 1 && (
                 <div
-                  className={`
-                    flex-1 h-0.5 mx-1
-                    ${isCompleted ? 'bg-green-500' : ''}
-                    ${isCurrent ? 'bg-primary/50' : ''}
-                    ${isFuture ? 'bg-muted' : ''}
-                  `}
+                  className={[
+                    'flex-1 h-0.5 mt-3.5 mx-0.5',
+                    isCompleted ? 'bg-green-500' : '',
+                    isCurrent ? 'bg-primary/30' : '',
+                    isFuture && !isCancelled ? 'bg-glass-border' : '',
+                    isCancelled ? 'bg-glass-border' : '',
+                  ].join(' ')}
                 />
               )}
             </div>
@@ -98,10 +88,10 @@ export function OrderTimeline({ historial, currentEstado }: OrderTimelineProps) 
         })}
       </div>
 
-      {/* Cancel state display */}
+      {/* Cancelled state badge */}
       {isCancelled && (
-        <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2 mb-4">
-          <X className="h-4 w-4 text-destructive shrink-0" />
+        <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
+          <X className="h-3.5 w-3.5 text-destructive shrink-0" />
           <span className="text-sm font-medium text-destructive">
             {ESTADO_LABELS[currentState] ?? currentState}
           </span>
@@ -109,7 +99,7 @@ export function OrderTimeline({ historial, currentEstado }: OrderTimelineProps) 
       )}
 
       {/* History entries */}
-      <ol className="relative flex flex-col gap-0">
+      <ol className="flex flex-col gap-0">
         {historial.map((event, idx) => {
           const isLast = idx === historial.length - 1;
           const isCancelEvent = isCancelState(event.estado_nuevo_codigo);
@@ -118,37 +108,38 @@ export function OrderTimeline({ historial, currentEstado }: OrderTimelineProps) 
             <li key={event.id} className="relative flex gap-3 pb-4 last:pb-0">
               <div className="flex flex-col items-center">
                 <div
-                  className={`
-                    mt-0.5 h-3 w-3 rounded-full ring-4 shrink-0 shadow-sm
-                    ${isCancelEvent
-                      ? 'bg-destructive ring-destructive/20 shadow-destructive/30'
-                      : 'bg-primary ring-primary/20 shadow-primary/30'
-                    }
-                  `}
+                  className={[
+                    'mt-0.5 h-2.5 w-2.5 rounded-full ring-[3px] shrink-0',
+                    isCancelEvent
+                      ? 'bg-destructive ring-destructive/20'
+                      : 'bg-primary ring-primary/20',
+                  ].join(' ')}
                 />
                 {!isLast && (
                   <div
-                    className={`
-                      mt-1 flex-1 w-px
-                      ${isCancelEvent
-                        ? 'bg-gradient-to-b from-destructive/50 to-glass-border'
-                        : 'bg-gradient-to-b from-primary/50 to-glass-border'
-                      }
-                    `}
+                    className={[
+                      'mt-1.5 flex-1 w-px',
+                      isCancelEvent
+                        ? 'bg-gradient-to-b from-destructive/30 to-transparent'
+                        : 'bg-gradient-to-b from-primary/30 to-transparent',
+                    ].join(' ')}
                   />
                 )}
               </div>
-              <div className="flex flex-col gap-0.5 min-w-0">
+              <div className="flex flex-col gap-0.5 min-w-0 pb-0.5">
                 <span
-                  className={`text-sm font-medium ${isCancelEvent ? 'text-destructive' : 'text-foreground'}`}
+                  className={[
+                    'text-sm font-medium leading-tight',
+                    isCancelEvent ? 'text-destructive' : 'text-foreground',
+                  ].join(' ')}
                 >
                   {ESTADO_LABELS[event.estado_nuevo_codigo] ?? event.estado_nuevo_codigo}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {formatDate(event.creado_en)}
-                </span>
+                <span className="text-xs text-muted-foreground">{formatDate(event.creado_en)}</span>
                 {event.motivo && (
-                  <span className="text-xs text-muted-foreground italic">{event.motivo}</span>
+                  <span className="text-xs text-muted-foreground italic mt-0.5">
+                    "{event.motivo}"
+                  </span>
                 )}
               </div>
             </li>
