@@ -4,7 +4,7 @@ import type { HistorialEstado } from '../types/orders.types';
 const STATE_ORDER = ['PENDIENTE', 'CONFIRMADO', 'EN_PREPARACION', 'TERMINADO', 'ENTREGADO'] as const;
 const CANCEL_STATES = ['CANCELADO_ADMIN', 'CANCELADO_CLIENTE', 'CANCELADO'] as const;
 
-const ESTADO_LABELS: Record<string, string> = {
+export const ESTADO_LABELS: Record<string, string> = {
   PENDIENTE: 'Pendiente',
   CONFIRMADO: 'Confirmado',
   EN_PREPARACION: 'Preparando',
@@ -32,9 +32,11 @@ function formatDate(iso: string): string {
 interface OrderTimelineProps {
   historial: HistorialEstado[];
   currentEstado?: string;
+  /** Pass true to hide the horizontal progress stepper (when rendered separately) */
+  hideProgressBar?: boolean;
 }
 
-export function OrderTimeline({ historial, currentEstado }: OrderTimelineProps) {
+export function OrderTimeline({ historial, currentEstado, hideProgressBar = false }: OrderTimelineProps) {
   if (historial.length === 0) {
     return <p className="text-sm text-muted-foreground">Sin historial de estados.</p>;
   }
@@ -46,47 +48,11 @@ export function OrderTimeline({ historial, currentEstado }: OrderTimelineProps) 
     : STATE_ORDER.indexOf(currentState as (typeof STATE_ORDER)[number]);
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Progress bar */}
-      <div className="flex items-start gap-0">
-        {STATE_ORDER.map((state, idx) => {
-          const isCompleted = !isCancelled && idx < currentIdx;
-          const isCurrent = !isCancelled && idx === currentIdx;
-          const isFuture = isCancelled || idx > currentIdx;
-
-          return (
-            <div key={state} className="flex items-start flex-1">
-              <div className="flex flex-col items-center flex-1">
-                <div
-                  className={[
-                    'h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all',
-                    isCompleted ? 'bg-green-500 text-white' : '',
-                    isCurrent ? 'bg-primary text-primary-foreground ring-4 ring-primary/20' : '',
-                    isFuture && !isCancelled ? 'bg-muted/50 border border-glass-border text-muted-foreground' : '',
-                    isCancelled ? 'bg-muted/50 border border-glass-border text-muted-foreground' : '',
-                  ].join(' ')}
-                >
-                  {isCompleted ? <Check className="h-3.5 w-3.5" /> : idx + 1}
-                </div>
-                <span className="text-[9px] mt-1.5 text-center leading-tight text-muted-foreground w-full px-0.5">
-                  {ESTADO_LABELS[state]}
-                </span>
-              </div>
-              {idx < STATE_ORDER.length - 1 && (
-                <div
-                  className={[
-                    'flex-1 h-0.5 mt-3.5 mx-0.5',
-                    isCompleted ? 'bg-green-500' : '',
-                    isCurrent ? 'bg-primary/30' : '',
-                    isFuture && !isCancelled ? 'bg-glass-border' : '',
-                    isCancelled ? 'bg-glass-border' : '',
-                  ].join(' ')}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
+    <div className="flex flex-col gap-4">
+      {/* Horizontal progress bar (optional) */}
+      {!hideProgressBar && (
+        <OrderProgressBar currentEstado={currentState} />
+      )}
 
       {/* Cancelled state badge */}
       {isCancelled && (
@@ -118,7 +84,7 @@ export function OrderTimeline({ historial, currentEstado }: OrderTimelineProps) 
                 {!isLast && (
                   <div
                     className={[
-                      'mt-1.5 flex-1 w-px',
+                      'mt-1.5 flex-1 w-px min-h-[20px]',
                       isCancelEvent
                         ? 'bg-gradient-to-b from-destructive/30 to-transparent'
                         : 'bg-gradient-to-b from-primary/30 to-transparent',
@@ -146,6 +112,54 @@ export function OrderTimeline({ historial, currentEstado }: OrderTimelineProps) 
           );
         })}
       </ol>
+    </div>
+  );
+}
+
+interface OrderProgressBarProps {
+  currentEstado: string;
+}
+
+export function OrderProgressBar({ currentEstado }: OrderProgressBarProps) {
+  const isCancelled = isCancelState(currentEstado);
+  const currentIdx = isCancelled
+    ? -1
+    : STATE_ORDER.indexOf(currentEstado as (typeof STATE_ORDER)[number]);
+
+  return (
+    <div className="flex items-start gap-0">
+      {STATE_ORDER.map((state, idx) => {
+        const isCompleted = !isCancelled && idx < currentIdx;
+        const isCurrent = !isCancelled && idx === currentIdx;
+
+        return (
+          <div key={state} className="flex items-start flex-1">
+            <div className="flex flex-col items-center flex-1">
+              <div
+                className={[
+                  'h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all',
+                  isCompleted ? 'bg-green-500 text-white' : '',
+                  isCurrent ? 'bg-primary text-primary-foreground ring-4 ring-primary/20' : '',
+                  !isCompleted && !isCurrent ? 'bg-muted/50 border border-glass-border text-muted-foreground' : '',
+                ].join(' ')}
+              >
+                {isCompleted ? <Check className="h-3.5 w-3.5" /> : idx + 1}
+              </div>
+              <span className="text-[9px] mt-1.5 text-center leading-tight text-muted-foreground w-full px-0.5">
+                {ESTADO_LABELS[state]}
+              </span>
+            </div>
+            {idx < STATE_ORDER.length - 1 && (
+              <div
+                className={[
+                  'flex-1 h-0.5 mt-3.5 mx-0.5',
+                  isCompleted ? 'bg-green-500' : 'bg-glass-border',
+                ].join(' ')}
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
