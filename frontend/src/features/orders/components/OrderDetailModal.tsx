@@ -31,10 +31,13 @@ function formatDate(iso: string): string {
   });
 }
 
-const FORMA_PAGO_LABELS: Record<string, string> = {
-  EFECTIVO: 'Efectivo',
-  TARJETA: 'Tarjeta',
-};
+function getFormaPagoLabel(codigo: string, direccionSnapshot: string | null): string {
+  if (codigo === 'EFECTIVO') {
+    return direccionSnapshot ? 'Pago al repartidor' : 'Efectivo';
+  }
+  if (codigo === 'TARJETA') return 'Tarjeta';
+  return codigo;
+}
 
 const PAGO_STATUS_LABELS: Record<string, string> = {
   approved: 'Aprobado',
@@ -186,7 +189,7 @@ export function OrderDetailModal({ orderId, isAdmin = false, onClose }: OrderDet
                         )
                       }
                       label="Forma de pago"
-                      value={FORMA_PAGO_LABELS[order.forma_pago_codigo] ?? order.forma_pago_codigo}
+                      value={getFormaPagoLabel(order.forma_pago_codigo, order.direccion_snapshot)}
                     />
                     <InfoCell
                       icon={<Package className="h-3.5 w-3.5" />}
