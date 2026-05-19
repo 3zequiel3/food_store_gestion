@@ -43,9 +43,6 @@ export function OrderTimeline({ historial, currentEstado, hideProgressBar = fals
 
   const currentState = currentEstado ?? historial[historial.length - 1]?.estado_nuevo_codigo ?? '';
   const isCancelled = isCancelState(currentState);
-  const currentIdx = isCancelled
-    ? -1
-    : STATE_ORDER.indexOf(currentState as (typeof STATE_ORDER)[number]);
 
   return (
     <div className="flex flex-col gap-4">
