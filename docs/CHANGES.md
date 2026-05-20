@@ -7,7 +7,7 @@ Un **change** es la unidad mínima de trabajo en SDD. Cada change es un conjunto
 - **design.md**: CÓMO técnicamente (arquitectura, modelos, endpoints)
 - **tasks.md**: Checklist atómica de implementación
 
-Este documento define el mapa completo de **30 changes** para desarrollar Food Store de principio a fin, organizados en orden de implementación.
+Este documento define el mapa completo de **31 changes** para desarrollar Food Store de principio a fin, organizados en orden de implementación.
 
 ### Estrategia: Backend-First → Frontend-First
 
@@ -309,6 +309,34 @@ A partir de acá la API está congelada y todos los changes son frontend-only.
 
 ---
 
+## Sprint 13 — Display de Cocina (KDS) + Rol Cocinero
+
+> Feature agregada **después** del roadmap original. Material de dominio en
+> `docs/feature-display-cocina/`. Decisiones de diseño cerradas con el usuario
+> (2026-05-20) — ver detalle abajo. El feature pack la sugería como "C-11"; acá se
+> integra como #31 siguiendo la numeración secuencial del roadmap.
+
+### 31. **display-cocina-kds**
+- **Funcionalidad**: Kitchen Display System en tiempo real + consolidación del modelo de roles. Abarca backend (REST + WebSocket en proceso) y frontend (vista exclusiva del cocinero). Se implementa en tandas; candidato a **PRs encadenados** si supera las 400 líneas.
+- **Historias**: US-COCINA-01 a US-COCINA-09 (`docs/feature-display-cocina/03_historias_de_usuario.md`)
+- **Dependencias**: auth-backend (#6), order-state-machine-fsm (#16), payment-mercadopago-backend (#15), products-backend (#11), admin-users-backend (#18), frontend-rebuild-on-feature-first
+- **Duración estimada**: 12-16 horas
+
+**Decisiones de diseño cerradas (2026-05-20):**
+
+1. **Agregar rol COCINA (5º), sin tocar los otros** *(primera tanda)*: los **4 roles de la spec** (ADMIN, STOCK, PEDIDOS, CLIENT — `Integrador.txt` §4.2, requisito de rúbrica) **se mantienen intactos**. `COCINA` se suma como 5º rol (extensión documentada del feature pack, no existe en los `.txt`). NO se borra ni reasigna ningún rol existente → blast radius acotado al alta del rol + su autorización en el FSM.
+2. **Rol COCINA**: nuevo registro idempotente en seed. Autorizado solo en las transiciones de cocina `CONFIRMADO → EN_PREPARACION` y `EN_PREPARACION → TERMINADO` (validado en el servicio del FSM, no solo en `require_role`).
+3. **Sin sub-estados internos del cocinero**: las 2 acciones del cocinero SON las 2 transiciones del FSM existentes. No se agrega campo `cocina_estado` (evita doble fuente de verdad).
+4. **`EN_CAMINO` re-introducido, condicional al tipo de entrega** (migración Alembic; revierte parcialmente `20260518_0100`):
+   - Envío (`Pedido.direccion_entrega_id NOT NULL`): `EN_PREPARACION → TERMINADO → EN_CAMINO → ENTREGADO`
+   - Retiro (`direccion_entrega_id IS NULL`): `EN_PREPARACION → TERMINADO → ENTREGADO`
+   - El despacho (`→ ENTREGADO`) es de `ADMIN`, no de cocina.
+5. **Tiempo real = WebSocket en proceso** dentro del backend (mismo servicio `main:app`, mismo puerto, `set` de conexiones con `asyncio`, JWT validado en el handshake). **Sin Redis.** Límite conocido a documentar en `design.md`: solo funciona con **una** instancia del backend; multi-instancia requeriría un bus externo (Redis Pub/Sub).
+6. **Alta de usuarios desde admin**: endpoint `POST` nuevo (hoy `admin_users` no crea, solo lista/edita roles) + form con 3 roles (ADMIN/CLIENT/COCINA).
+7. **Vista exclusiva del cocinero**: ruta `/cocina` (tablero Kanban con columnas `CONFIRMADO` / `EN_PREPARACION`), tarjeta con nº de pedido + ítems, "ver detalle" (producto + ingredientes), botón "Terminado". Excluida del auto-logout por inactividad.
+
+---
+
 # Postergable (fuera de las dos fases)
 
 ### **system-configuration** *(Baja prioridad)*
@@ -363,6 +391,19 @@ delivery-addresses-frontend (delivery-addresses-backend ✅)
 order-visualization-frontend (visualization-backend ✅)
 admin-users-frontend (admin-users-backend ✅)
 admin-dashboard-frontend (admin-metrics-backend ✅)
+
+
+FEATURE — Display de Cocina (KDS)
+=================================
+
+display-cocina-kds
+  deps: auth-backend ✅, order-state-machine-fsm, payment-mercadopago-backend,
+        products-backend ✅, admin-users-backend, frontend-rebuild-on-feature-first
+  ├─ slice 1: agregar rol COCINA (5º, sin tocar los 4 roles de la spec)
+  ├─ slice 2: COCINA en FSM + EN_CAMINO condicional (seed + migración Alembic + FSM RBAC)
+  ├─ slice 3: backend KDS (GET /cocina/pedidos + WebSocket en proceso + auditoría)
+  ├─ slice 4: alta de usuarios admin (POST nuevo + 3 roles)
+  └─ slice 5: frontend Kanban /cocina (vista exclusiva del cocinero)
 ```
 
 ---
@@ -385,9 +426,10 @@ admin-dashboard-frontend (admin-metrics-backend ✅)
 | B | **10** | payment-mercadopago-frontend | 3-4h | Pendiente |
 | B | **11** | order-visualization-frontend | 4-5h | Pendiente |
 | B | **12** | admin-users-frontend, admin-dashboard-frontend | 5-7h | Pendiente |
+| A+B | **13** | display-cocina-kds | 12-16h | 🔄 Propuesto |
 | — | Postergable | system-configuration | 2-3h | Opcional |
 
-**Total estimado**: 88-116 horas (30 changes)
+**Total estimado**: 100-132 horas (31 changes)
 
 ---
 
