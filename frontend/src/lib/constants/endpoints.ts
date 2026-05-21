@@ -16,6 +16,7 @@ export const ENDPOINTS = {
     refresh: '/auth/refresh',
     logout: '/auth/logout',
     me: '/auth/me',
+    token: '/auth/token',
   },
 
   usuarios: {
@@ -85,9 +86,15 @@ export const ENDPOINTS = {
 
   adminUsuarios: {
     list: '/admin/usuarios',
+    create: '/admin/usuarios',
     update: (id: number) => `/admin/usuarios/${id}`,
     cambiarRol: (id: number) => `/admin/usuarios/${id}/rol`,
     toggleEstado: (id: number) => `/admin/usuarios/${id}/estado`,
+  },
+
+  cocina: {
+    pedidos: '/cocina/pedidos',
+    transicionar: (id: number) => `/pedidos/${id}/transicionar`,
   },
 
   adminMetricas: {

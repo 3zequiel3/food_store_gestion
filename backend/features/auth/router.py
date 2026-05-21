@@ -24,6 +24,7 @@ from features.auth.service import AuthService
 from features.users.models import Usuario
 from shared.exceptions import UnauthorizedError
 from shared.rate_limiter import RATE_LIMITS, limiter
+from shared.security import create_access_token
 
 router = APIRouter()
 
@@ -137,3 +138,24 @@ async def get_me(
         roles=[rol.codigo for rol in user.roles],
         created_at=user.creado_en,
     )
+
+
+@router.get(
+    "/token",
+    summary="Get access token for WebSocket auth",
+    description="Returns a fresh access token in the response body. Used by WebSocket clients that cannot send HttpOnly cookies.",
+)
+async def get_access_token(
+    user: Usuario = Depends(get_current_user),
+):
+    """
+    GET /auth/token — returns access token in body for WS connections.
+    Auth cookies must be present (cookie-based auth required).
+    """
+    roles = [rol.codigo for rol in user.roles]
+    token = create_access_token(
+        user_id=user.id,
+        email=user.email,
+        roles=roles,
+    )
+    return {"access_token": token, "token_type": "bearer"}

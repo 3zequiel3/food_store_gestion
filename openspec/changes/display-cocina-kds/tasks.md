@@ -52,24 +52,24 @@
 ## 5. Slice 5 — Frontend Kanban /cocina (vista exclusiva del cocinero)
 
 - [ ] 5.1 Test (rojo): guard de `/cocina` permite `COCINA`/`ADMIN` y bloquea `CLIENT` (403); login `COCINA` redirige a `/cocina`.
-- [ ] 5.2 Crear la ruta `/cocina` y su guard de rol en `frontend/src/router/` (AppRoute + guards); redirect de login para `COCINA`.
+- [x] 5.2 Crear la ruta `/cocina` y su guard de rol en `frontend/src/router/` (AppRoute + guards); redirect de login para `COCINA`.
 - [ ] 5.3 Test (rojo): exclusión de `/cocina` del auto-logout por inactividad; otras rutas siguen disparándolo.
-- [ ] 5.4 Implementar el efecto/hook de auto-logout por inactividad excluyendo `/cocina`.
+- [x] 5.4 Implementar el efecto/hook de auto-logout por inactividad excluyendo `/cocina`.
 - [ ] 5.5 Test (rojo): el cliente API expone `GET /api/v1/cocina/pedidos` y el hook de WebSocket; agregar `ws: true` al proxy `/api` en `frontend/vite.config.ts`.
-- [ ] 5.6 Crear `frontend/src/features/cocina/` (api client, hook de WebSocket con TanStack Query para carga inicial + cache).
+- [x] 5.6 Crear `frontend/src/features/cocina/` (api client, hook de WebSocket con TanStack Query para carga inicial + cache).
 - [ ] 5.7 Test (rojo): el tablero renderiza 2 columnas (CONFIRMADO/EN_PREPARACION), tarjeta con ítems/exclusiones/notas, "Ver detalle" con producto+ingredientes.
-- [ ] 5.8 Implementar el tablero Kanban y la tarjeta de pedido.
+- [x] 5.8 Implementar el tablero Kanban y la tarjeta de pedido.
 - [ ] 5.9 Test (rojo): acciones "Iniciar preparación" (CONFIRMADO→EN_PREPARACION) y "Terminado" (EN_PREPARACION→TERMINADO) mueven/retiran la tarjeta.
-- [ ] 5.10 Implementar las acciones de avance contra el endpoint de transición.
+- [x] 5.10 Implementar las acciones de avance contra el endpoint de transición.
 - [ ] 5.11 Test (rojo): eventos del WebSocket agregan/mueven/retiran tarjetas sin recargar (`pedido_confirmado`/`pedido_en_preparacion`/`pedido_terminado`/`pedido_cancelado`).
-- [ ] 5.12 Conectar los eventos del WebSocket al estado del tablero.
+- [x] 5.12 Conectar los eventos del WebSocket al estado del tablero.
 - [ ] 5.13 Test (rojo): al caer el WS, indicador "sin conexión en vivo" + polling cada 30 s; al reconectar, vuelve al push y refresca.
-- [ ] 5.14 Implementar la resiliencia (indicador + polling de fallback + reconexión).
+- [x] 5.14 Implementar la resiliencia (indicador + polling de fallback + reconexión).
 - [ ] 5.15 Test (rojo): timer de urgencia recalculado cada 15 s — normal (<10m), naranja (10-20m), rojo (>20m).
-- [ ] 5.16 Implementar el timer de urgencia (cálculo en cliente desde el timestamp de entrada a cocina).
+- [x] 5.16 Implementar el timer de urgencia (cálculo en cliente desde el timestamp de entrada a cocina).
 - [ ] 5.17 (Opcional, US-COCINA-05) Test + implementación de alerta sonora (Web Audio API) + flash visual con toggle persistente en `localStorage`.
 - [ ] 5.18 Test (rojo): formulario de alta de usuarios con selector de 3 roles comunes (labels español, códigos `ADMIN`/`CLIENT`/`COCINA`); el alta crea el usuario.
-- [ ] 5.19 Implementar el formulario de alta de usuarios en el panel de admin (TanStack Form). `STOCK`/`PEDIDOS` se siguen asignando con el `PATCH /rol` existente.
+- [x] 5.19 Implementar el formulario de alta de usuarios en el panel de admin (TanStack Form). `STOCK`/`PEDIDOS` se siguen asignando con el `PATCH /rol` existente.
 - [ ] 5.20 Correr `pnpm test`; confirmar verde.
 
 ## 6. Cierre

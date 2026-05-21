@@ -1,6 +1,7 @@
 import { useForm } from '@tanstack/react-form';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLogin } from '../hooks/useLogin';
+import { useAuthStore } from '../stores/authStore';
 import { loginSchema } from '../schemas/loginSchema';
 import { ApiError } from '../../../api/interceptors/error';
 import { Button } from '../../../components/ui/Button';
@@ -19,6 +20,12 @@ export function LoginForm() {
     onSubmit: async ({ value }) => {
       loginMutate(value, {
         onSuccess: () => {
+          // D7 — COCINA users always redirect to /cocina after login.
+          const user = useAuthStore.getState().user;
+          if (user?.roles.includes('COCINA')) {
+            navigate('/cocina', { replace: true });
+            return;
+          }
           // D5 — Consume location.state.from for post-login redirect.
           // PrivateRoute sets state.from = location.pathname on redirect.
           // Fallback to '/' if no saved destination (e.g. direct /login visit).

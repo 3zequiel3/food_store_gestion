@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Users } from 'lucide-react';
+import { Users, UserPlus } from 'lucide-react';
 import type { AdminUserResponse } from '../../features/admin-users/types/admin-users.types';
 import { useAdminUsers } from '../../features/admin-users/hooks/useAdminUsers';
 import { AdminUserFilters } from '../../features/admin-users/components/AdminUserFilters';
@@ -8,6 +8,7 @@ import { AdminUserRow } from '../../features/admin-users/components/AdminUserRow
 import { EditUserModal } from '../../features/admin-users/components/EditUserModal';
 import { ChangeRolModal } from '../../features/admin-users/components/ChangeRolModal';
 import { ToggleEstadoModal } from '../../features/admin-users/components/ToggleEstadoModal';
+import { CreateUserForm } from '../../features/admin-users/components/CreateUserForm';
 
 type ModalType = 'edit' | 'rol' | 'estado' | null;
 
@@ -37,6 +38,7 @@ export function AdminUsersPage() {
 
   const [selectedUser, setSelectedUser] = useState<AdminUserResponse | null>(null);
   const [modal, setModal] = useState<ModalType>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const { data, isLoading } = useAdminUsers({ page, page_size: PAGE_SIZE, search, rol });
 
@@ -62,12 +64,21 @@ export function AdminUsersPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <Users className="h-6 w-6 text-muted-foreground" />
-        <h1 className="text-2xl font-bold text-foreground">Usuarios</h1>
-        {data && (
-          <span className="text-sm text-muted-foreground">({data.total} en total)</span>
-        )}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Users className="h-6 w-6 text-muted-foreground" />
+          <h1 className="text-2xl font-bold text-foreground">Usuarios</h1>
+          {data && (
+            <span className="text-sm text-muted-foreground">({data.total} en total)</span>
+          )}
+        </div>
+        <button
+          onClick={() => setShowCreateForm(true)}
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+        >
+          <UserPlus className="h-4 w-4" />
+          Crear usuario
+        </button>
       </div>
 
       <AdminUserFilters />
@@ -139,6 +150,10 @@ export function AdminUsersPage() {
       )}
       {selectedUser && modal === 'estado' && (
         <ToggleEstadoModal user={selectedUser} onClose={closeModal} />
+      )}
+
+      {showCreateForm && (
+        <CreateUserForm onClose={() => setShowCreateForm(false)} />
       )}
     </div>
   );

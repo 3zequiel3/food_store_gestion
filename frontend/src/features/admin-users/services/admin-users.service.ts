@@ -6,6 +6,7 @@ import type {
   AdminUpdateUserRequest,
   AdminChangeRolRequest,
   AdminChangeEstadoRequest,
+  AdminCreateUserRequest,
   AdminUsersFilters,
 } from '../types/admin-users.types';
 
@@ -33,5 +34,10 @@ export async function changeRol(id: number, payload: AdminChangeRolRequest): Pro
 
 export async function changeEstado(id: number, payload: AdminChangeEstadoRequest): Promise<AdminUserResponse> {
   const response = await apiClient.patch<AdminUserResponse>(ENDPOINTS.adminUsuarios.toggleEstado(id), payload);
+  return response.data;
+}
+
+export async function createUser(payload: AdminCreateUserRequest): Promise<AdminUserResponse> {
+  const response = await apiClient.post<AdminUserResponse>(ENDPOINTS.adminUsuarios.create, payload);
   return response.data;
 }

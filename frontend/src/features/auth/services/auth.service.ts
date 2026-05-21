@@ -47,3 +47,9 @@ export async function me(): Promise<Usuario> {
   const response = await apiClient.get<Usuario>(ENDPOINTS.auth.me);
   return response.data;
 }
+
+/** GET /auth/token — retorna access token en body (para WebSocket auth) */
+export async function getToken(): Promise<{ access_token: string; token_type: string }> {
+  const response = await apiClient.get(ENDPOINTS.auth.token);
+  return response.data;
+}

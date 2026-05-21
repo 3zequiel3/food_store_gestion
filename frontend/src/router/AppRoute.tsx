@@ -26,9 +26,11 @@ import { AdminCategoriasPage } from '../pages/admin/AdminCategoriasPage';
 import { AdminIngredientesPage } from '../pages/admin/AdminIngredientesPage';
 import { AdminProfilePage } from '../pages/admin/AdminProfilePage';
 import { MisPedidosPage } from '../pages/client/MisPedidosPage';
+import { CocinaPage } from '../features/cocina/pages/CocinaPage';
 
 /**
  * Redirige `/dashboard` según el rol del usuario:
+ *  - Si tiene rol COCINA → `/cocina`
  *  - Si tiene rol staff (ADMIN/STOCK/PEDIDOS) → `/admin`
  *  - Si tiene rol CLIENT → `/cliente`
  *  - Si no tiene rol (caso raro) → `/403`
@@ -38,6 +40,10 @@ import { MisPedidosPage } from '../pages/client/MisPedidosPage';
 function RootRedirect() {
   const user = useAuthStore((s) => s.user);
   if (!user) return <Navigate to="/login" replace />;
+
+  if (user.roles.includes('COCINA')) {
+    return <Navigate to="/cocina" replace />;
+  }
 
   const isStaff = user.roles.some((codigo) =>
     ['ADMIN', 'STOCK', 'PEDIDOS'].includes(codigo),
@@ -89,7 +95,12 @@ export default function AppRoute() {
 
       {/* ── Rutas privadas (requieren autenticación) ─────────────────────── */}
       <Route element={<PrivateRoute />}>
-        {/* AppLayout envuelve TODAS las rutas autenticadas */}
+        {/* ── Cocina: vista exclusiva sin AppLayout (D7) ─────────────────── */}
+        <Route element={<RoleGuard roles={['COCINA', 'ADMIN']} />}>
+          <Route path="/cocina" element={<CocinaPage />} />
+        </Route>
+
+        {/* AppLayout envuelve TODAS las rutas autenticadas (excepto /cocina) */}
         <Route element={<AppLayout />}>
           {/* Dashboard → redirect role-aware (staff → /admin, cliente → /cliente) */}
           <Route path="/dashboard" element={<RootRedirect />} />

@@ -17,6 +17,7 @@ export default defineProject(
           // API_PROXY_TARGET=http://backend:8000 (service name de compose).
           target: process.env.API_PROXY_TARGET ?? 'http://localhost:8000',
           changeOrigin: true,
+          ws: true,
         },
       },
     },
