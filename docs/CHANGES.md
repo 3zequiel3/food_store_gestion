@@ -22,7 +22,7 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 
 - **Sprints 0 a 4**: ✅ Archivados completos (changes #1 al #13) — *ver nota sobre #2/#5/#7/#8 refactoreados*
 - **Refactors**: ✅ Archivados — `refactor-uow-to-context-manager` (68/68), `refactor-auth-to-uow`, `refactor-users-route-to-spanish`
-- **Frontend rebuild**: 🔄 En progreso — `frontend-rebuild-on-feature-first` (BLOQUEANTE de Fase B). Changes #2/#5/#7/#8 marcados como refactored — su código fue reemplazado por este change.
+- **Frontend rebuild**: ✅ Archivado — `frontend-rebuild-on-feature-first`. Changes #2/#5/#7/#8 marcados como refactored — su código fue reemplazado por este change.
 - **Sprint 5**: 🔄 En progreso — `order-creation-backend` (#14) ✅ archivado, `payment-mercadopago-backend` (#15) ✅ archivado, `order-state-machine-fsm` (#16) 🔄 En implementación
 - **Refactor transversal (fuera de slot)**: `checkout-pay-first-flow` — unifica la creación de pedidos + pago en un único `POST /checkout/online` atómico, elimina los endpoints separados `POST /pedidos/` y `POST /pagos/`, renombra `EN_CAMINO → TERMINADO` en toda la pila, e integra `PaymentForm` inline en `CheckoutPage`. Aplica sobre Sprint 5 (post #15, pre-#17).
 
@@ -142,11 +142,11 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 - **Funcionalidad**: Alinear ruta HTTP `/api/v1/users` → `/api/v1/usuarios` según lexicón español del integrador §5.
 - **Estado**: ✅ Archivado
 
-### 🔄 **frontend-rebuild-on-feature-first** — BLOQUEANTE DE FASE B
+### ✅ **frontend-rebuild-on-feature-first** — BLOQUEANTE DE FASE B (archivado)
 - **Funcionalidad**: Reconstrucción consolidada de la fundación del frontend adaptada a Feature-First plano. Reemplaza #2, #5, #7 y #8 (refactoreados). Incluye: interceptors HTTP (auth + RFC 7807 ApiError, single-flight refresh), authStore + cartStore (Zustand+persist), auth feature end-to-end (schemas Zod, service, hooks TanStack Query, LoginForm/RegisterForm con TanStack Form), router nested con guards (PublicRoute/PrivateRoute/RoleGuard), páginas de error 401/403/404, layout dual (Sidebar hover-expand+lock desktop, BottomNav+TopNavbar mobile), design tokens dark-first vía Tailwind v4 @theme, QueryClient defaults globales, ESLint rule anti-namespace lucide.
 - **Historias**: US-000c, US-000e, US-001, US-002, US-066, US-067, US-075, US-076
 - **Dependencias**: auth-backend ✅
-- **Estado**: 🔄 En implementación (2026-05-12)
+- **Estado**: ✅ Archivado (2026-05-12)
 - **Por qué**: El refactor de Feature-First plano invalidó cuatro changes archivados que asumían FSD nominal y 4 stores fijos. Este change es el consolidado que repone la fundación adaptada.
 
 ---
