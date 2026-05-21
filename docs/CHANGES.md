@@ -18,13 +18,15 @@ El proyecto se desarrolla en **dos fases secuenciales**:
 
 **Tradeoff aceptado**: la validación E2E se concentra en la Fase B. Los bugs de integración (CORS, formatos de fecha, paginación, snapshots) aparecerán de golpe al arrancar el frontend. Para mitigarlo, los tests de integración del backend deben cubrir todos los caminos críticos.
 
-### Estado actual (2026-05-12)
+### Estado actual (2026-05-21)
 
 - **Sprints 0 a 4**: ✅ Archivados completos (changes #1 al #13) — *ver nota sobre #2/#5/#7/#8 refactoreados*
 - **Refactors**: ✅ Archivados — `refactor-uow-to-context-manager` (68/68), `refactor-auth-to-uow`, `refactor-users-route-to-spanish`
 - **Frontend rebuild**: ✅ Archivado — `frontend-rebuild-on-feature-first`. Changes #2/#5/#7/#8 marcados como refactored — su código fue reemplazado por este change.
-- **Sprint 5**: 🔄 En progreso — `order-creation-backend` (#14) ✅ archivado, `payment-mercadopago-backend` (#15) ✅ archivado, `order-state-machine-fsm` (#16) 🔄 En implementación
+- **Sprint 5**: ✅ Archivado — `order-creation-backend` (#14) ✅ archivado, `payment-mercadopago-backend` (#15) ✅ archivado, `order-state-machine-fsm` (#16) ✅ archivado, `order-visualization-backend` (#17) ✅ archivado
+- **Sprint 6**: ✅ Archivado — `admin-users-backend` (#18) ✅ archivado, `admin-catalog-permissions` (#19) ✅ archivado, `admin-metrics-backend` (#20) ✅ archivado
 - **Refactor transversal (fuera de slot)**: `checkout-pay-first-flow` — unifica la creación de pedidos + pago en un único `POST /checkout/online` atómico, elimina los endpoints separados `POST /pedidos/` y `POST /pagos/`, renombra `EN_CAMINO → TERMINADO` en toda la pila, e integra `PaymentForm` inline en `CheckoutPage`. Aplica sobre Sprint 5 (post #15, pre-#17).
+- **Sprint 13**: ✅ Archivado — `display-cocina-kds` (#31) ✅ archivado (2026-05-21).
 
 ---
 
@@ -316,11 +318,11 @@ A partir de acá la API está congelada y todos los changes son frontend-only.
 > (2026-05-20) — ver detalle abajo. El feature pack la sugería como "C-11"; acá se
 > integra como #31 siguiendo la numeración secuencial del roadmap.
 
-### 31. **display-cocina-kds**
+### 31. **display-cocina-kds** ✅
 - **Funcionalidad**: Kitchen Display System en tiempo real + consolidación del modelo de roles. Abarca backend (REST + WebSocket en proceso) y frontend (vista exclusiva del cocinero). Se implementa en tandas; candidato a **PRs encadenados** si supera las 400 líneas.
 - **Historias**: US-COCINA-01 a US-COCINA-09 (`docs/feature-display-cocina/03_historias_de_usuario.md`)
-- **Dependencias**: auth-backend (#6), order-state-machine-fsm (#16), payment-mercadopago-backend (#15), products-backend (#11), admin-users-backend (#18), frontend-rebuild-on-feature-first
-- **Duración estimada**: 12-16 horas
+- **Dependencias**: auth-backend ✅, order-state-machine-fsm ✅, payment-mercadopago-backend ✅, products-backend ✅, admin-users-backend ✅, frontend-rebuild-on-feature-first ✅
+- **Estado**: ✅ Archivado (2026-05-21)
 
 **Decisiones de diseño cerradas (2026-05-20):**
 
@@ -397,8 +399,8 @@ FEATURE — Display de Cocina (KDS)
 =================================
 
 display-cocina-kds
-  deps: auth-backend ✅, order-state-machine-fsm, payment-mercadopago-backend,
-        products-backend ✅, admin-users-backend, frontend-rebuild-on-feature-first
+  deps: auth-backend ✅, order-state-machine-fsm ✅, payment-mercadopago-backend ✅,
+        products-backend ✅, admin-users-backend ✅, frontend-rebuild-on-feature-first ✅
   ├─ slice 1: agregar rol COCINA (5º, sin tocar los 4 roles de la spec)
   ├─ slice 2: COCINA en FSM + EN_CAMINO condicional (seed + migración Alembic + FSM RBAC)
   ├─ slice 3: backend KDS (GET /cocina/pedidos + WebSocket en proceso + auditoría)
@@ -426,7 +428,7 @@ display-cocina-kds
 | B | **10** | payment-mercadopago-frontend | 3-4h | Pendiente |
 | B | **11** | order-visualization-frontend | 4-5h | Pendiente |
 | B | **12** | admin-users-frontend, admin-dashboard-frontend | 5-7h | Pendiente |
-| A+B | **13** | display-cocina-kds | 12-16h | 🔄 Propuesto |
+| A+B | **13** | display-cocina-kds | 12-16h | ✅ Archivado |
 | — | Postergable | system-configuration | 2-3h | Opcional |
 
 **Total estimado**: 100-132 horas (31 changes)
