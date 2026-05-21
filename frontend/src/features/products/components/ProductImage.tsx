@@ -29,7 +29,6 @@ export function ProductImage({
       src={imageSrc}
       alt={alt}
       loading={loading}
-      crossOrigin="anonymous"
       onError={() => setFailedSrc(imageSrc)}
       className={className}
     />

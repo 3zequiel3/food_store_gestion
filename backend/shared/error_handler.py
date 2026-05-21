@@ -132,6 +132,7 @@ async def http_exception_handler(request: Request, exc: Exception) -> JSONRespon
     status_titles = {
         400: "Bad Request",
         401: "Unauthorized",
+        402: "Payment Required",
         403: "Forbidden",
         404: "Not Found",
         405: "Method Not Allowed",
@@ -140,13 +141,21 @@ async def http_exception_handler(request: Request, exc: Exception) -> JSONRespon
         500: "Internal Server Error",
     }
     title = status_titles.get(exc.status_code, "HTTP Error")
-    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+    extra: dict[str, Any] = {}
+    if isinstance(exc.detail, dict):
+        detail = str(exc.detail.get("detail") or exc.detail.get("message") or title)
+        for key in ("code", "mp_status", "status_detail", "raw_cause"):
+            if key in exc.detail:
+                extra[key] = exc.detail[key]
+    else:
+        detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
 
     return _problem_response(
         exc.status_code,
         title,
         detail,
         str(request.url.path),
+        extra or None,
     )
 
 

@@ -77,7 +77,7 @@ def _handle_checkout_error(error: Exception) -> HTTPException:
             },
         )
     elif isinstance(error, UpstreamError):
-        if error.code == "mp_unreachable":
+        if error.code in {"mp_unreachable", "mp_bad_request"}:
             return HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail={
@@ -151,6 +151,7 @@ def checkout_online(
         return service.crear_pedido_online(
             user_id=current_user.id,
             request=body,
+            user_email=current_user.email,
         )
     except Exception as e:
         http_error = _handle_checkout_error(e)

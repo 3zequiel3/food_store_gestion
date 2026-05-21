@@ -47,6 +47,7 @@ class CheckoutOnlineRequest(BaseModel):
     idempotency_key: UUID = Field(...)
     identification_type: str = Field(..., min_length=1)
     identification_number: str = Field(..., min_length=1)
+    payer_email: str = Field(..., min_length=1)
 
 
 class CheckoutPickupEfectivoRequest(BaseModel):

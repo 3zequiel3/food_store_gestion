@@ -72,8 +72,16 @@ export function ProductDetailPage() {
 
   const sinStock = !producto.disponible || producto.stock_cantidad === 0;
 
-  // 8.1 — Get sorted images and determine active image
-  const sortedImages = [...(producto.imagenes ?? [])].sort((a, b) => a.orden - b.orden);
+  // 8.1 — Get sorted images and determine active image.
+  // Fall back to the legacy imagen_url field for products that were created
+  // before the imagenes relationship existed (no ProductoImagen rows).
+  const sortedImages = (() => {
+    const imgs = [...(producto.imagenes ?? [])].sort((a, b) => a.orden - b.orden);
+    if (imgs.length === 0 && producto.imagen_url) {
+      return [{ id: 0, url: producto.imagen_url, orden: 0, es_primaria: true }];
+    }
+    return imgs;
+  })();
   const hasMultipleImages = sortedImages.length > 1;
   const hasImages = sortedImages.length > 0;
 
@@ -207,7 +215,6 @@ export function ProductDetailPage() {
                   <img
                     src={resolveImageUrl(img.url)}
                     alt={`Thumbnail ${idx + 1}`}
-                    crossOrigin="anonymous"
                     className="w-full h-full object-cover"
                   />
                 </button>

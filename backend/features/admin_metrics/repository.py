@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from features.orders.models import DetallePedido, Pedido
+from features.products.models import Producto
 from features.users.models import Usuario
 
 
@@ -133,7 +134,9 @@ class MetricsRepository:
                 ).label("ingreso_total"),
             )
             .join(Pedido, DetallePedido.pedido_id == Pedido.id)
+            .join(Producto, DetallePedido.producto_id == Producto.id)
             .where(Pedido.eliminado_en.is_(None))
+            .where(Producto.eliminado_en.is_(None))
             .group_by(DetallePedido.producto_id, DetallePedido.nombre_snapshot)
             .order_by(func.sum(DetallePedido.cantidad).desc())
             .limit(top)

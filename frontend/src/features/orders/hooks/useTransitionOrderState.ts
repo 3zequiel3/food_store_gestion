@@ -12,8 +12,9 @@ export function useTransitionOrderState() {
   return useMutation({
     mutationFn: ({ id, estado_codigo_destino, motivo }: TransitionArgs) =>
       transicionarEstado(id, estado_codigo_destino, motivo),
-    onSuccess() {
+    onSuccess(_data, variables) {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['orders', variables.id] });
     },
   });
 }

@@ -1,54 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, ArrowLeft } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, MapPin, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddressSelector } from './AddressSelector';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
-import { OrderSummary } from './OrderSummary';
+import { OrderSummaryPanel } from './OrderSummaryPanel';
 import { SecureCardForm } from '../../payments/components/SecureCardForm';
 import { useCheckoutOnline } from '../hooks/useCheckoutOnline';
 import { useCheckoutPickupEfectivo } from '../hooks/useCheckoutPickupEfectivo';
 import { useCartStore } from '../../cart/stores/cartStore';
+import { useAuthStore } from '../../auth/stores/authStore';
 import type {
   CheckoutItem,
   CheckoutOnlineRequest,
   CheckoutPickupEfectivoRequest,
 } from '../types/checkout.types';
-import { Button } from '../../../components/ui/Button';
 
-/**
- * CheckoutPage — integrated checkout with inline payment.
- *
- * Refactored for checkout-pay-first-flow change:
- * - Online payment: collects card data inline, calls POST /checkout/online
- * - Pickup+efectivo: calls POST /checkout/pickup-efectivo
- * - No separate PaymentPage — everything happens here
- */
 export function CheckoutPage() {
   const navigate = useNavigate();
   const items = useCartStore((s) => s.items);
+  const userEmail = useAuthStore((s) => s.user?.email ?? '');
 
-  // Local state for selectors
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
   const [notas, setNotas] = useState('');
+  const [idempotencyKey] = useState<string>(() => crypto.randomUUID());
 
-  // Idempotency key — generated once per checkout session
-  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => crypto.randomUUID());
-
-  // Card token state (for online payment)
-  const [cardToken, setCardToken] = useState<string | null>(null);
-  const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
-  const [identificationType, setIdentificationType] = useState<string>('DNI');
-  const [identificationNumber, setIdentificationNumber] = useState<string>('');
+  const cardFormRef = useRef<HTMLFormElement | null>(null);
 
   const checkoutOnlineMutation = useCheckoutOnline();
   const checkoutPickupMutation = useCheckoutPickupEfectivo();
 
-  // Delivery mode: true when an address is selected (not local pickup)
   const isDelivery = selectedAddressId !== null;
 
-  // Reset payment selection if user had EFECTIVO and switches to delivery
   useEffect(() => {
     if (isDelivery && selectedPaymentMethod === 'EFECTIVO') {
       setSelectedPaymentMethod(null);
@@ -58,31 +42,24 @@ export function CheckoutPage() {
     }
   }, [isDelivery, selectedPaymentMethod]);
 
-  // Regenerate idempotency key if user navigates away and comes back
-  useEffect(() => {
-    return () => {
-      // On unmount, clear the key so next checkout gets a fresh one
-      setIdempotencyKey(crypto.randomUUID());
-    };
-  }, []);
-
   if (items.length === 0) {
     return (
-      <div className="max-w-2xl mx-auto py-12 px-4">
-        <div className="text-center space-y-4">
-          <div className="flex justify-center">
-            <div className="h-16 w-16 rounded-2xl bg-glass backdrop-blur-xl border border-glass-border flex items-center justify-center">
-              <ShoppingBag className="h-8 w-8 text-muted-foreground/50" />
-            </div>
+      <div className="max-w-2xl mx-auto py-20 px-4 text-center">
+        <div className="flex justify-center mb-6">
+          <div className="h-20 w-20 rounded-2xl bg-glass backdrop-blur-xl border border-glass-border flex items-center justify-center">
+            <ShoppingBag className="h-9 w-9 text-muted-foreground/50" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Tu carrito está vacío</h1>
-          <p className="text-muted-foreground">
-            Agregá productos del catálogo para continuar con tu pedido.
-          </p>
-          <Button onClick={() => navigate('/cliente/catalogo')} leftIcon={<ArrowLeft className="h-4 w-4" />}>
-            Ir al catálogo
-          </Button>
         </div>
+        <h1 className="text-2xl font-bold text-foreground mb-2">Tu carrito está vacío</h1>
+        <p className="text-muted-foreground mb-6">Agregá productos del catálogo para continuar.</p>
+        <button
+          type="button"
+          onClick={() => navigate('/cliente/catalogo')}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Ir al catálogo
+        </button>
       </div>
     );
   }
@@ -95,25 +72,20 @@ export function CheckoutPage() {
     }));
   }
 
-  function handleCheckoutOnline() {
-    if (!cardToken || !paymentMethodId) {
-      toast.error('Completá los datos de la tarjeta');
-      return;
-    }
-
+  function handleCheckoutOnline(token: string, methodId: string, idType: string, idNumber: string) {
     const payload: CheckoutOnlineRequest = {
       items: buildCheckoutItems(),
       tipo_entrega: isDelivery ? 'DELIVERY' : 'PICKUP',
       direccion_id: selectedAddressId,
       notas: notas.trim() || null,
-      card_token: cardToken,
-      payment_method_id: paymentMethodId,
+      card_token: token,
+      payment_method_id: methodId,
       installments: 1,
       idempotency_key: idempotencyKey,
-      identification_type: identificationType,
-      identification_number: identificationNumber,
+      identification_type: idType,
+      identification_number: idNumber,
+      payer_email: userEmail,
     };
-
     checkoutOnlineMutation.mutate(payload);
   }
 
@@ -122,7 +94,6 @@ export function CheckoutPage() {
       items: buildCheckoutItems(),
       notas: notas.trim() || null,
     };
-
     checkoutPickupMutation.mutate(payload);
   }
 
@@ -131,113 +102,127 @@ export function CheckoutPage() {
       toast.error('Seleccioná una forma de pago');
       return;
     }
-
     if (selectedPaymentMethod === 'TARJETA') {
-      handleCheckoutOnline();
+      cardFormRef.current?.requestSubmit();
     } else if (selectedPaymentMethod === 'EFECTIVO') {
       handleCheckoutPickupEfectivo();
     }
   }
 
   const isProcessing = checkoutOnlineMutation.isPending || checkoutPickupMutation.isPending;
-  const isOnlinePaymentReady = cardToken && paymentMethodId && identificationNumber;
-  const isSubmitDisabled =
-    !selectedPaymentMethod ||
-    isProcessing ||
-    (selectedPaymentMethod === 'TARJETA' && !isOnlinePaymentReady);
-
-  // Show PaymentForm when TARJETA is selected
-  const showPaymentForm = selectedPaymentMethod === 'TARJETA';
+  const isSubmitDisabled = !selectedPaymentMethod || isProcessing;
+  const showCardForm = selectedPaymentMethod === 'TARJETA';
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
-      <div className="mb-8">
-        <button
-          onClick={() => navigate('/cliente/catalogo')}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver al catálogo
-        </button>
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-          Finalizar compra
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Revisá los datos de tu pedido y completá el pago
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-      <div className="grid gap-8 lg:grid-cols-[1fr,400px]">
-        <div className="space-y-6">
-          <div className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-5 shadow-sm">
-            <AddressSelector
-              selectedAddressId={selectedAddressId}
-              onSelect={setSelectedAddressId}
-            />
-          </div>
-
-          <div className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-5 shadow-sm">
-            <PaymentMethodSelector
-              selectedPaymentMethod={selectedPaymentMethod}
-              onSelect={setSelectedPaymentMethod}
-              isDelivery={isDelivery}
-            />
-          </div>
-
-          {/* Inline PaymentForm for TARJETA */}
-          {showPaymentForm && (
-            <div className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-5 shadow-sm">
-              <h3 className="text-lg font-semibold mb-4">Datos de la tarjeta</h3>
-              <SecureCardForm
-                onSubmit={(token, methodId, idType, idNumber) => {
-                  setCardToken(token);
-                  setPaymentMethodId(methodId);
-                  setIdentificationType(idType);
-                  setIdentificationNumber(idNumber);
-                }}
-                onError={(message) => {
-                  toast.error('Error en la tarjeta', { description: message });
-                }}
-                isLoading={isProcessing}
-              />
-            </div>
-          )}
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            type="button"
+            onClick={() => navigate('/cliente/catalogo')}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-5"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver al catálogo
+          </button>
+          <h1 className="text-2xl font-bold text-foreground">Finalizar compra</h1>
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-5 shadow-sm">
-            <OrderSummary
-              isLocalPickup={selectedAddressId === null}
-              notas={notas}
-              onNotasChange={setNotas}
-            />
+        {/* Two-column layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
+
+          {/* LEFT — forms */}
+          <div className="space-y-4">
+
+            {/* Section 1 — Entrega */}
+            <section className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border overflow-hidden">
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-glass-border">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground shrink-0">
+                  1
+                </span>
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground tracking-wide uppercase">
+                    Entrega
+                  </h2>
+                </div>
+              </div>
+              <div className="p-5">
+                <AddressSelector
+                  selectedAddressId={selectedAddressId}
+                  onSelect={setSelectedAddressId}
+                />
+              </div>
+            </section>
+
+            {/* Section 2 — Pago */}
+            <section className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border overflow-hidden">
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-glass-border">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground shrink-0">
+                  2
+                </span>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground tracking-wide uppercase">
+                    Pago
+                  </h2>
+                </div>
+              </div>
+              <div className="p-5 space-y-5">
+                <PaymentMethodSelector
+                  selectedPaymentMethod={selectedPaymentMethod}
+                  onSelect={setSelectedPaymentMethod}
+                  isDelivery={isDelivery}
+                />
+
+                {showCardForm && (
+                  <div className="border-t border-glass-border pt-5">
+                    <p className="text-sm font-medium text-foreground mb-4">Datos de la tarjeta</p>
+                    <SecureCardForm
+                      formRef={cardFormRef}
+                      onSubmit={(token, methodId, idType, idNumber) => {
+                        handleCheckoutOnline(token, methodId, idType, idNumber);
+                      }}
+                      onError={(message) => {
+                        toast.error('Error en la tarjeta', { description: message });
+                      }}
+                      isLoading={isProcessing}
+                    />
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Notes */}
+            <section className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border p-5">
+              <label htmlFor="notas" className="block text-sm font-medium text-foreground mb-2">
+                Notas del pedido{' '}
+                <span className="font-normal text-muted-foreground">(opcional)</span>
+              </label>
+              <textarea
+                id="notas"
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                placeholder="Instrucciones especiales, alergias, referencias de entrega…"
+                maxLength={500}
+                rows={3}
+                className="w-full px-3 py-2.5 text-sm bg-background/50 border border-glass-border rounded-lg text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground text-right">{notas.length}/500</p>
+            </section>
           </div>
 
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitDisabled}
-            size="lg"
-            isLoading={isProcessing}
-            className="w-full"
-          >
-            {isProcessing
-              ? 'Procesando...'
-              : selectedPaymentMethod === 'TARJETA'
-              ? 'Confirmar y pagar'
-              : 'Confirmar pedido'}
-          </Button>
-
-          {!selectedPaymentMethod && (
-            <p className="text-xs text-center text-muted-foreground">
-              Seleccioná una forma de pago para continuar
-            </p>
-          )}
-
-          {selectedPaymentMethod === 'TARJETA' && !isOnlinePaymentReady && (
-            <p className="text-xs text-center text-muted-foreground">
-              Completá los datos de la tarjeta para continuar
-            </p>
-          )}
+          {/* RIGHT — sticky summary panel */}
+          <div className="lg:sticky lg:top-20">
+            <OrderSummaryPanel
+              isLocalPickup={!isDelivery}
+              isProcessing={isProcessing}
+              isDisabled={isSubmitDisabled}
+              onConfirm={handleSubmit}
+            />
+          </div>
         </div>
       </div>
     </div>

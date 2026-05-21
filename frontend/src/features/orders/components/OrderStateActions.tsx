@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ChevronRight, AlertTriangle, Zap } from 'lucide-react';
 import type { PedidoDetalle, EstadoCodigo } from '../types/orders.types';
 import { useTransitionOrderState } from '../hooks/useTransitionOrderState';
 
@@ -9,15 +10,11 @@ interface Transition {
   requiresMotivo: boolean;
 }
 
-/**
- * Admin-facing transitions only.
- * PENDIENTE → CONFIRMADO is webhook-only (MercadoPago payment confirmation).
- * CANCELADO_ADMIN is the admin cancellation target (not legacy CANCELADO).
- */
 function getTransitions(estado: EstadoCodigo): Transition[] {
   switch (estado) {
     case 'PENDIENTE':
       return [
+        { estado_codigo_destino: 'CONFIRMADO', label: 'Confirmar pedido', variant: 'primary', requiresMotivo: false },
         { estado_codigo_destino: 'CANCELADO_ADMIN', label: 'Rechazar', variant: 'danger', requiresMotivo: true },
       ];
     case 'CONFIRMADO':
@@ -77,69 +74,81 @@ export function OrderStateActions({ order }: OrderStateActionsProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Acciones
-      </p>
-
-      {pendingTransition ? (
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-foreground">
-            Motivo para{' '}
-            <span className="font-medium">cancelar</span>{' '}
-            (obligatorio):
-          </p>
-          <input
-            type="text"
-            value={motivoInput}
-            onChange={(e) => setMotivoInput(e.target.value)}
-            placeholder="Escribí el motivo…"
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleConfirmWithMotivo}
-              disabled={mutation.isPending}
-              className="flex-1 rounded-lg bg-destructive px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
-            >
-              {mutation.isPending ? 'Procesando…' : 'Confirmar'}
-            </button>
-            <button
-              type="button"
-              onClick={handleCancelMotivo}
-              disabled={mutation.isPending}
-              className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50 transition-colors"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {transitions.map((t) => (
-            <button
-              key={t.estado_codigo_destino}
-              type="button"
-              onClick={() => handleClick(t)}
-              disabled={mutation.isPending}
-              className={
-                t.variant === 'primary'
-                  ? 'rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity'
-                  : 'rounded-lg border border-destructive/50 px-3 py-2 text-sm font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors'
-              }
-            >
-              {mutation.isPending ? 'Procesando…' : t.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {mutation.isError && (
-        <p className="text-xs text-destructive">
-          Error al actualizar el estado. Intentá de nuevo.
+    <div className="rounded-xl border border-primary/20 bg-primary/5 overflow-hidden">
+      {/* Panel header */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-primary/10">
+        <Zap className="h-3.5 w-3.5 text-primary" />
+        <p className="text-xs font-semibold uppercase tracking-wider text-primary/80">
+          Acciones del pedido
         </p>
-      )}
+        <div className="ml-auto h-2 w-2 rounded-full bg-primary animate-pulse" />
+      </div>
+
+      <div className="p-4">
+        {pendingTransition ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start gap-2.5 rounded-xl bg-destructive/10 border border-destructive/20 px-3.5 py-3">
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+              <p className="text-sm text-destructive">
+                Ingresá el motivo para{' '}
+                <span className="font-semibold">{pendingTransition.label.toLowerCase()}</span>:
+              </p>
+            </div>
+            <input
+              type="text"
+              value={motivoInput}
+              onChange={(e) => setMotivoInput(e.target.value)}
+              placeholder="Motivo de cancelación…"
+              className="rounded-xl border border-glass-border bg-background/50 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-destructive/40 transition-all w-full"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleConfirmWithMotivo}
+                disabled={mutation.isPending}
+                className="flex-1 rounded-xl bg-destructive px-4 py-2.5 text-sm font-semibold text-white hover:bg-destructive/90 disabled:opacity-50 transition-all"
+              >
+                {mutation.isPending ? 'Procesando…' : 'Confirmar'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelMotivo}
+                disabled={mutation.isPending}
+                className="rounded-xl border border-glass-border bg-background/30 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-glass-hover disabled:opacity-50 transition-colors"
+              >
+                Volver
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {transitions.map((t) => (
+              <button
+                key={t.estado_codigo_destino}
+                type="button"
+                onClick={() => handleClick(t)}
+                disabled={mutation.isPending}
+                className={
+                  t.variant === 'primary'
+                    ? 'flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all shadow-sm shadow-primary/20'
+                    : 'flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-sm font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors'
+                }
+              >
+                {mutation.isPending ? 'Procesando…' : t.label}
+                {t.variant === 'primary' && !mutation.isPending && (
+                  <ChevronRight className="h-3.5 w-3.5" />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {mutation.isError && (
+          <p className="mt-3 text-xs text-destructive">
+            Error al actualizar el estado. Intentá de nuevo.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

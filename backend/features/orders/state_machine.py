@@ -20,8 +20,8 @@ from shared.exceptions import BusinessRuleError, ForbiddenError
 # ---------------------------------------------------------------------------
 
 ALLOWED_TRANSITIONS: dict[str, set[str]] = {
-    "PENDIENTE": {"CANCELADO", "CANCELADO_ADMIN", "CANCELADO_CLIENTE"},
-    "CONFIRMADO": {"EN_PREPARACION", "CANCELADO_ADMIN"},
+    "PENDIENTE": {"CANCELADO", "CANCELADO_ADMIN", "CANCELADO_CLIENTE", "CONFIRMADO"},
+    "CONFIRMADO": {"EN_PREPARACION", "ENTREGADO", "CANCELADO_ADMIN"},
     "EN_PREPARACION": {"TERMINADO", "CANCELADO_ADMIN"},
     "TERMINADO": {"ENTREGADO"},
     "ENTREGADO": set(),
@@ -42,7 +42,9 @@ TRANSITION_ROLES: dict[tuple[str, str], set[str]] = {
     ("PENDIENTE", "CANCELADO"): {"CLIENT", "PEDIDOS", "ADMIN"},
     ("PENDIENTE", "CANCELADO_CLIENTE"): {"CLIENT"},
     ("PENDIENTE", "CANCELADO_ADMIN"): {"ADMIN", "PEDIDOS"},
+    ("PENDIENTE", "CONFIRMADO"): {"PEDIDOS", "ADMIN"},
     ("CONFIRMADO", "EN_PREPARACION"): {"PEDIDOS", "ADMIN"},
+    ("CONFIRMADO", "ENTREGADO"): {"PEDIDOS", "ADMIN"},
     ("CONFIRMADO", "CANCELADO_ADMIN"): {"PEDIDOS", "ADMIN"},
     ("EN_PREPARACION", "TERMINADO"): {"PEDIDOS", "ADMIN"},
     ("EN_PREPARACION", "CANCELADO_ADMIN"): {"ADMIN"},  # RN-RB08 — solo ADMIN
