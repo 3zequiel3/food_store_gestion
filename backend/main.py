@@ -5,6 +5,7 @@ This module initializes the FastAPI application with all middleware,
 CORS configuration, and feature routers.
 """
 
+import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -79,6 +80,7 @@ from features.catalog.router import router as catalog_router
 from features.admin_users.router import router as admin_users_router
 from features.admin_metrics.router import router as admin_metrics_router
 from features.checkout.router import router as checkout_router
+from features.cocina.router import router as cocina_router
 
 
 @asynccontextmanager
@@ -102,6 +104,15 @@ async def lifespan(app: FastAPI):
         logger.info("Schema sincronizado con Base.metadata.create_all (development)")
 
     run_seed()
+
+    # Start KDS WebSocket event drain task (D5, Slice 3)
+    try:
+        loop = asyncio.get_running_loop()
+        from features.cocina.service import start_drain_task
+        start_drain_task(loop)
+    except RuntimeError:
+        # No running event loop during startup — will be started when first request comes
+        pass
 
     yield
     # Shutdown
@@ -233,6 +244,7 @@ app.include_router(
 app.include_router(
     admin_metrics_router, prefix="/api/v1/admin/metricas", tags=["admin-metrics"]
 )
+app.include_router(cocina_router, prefix="/api/v1/cocina", tags=["cocina"])
 
 
 if __name__ == "__main__":

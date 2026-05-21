@@ -28,16 +28,16 @@
 ## 3. Slice 3 — Backend KDS (REST + WebSocket en proceso + auditoría de eventos)
 
 - [ ] 3.1 Test (rojo): `GET /api/v1/cocina/pedidos` con `COCINA` devuelve solo `CONFIRMADO`+`EN_PREPARACION` ordenados por antigüedad de entrada a cocina; excluye `PENDIENTE`; 403 para `CLIENT`.
-- [ ] 3.2 Crear `backend/features/cocina/` (router, service, schemas) y el endpoint `GET /cocina/pedidos` (orden por `creado_en` del historial de entrada a `CONFIRMADO`, RN-CO02).
+- [x] 3.2 Crear `backend/features/cocina/` (router, service, schemas) y el endpoint `GET /cocina/pedidos` (orden por `creado_en` del historial de entrada a `CONFIRMADO`, RN-CO02).
 - [ ] 3.3 Test (rojo): gestor de conexiones en proceso — registra, desregistra al cerrar, y `broadcast` sin conexiones no falla.
-- [ ] 3.4 Implementar el gestor de conexiones WebSocket en memoria (`set` + `asyncio.Lock`, `connect`/`disconnect`/`broadcast`).
+- [x] 3.4 Implementar el gestor de conexiones WebSocket en memoria (`set` + `asyncio.Lock`, `connect`/`disconnect`/`broadcast`).
 - [ ] 3.5 Test (rojo, con `TestClient`): `WS /api/v1/cocina/ws` rechaza handshake sin token y con rol `CLIENT`; acepta con `COCINA`/`ADMIN`.
-- [ ] 3.6 Implementar el endpoint WebSocket con validación de JWT y rol en el handshake.
+- [x] 3.6 Implementar el endpoint WebSocket con validación de JWT y rol en el handshake.
 - [ ] 3.7 Test (rojo): tras una transición commiteada, se publica el evento correcto (`pedido_confirmado`, `pedido_en_preparacion`, `pedido_terminado`, `pedido_cancelado`); el fallo del broadcast no revierte la transición.
-- [ ] 3.8 Publicar eventos post-commit desde el servicio del FSM (encolar hacia el event loop; best-effort).
+- [x] 3.8 Publicar eventos post-commit desde el servicio del FSM (encolar hacia el event loop; best-effort).
 - [ ] 3.9 Test (rojo): un avance de cocina queda en `HistorialEstadoPedido` con `cambiado_por_id` del cocinero (append-only, sin UPDATE/DELETE).
-- [ ] 3.10 Verificar/ajustar la auditoría existente para el actor cocinero (reutiliza `create_historial_transicion`).
-- [ ] 3.11 Registrar el router de cocina y el endpoint WebSocket en `backend/main.py`.
+- [x] 3.10 Verificar/ajustar la auditoría existente para el actor cocinero (reutiliza `create_historial_transicion`).
+- [x] 3.11 Registrar el router de cocina y el endpoint WebSocket en `backend/main.py`.
 - [ ] 3.12 Correr la suite de backend; confirmar verde.
 
 ## 4. Slice 4 — Alta de usuarios desde admin (POST nuevo)

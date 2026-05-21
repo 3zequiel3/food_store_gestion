@@ -289,7 +289,18 @@ class OrderService:
             )
 
             uow.session.refresh(pedido, attribute_names=["estado_codigo", "creado_en"])
-            return pedido
+            # Capture values for post-commit event publishing (D5, Slice 3)
+            _event_pedido_id = pedido_id
+            _event_estado_nuevo = estado_nuevo
+
+        # Post-commit: publish WebSocket event to KDS (best-effort, non-blocking)
+        try:
+            from features.cocina.service import publish_transition_event
+            publish_transition_event(_event_pedido_id, _event_estado_nuevo)
+        except Exception:
+            pass  # Best-effort — never let broadcast failure affect the transition
+
+        return pedido
 
     def listar_pedidos(
         self, user: Usuario, filtros: PedidoListFilters
