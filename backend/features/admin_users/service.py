@@ -6,6 +6,7 @@ within a single UnitOfWork transaction.
 
 Operations:
 - list_usuarios: paginated list with optional search and role filter
+- create_usuario: create a new user with email, password, and roles
 - update_datos_personales: edit nombre/apellido/telefono
 - change_rol: atomic role replacement with last-admin guard + token revocation (D4, D5)
 - change_estado: activate/deactivate with token revocation on deactivation (D3)
@@ -15,16 +16,20 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
+from sqlalchemy import select
+
 from features.admin_users.repository import AdminUserRepository
 from features.admin_users.schemas import (
     AdminChangeEstadoRequest,
     AdminChangeRolRequest,
+    AdminCreateUserRequest,
     AdminUpdateUserRequest,
     AdminUserResponse,
 )
 from features.auth.repository import RefreshTokenRepository
-from features.users.models import Usuario
+from features.users.models import Usuario, UsuarioRol
 from shared.exceptions import ConflictError, NotFoundError, ValidationError
+from shared.security import hash_password
 from shared.unit_of_work import UnitOfWork
 
 
@@ -61,6 +66,77 @@ class AdminUserService:
             responses = [AdminUserResponse.from_usuario(u) for u in items]
 
         return responses, total
+
+    # ── Create user ───────────────────────────────────────────────────────────
+
+    def create_usuario(
+        self,
+        payload: AdminCreateUserRequest,
+    ) -> AdminUserResponse:
+        """Create a new user from the admin panel.
+
+        Business rules:
+        - Email must be unique (case-insensitive) — 409 if duplicate
+        - All role codes must exist in the system — 422 if unknown
+        - Password is hashed with bcrypt (same as registration)
+
+        Args:
+            payload: creation data (email, password, nombre, apellido, telefono, roles)
+
+        Returns:
+            Created user as AdminUserResponse
+
+        Raises:
+            ConflictError: if email already exists
+            ValidationError: if any role code is not in the system
+        """
+        password_hash = hash_password(payload.password)
+
+        with UnitOfWork() as uow:
+            repo = AdminUserRepository(uow.session)
+
+            # 1. Check email uniqueness (case-insensitive, excluding soft-deleted)
+            existing = uow.session.execute(
+                select(Usuario).where(
+                    Usuario.email.ilike(payload.email),
+                    Usuario.eliminado_en.is_(None),
+                )
+            ).scalar_one_or_none()
+            if existing:
+                raise ConflictError("El email ya está registrado")
+
+            # 2. Validate role codes
+            found_roles = repo.get_roles_by_codes(payload.roles)
+            found_codes = {r.codigo for r in found_roles}
+            missing = set(payload.roles) - found_codes
+            if missing:
+                raise ValidationError(
+                    f"Códigos de rol inválidos: {sorted(missing)}",
+                    field="roles",
+                )
+
+            # 3. Create user
+            user = Usuario(
+                email=payload.email,
+                password_hash=password_hash,
+                nombre=payload.nombre,
+                apellido=payload.apellido,
+                telefono=payload.telefono,
+                is_active=True,
+            )
+            uow.session.add(user)
+            uow.session.flush()
+
+            # 4. Assign roles via N:M relationship
+            for rol in found_roles:
+                uow.session.add(UsuarioRol(user_id=user.id, role_id=rol.id))
+            uow.session.flush()
+
+            # 5. Reload with roles eager-loaded
+            user = repo.find_by_id_with_roles(user.id)
+            response = AdminUserResponse.from_usuario(user)
+
+        return response
 
     # ── Update personal data ──────────────────────────────────────────────────
 

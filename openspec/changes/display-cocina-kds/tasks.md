@@ -44,9 +44,9 @@
 
 - [ ] 4.1 Test (rojo): `POST /api/v1/admin/usuarios` crea usuario con roles; 201 con `AdminUserResponse` sin `password_hash`; password hasheada con bcrypt.
 - [ ] 4.2 Test (rojo): email duplicado → 409; rol inexistente → 422; `roles=[]` → 422; sin `ADMIN` → 403.
-- [ ] 4.3 Agregar `AdminCreateUserRequest` (email, password, nombre, apellido, telefono opcional, roles `min_length=1`, `extra="forbid"`) en `backend/features/admin_users/schemas.py`.
-- [ ] 4.4 Implementar `create_usuario` en `AdminUserService` (hashing, unicidad de email, validación de códigos de rol) dentro de UoW.
-- [ ] 4.5 Agregar el endpoint `POST` en `backend/features/admin_users/router.py` con `require_role("ADMIN")`.
+- [x] 4.3 Agregar `AdminCreateUserRequest` (email, password, nombre, apellido, telefono opcional, roles `min_length=1`, `extra="forbid"`) en `backend/features/admin_users/schemas.py`.
+- [x] 4.4 Implementar `create_usuario` en `AdminUserService` (hashing, unicidad de email, validación de códigos de rol) dentro de UoW.
+- [x] 4.5 Agregar el endpoint `POST` en `backend/features/admin_users/router.py` con `require_role("ADMIN")`.
 - [ ] 4.6 Correr la suite de backend; confirmar verde.
 
 ## 5. Slice 5 — Frontend Kanban /cocina (vista exclusiva del cocinero)

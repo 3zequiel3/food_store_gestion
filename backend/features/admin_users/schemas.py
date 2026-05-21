@@ -16,7 +16,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +88,24 @@ class AdminUpdateUserRequest(BaseModel):
     nombre: Optional[str] = Field(None, min_length=2, max_length=100)
     apellido: Optional[str] = Field(None, min_length=2, max_length=100)
     telefono: Optional[str] = Field(None)
+
+
+class AdminCreateUserRequest(BaseModel):
+    """Create a new user from the admin panel.
+
+    All fields required except telefono.
+    roles must have at least one code; extra='forbid' prevents smuggling.
+    Role codes are uppercase (ADMIN, CLIENT, COCINA) per RN-71.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr
+    password: str = Field(..., min_length=8)
+    nombre: str = Field(..., min_length=2, max_length=80)
+    apellido: str = Field(..., min_length=2, max_length=80)
+    telefono: Optional[str] = None
+    roles: List[str] = Field(..., min_length=1)
 
 
 class AdminChangeRolRequest(BaseModel):

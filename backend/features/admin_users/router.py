@@ -6,6 +6,7 @@ Prefix (registered in main.py): /api/v1/admin/usuarios
 
 Routes:
   GET    /                  — paginated listing with optional search and role filter
+  POST   /                  — create a new user with email, password, and roles
   PUT    /{id}              — update personal data (nombre, apellido, telefono)
   PATCH  /{id}/rol          — replace roles (atomic, revokes refresh tokens)
   PATCH  /{id}/estado       — activate/deactivate account (revokes tokens on deactivation)
@@ -20,6 +21,7 @@ from fastapi import APIRouter, Depends
 from features.admin_users.schemas import (
     AdminChangeEstadoRequest,
     AdminChangeRolRequest,
+    AdminCreateUserRequest,
     AdminUpdateUserRequest,
     AdminUserListResponse,
     AdminUserResponse,
@@ -62,6 +64,28 @@ def list_usuarios(
         page=page,
         page_size=page_size,
     )
+
+
+@router.post(
+    "",
+    response_model=AdminUserResponse,
+    status_code=201,
+    summary="Crear un nuevo usuario (Admin)",
+    description=(
+        "Crea un usuario con email, contraseña, nombre, apellido, teléfono opcional "
+        "y una lista de roles (mínimo 1). "
+        "Los roles válidos para este formulario son ADMIN, CLIENT y COCINA. "
+        "HTTP 409 si el email ya existe. "
+        "HTTP 422 si algún código de rol no existe o la lista está vacía. "
+        "Requiere rol ADMIN."
+    ),
+)
+def create_usuario(
+    payload: AdminCreateUserRequest,
+    _current_user=Depends(require_role("ADMIN")),
+) -> AdminUserResponse:
+    """POST /admin/usuarios — create a new user."""
+    return _service.create_usuario(payload)
 
 
 @router.put(
