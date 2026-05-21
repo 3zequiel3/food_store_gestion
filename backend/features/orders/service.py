@@ -469,6 +469,17 @@ class OrderService:
             # D3 + D4: FSM and RBAC validation
             validate_transition(pedido.estado_codigo, nuevo_estado, user_roles)
 
+            # D4: delivery-mode branching rule — EN_CAMINO only for delivery orders
+            if pedido.estado_codigo == "TERMINADO":
+                if nuevo_estado == "ENTREGADO" and pedido.direccion_entrega_id is not None:
+                    raise BusinessRuleError(
+                        "Los pedidos con envío deben pasar por EN_CAMINO antes de ENTREGADO"
+                    )
+                if nuevo_estado == "EN_CAMINO" and pedido.direccion_entrega_id is None:
+                    raise BusinessRuleError(
+                        "Los pedidos de retiro en local no pasan por EN_CAMINO"
+                    )
+
             # D7: motivo required for CANCELADO_ADMIN from PENDIENTE, CONFIRMADO or EN_PREPARACION
             if nuevo_estado == "CANCELADO_ADMIN" and pedido.estado_codigo in {
                 "PENDIENTE",
@@ -537,6 +548,17 @@ class OrderService:
 
             # D3 + D4: FSM and RBAC validation
             validate_transition(pedido.estado_codigo, estado_codigo_destino, user_roles)
+
+            # D4: delivery-mode branching rule — EN_CAMINO only for delivery orders
+            if pedido.estado_codigo == "TERMINADO":
+                if estado_codigo_destino == "ENTREGADO" and pedido.direccion_entrega_id is not None:
+                    raise BusinessRuleError(
+                        "Los pedidos con envío deben pasar por EN_CAMINO antes de ENTREGADO"
+                    )
+                if estado_codigo_destino == "EN_CAMINO" and pedido.direccion_entrega_id is None:
+                    raise BusinessRuleError(
+                        "Los pedidos de retiro en local no pasan por EN_CAMINO"
+                    )
 
             # motivo required for CANCELADO_ADMIN from non-terminal states
             if estado_codigo_destino == "CANCELADO_ADMIN" and pedido.estado_codigo in {

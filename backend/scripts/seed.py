@@ -8,7 +8,7 @@ Usage:
 
 What this script loads:
     - 5 roles         (IDs stable: 1=ADMIN, 2=STOCK, 3=PEDIDOS, 4=CLIENT, 5=COCINA)
-    - 6 order states  (PENDIENTE..CANCELADO with ordering and terminal flag)
+    - 7 order states  (PENDIENTE..CANCELADO with ordering and terminal flag)
     - 3 payment methods (MERCADOPAGO, EFECTIVO, TRANSFERENCIA)
     - 1 admin user    (admin@foodstore.com, password from ADMIN_PASSWORD env)
     - 1 cocina user   (cocina@foodstore.com, password from ADMIN_PASSWORD env)
@@ -69,14 +69,15 @@ def seed_roles(session) -> None:
 
 
 def seed_estados_pedido(session) -> None:
-    """Insert the 6 canonical order states (idempotent)."""
+    """Insert the 7 canonical order states (idempotent)."""
     estados = [
         {"codigo": "PENDIENTE",       "descripcion": "Pedido recibido, aguardando confirmación", "orden": 1, "es_terminal": False},
         {"codigo": "CONFIRMADO",      "descripcion": "Pedido confirmado por el local",           "orden": 2, "es_terminal": False},
         {"codigo": "EN_PREPARACION",  "descripcion": "Pedido en cocina",                        "orden": 3, "es_terminal": False},
         {"codigo": "TERMINADO",       "descripcion": "Pedido listo para ser retirado o entregado",   "orden": 4, "es_terminal": False},
-        {"codigo": "ENTREGADO",       "descripcion": "Pedido entregado al cliente",              "orden": 5, "es_terminal": True},
-        {"codigo": "CANCELADO",       "descripcion": "Pedido cancelado",                        "orden": 6, "es_terminal": True},
+        {"codigo": "EN_CAMINO",       "descripcion": "Pedido en camino al cliente",              "orden": 5, "es_terminal": False},
+        {"codigo": "ENTREGADO",       "descripcion": "Pedido entregado al cliente",              "orden": 6, "es_terminal": True},
+        {"codigo": "CANCELADO",       "descripcion": "Pedido cancelado",                        "orden": 7, "es_terminal": True},
     ]
     stmt = (
         pg_insert(EstadoPedido)
