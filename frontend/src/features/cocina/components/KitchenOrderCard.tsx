@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FileText, Play, CheckCircle } from 'lucide-react';
-import type { CocinaPedidoResponse, CocinaEstado } from '../types/cocina.types';
+import type { CocinaPedidoResponse } from '../types/cocina.types';
 import { useUrgencyTimer } from '../hooks/useUrgencyTimer';
 import { UrgencyBadge } from './UrgencyBadge';
 import { KitchenOrderDetail } from './KitchenOrderDetail';
