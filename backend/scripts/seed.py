@@ -7,11 +7,12 @@ Usage:
     python -m  scripts.seed
 
 What this script loads:
-    - 4 roles         (IDs stable: 1=ADMIN, 2=STOCK, 3=PEDIDOS, 4=CLIENT)
+    - 5 roles         (IDs stable: 1=ADMIN, 2=STOCK, 3=PEDIDOS, 4=CLIENT, 5=COCINA)
     - 6 order states  (PENDIENTE..CANCELADO with ordering and terminal flag)
     - 3 payment methods (MERCADOPAGO, EFECTIVO, TRANSFERENCIA)
     - 1 admin user    (admin@foodstore.com, password from ADMIN_PASSWORD env)
-    - 1 user_roles binding (admin → ADMIN role)
+    - 1 cocina user   (cocina@foodstore.com, password from ADMIN_PASSWORD env)
+    - 2 user_roles bindings (admin → ADMIN, cocina → COCINA)
 
 All inserts use ON CONFLICT DO NOTHING so re-running is safe and idempotent.
 
@@ -54,12 +55,13 @@ logger = logging.getLogger(__name__)
 
 
 def seed_roles(session) -> None:
-    """Insert the 4 canonical roles with stable IDs (idempotent)."""
+    """Insert the 5 canonical roles with stable IDs (idempotent)."""
     roles = [
         {"id": 1, "codigo": "ADMIN",    "descripcion": "Administrador del sistema"},
         {"id": 2, "codigo": "STOCK",    "descripcion": "Gestiona inventario"},
         {"id": 3, "codigo": "PEDIDOS",  "descripcion": "Gestiona pedidos y entregas"},
         {"id": 4, "codigo": "CLIENT",   "descripcion": "Cliente final"},
+        {"id": 5, "codigo": "COCINA",   "descripcion": "Cocinero"},
     ]
     stmt = pg_insert(Rol).values(roles).on_conflict_do_nothing(index_elements=["id"])
     session.execute(stmt)
@@ -161,6 +163,57 @@ def seed_admin(session) -> None:
     logger.info("seed_admin: done (user_id=%s)", admin_user_id)
 
 
+def seed_cocina_user(session) -> None:
+    """
+    Insert the cocina test user and bind it to the COCINA role (idempotent).
+
+    Password is read from ADMIN_PASSWORD env var (same as admin).
+    If not set, defaults to 'admin1234' with a loud WARNING.
+    """
+    cocina_password = os.environ.get("ADMIN_PASSWORD")
+    if not cocina_password:
+        cocina_password = "admin1234"
+
+    password_hash = _bcrypt_lib.hashpw(cocina_password.encode(), _bcrypt_lib.gensalt(rounds=12)).decode()
+
+    # Insert user (conflict on email → skip)
+    user_values = [
+        {
+            "email": "cocina@foodstore.com",
+            "password_hash": password_hash,
+            "nombre": "Cocina",
+            "apellido": "Test",
+            "is_active": True,
+        }
+    ]
+    stmt = (
+        pg_insert(Usuario)
+        .values(user_values)
+        .on_conflict_do_nothing(index_elements=["email"])
+    )
+    session.execute(stmt)
+
+    # Retrieve the cocina user id
+    cocina_user = session.execute(
+        text("SELECT id FROM users WHERE email = 'cocina@foodstore.com'")
+    ).fetchone()
+
+    if cocina_user is None:
+        raise RuntimeError("Cocina user not found after insert — this should never happen.")
+
+    cocina_user_id = cocina_user[0]
+
+    # Bind cocina user to COCINA role (role_id=5, conflict on composite PK → skip)
+    ur_values = [{"user_id": cocina_user_id, "role_id": 5}]
+    stmt = (
+        pg_insert(UsuarioRol)
+        .values(ur_values)
+        .on_conflict_do_nothing(index_elements=["user_id", "role_id"])
+    )
+    session.execute(stmt)
+    logger.info("seed_cocina_user: done (user_id=%s)", cocina_user_id)
+
+
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
@@ -177,6 +230,7 @@ def run_seed() -> None:
         seed_estados_pedido(session)
         seed_formas_pago(session)
         seed_admin(session)
+        seed_cocina_user(session)
         session.commit()
         logger.warning("Seed completed successfully.")
     except Exception as exc:

@@ -2,7 +2,7 @@
 Catalog ORM models: reference tables that drive FK lookups.
 
 Tables defined here:
-- roles           (PK Integer, IDs stable 1..4)
+- roles           (PK Integer, IDs stable 1..5)
 - payment_methods (PK VARCHAR semántica)
 - order_states    (PK VARCHAR semántica, con orden y es_terminal)
 - categories      (árbol autoreferencial)
@@ -20,7 +20,7 @@ from shared.models import BaseModel
 
 
 # ---------------------------------------------------------------------------
-# Rol — tabla catálogo con IDs estables (1=ADMIN, 2=STOCK, 3=PEDIDOS, 4=CLIENT)
+# Rol — tabla catálogo con IDs estables (1=ADMIN, 2=STOCK, 3=PEDIDOS, 4=CLIENT, 5=COCINA)
 # ---------------------------------------------------------------------------
 
 
@@ -35,7 +35,7 @@ class Rol(BaseModel):
 
     __tablename__ = "roles"
 
-    # PK is an Integer (not autoincrement — seed inserts IDs 1..4 explicitly)
+    # PK is an Integer (not autoincrement — seed inserts IDs 1..5 explicitly)
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
     codigo: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     descripcion: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
