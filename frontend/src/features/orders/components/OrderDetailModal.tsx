@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { X, Package, Ban, AlertCircle, MapPin, CreditCard, Banknote, FileText, Clock } from 'lucide-react';
 import { useOrderDetail } from '../hooks/useOrderDetail';
 import { useAdvanceOrderState } from '../hooks/useAdvanceOrderState';
@@ -6,6 +6,8 @@ import { OrderTimeline, OrderProgressBar } from './OrderTimeline';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { OrderStateActions } from './OrderStateActions';
 import { useAuthStore } from '../../auth/stores/authStore';
+import { useOrderWebSocket, type WsFrame } from '../hooks/useOrderWebSocket';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface OrderDetailModalProps {
   orderId: number | null;
@@ -51,12 +53,40 @@ const PAGO_STATUS_LABELS: Record<string, string> = {
 const CANCELLED_STATES = ['CANCELADO_ADMIN', 'CANCELADO_CLIENTE', 'CANCELADO'];
 
 export function OrderDetailModal({ orderId, isAdmin = false, onClose }: OrderDetailModalProps) {
-  const { data: order, isLoading, isError, refetch } = useOrderDetail(orderId);
   const advanceMutation = useAdvanceOrderState();
   const hasClientRole = useAuthStore((s) => s.user?.roles.includes('CLIENT') ?? false);
+  const queryClient = useQueryClient();
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelMotivo, setCancelMotivo] = useState('');
+
+  // P1.5 — realtime subscription.
+  // - CLIENT: subscribes to its own `order:{id}` topic.
+  // - ADMIN: subscribes to `orders:all` to see all order updates.
+  // Falls back to 30s polling when the WS transport is degraded (disconnected).
+  const wsTopic = isAdmin ? 'orders:all' : orderId ? `order:${orderId}` : '';
+
+  const handleWsEvent = useCallback(
+    (frame: WsFrame) => {
+      if (frame.type === 'order_state_changed') {
+        // Invalidate so TanStack Query refetches the latest state.
+        void queryClient.invalidateQueries({ queryKey: ['orders', orderId] });
+      }
+    },
+    [queryClient, orderId],
+  );
+
+  const { isDegraded } = useOrderWebSocket({
+    topic: wsTopic,
+    onEvent: handleWsEvent,
+    enabled: orderId !== null,
+  });
+
+  // Hook the order detail query AFTER isDegraded is known so we can set the
+  // polling interval conditionally (30s fallback when WS is down).
+  const { data: order, isLoading, isError, refetch } = useOrderDetail(orderId, {
+    refetchInterval: isDegraded ? 30_000 : false,
+  });
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {

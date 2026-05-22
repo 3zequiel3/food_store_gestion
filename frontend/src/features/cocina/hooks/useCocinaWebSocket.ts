@@ -10,7 +10,7 @@ const RECONNECT_DELAY_MS = 5_000; // 5s between reconnect attempts
  * Hook de WebSocket para el KDS de cocina.
  *
  * - Obtiene access token vía GET /auth/token (las cookies son HttpOnly)
- * - Conecta a WS /api/v1/cocina/ws?token=<accessToken>
+ * - Conecta a WS /ws?token=<accessToken> (shared realtime module — migrated from /api/v1/cocina/ws)
  * - On connect: invalida la query de pedidos para refrescar desde el REST endpoint
  * - On event: aplica cambios directamente al cache de TanStack Query
  * - On disconnect: programa reconexión automática cada 5s
@@ -67,7 +67,7 @@ export function useCocinaWebSocket() {
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/api/v1/cocina/ws?token=${encodeURIComponent(access_token)}`;
+      const wsUrl = `${protocol}//${host}/ws?token=${encodeURIComponent(access_token)}`;
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;

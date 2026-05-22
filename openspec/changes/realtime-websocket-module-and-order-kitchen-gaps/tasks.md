@@ -39,8 +39,8 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 - [x] 2.2 Implement P3.9 — add `("TERMINADO","CANCELADO_ADMIN"): {"ADMIN"}` to `TRANSITION_ROLES`.
 - [x] 2.3 Test: `validate_transition("CONFIRMADO","ENTREGADO",{"ADMIN"})` raises `BusinessRuleError`; `("CONFIRMADO","ENTREGADO")` absent from `TRANSITION_ROLES`.
 - [x] 2.4 Implement P3.10 — remove `ENTREGADO` from `ALLOWED_TRANSITIONS["CONFIRMADO"]` and the RBAC entry.
-- [ ] 2.5 Test (vitest): `OrderStateActions` for `PENDIENTE` does NOT render a "Confirmar pedido" / CONFIRMADO action; reject/cancel still present.
-- [ ] 2.6 Implement P3.11 — remove the CONFIRMADO transition from the PENDIENTE set in `OrderStateActions.tsx`.
+- [x] 2.5 Test (vitest): `OrderStateActions` for `PENDIENTE` does NOT render a "Confirmar pedido" / CONFIRMADO action; reject/cancel still present.
+- [x] 2.6 Implement P3.11 — remove the CONFIRMADO transition from the PENDIENTE set in `OrderStateActions.tsx`.
 - [ ] 2.7 Run backend FSM/RBAC suite + frontend orders suite green.
 
 ## 3. Phase 3 — Business logic: payment + customization + removable step (PR3)
@@ -49,20 +49,20 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 - [x] 3.2 Implement P2.8 — server-side validation joining `product_ingredients`+`Ingrediente.es_removible` at the checkout/order-creation boundary.
 - [x] 3.3 Test: cash-on-delivery (`EFECTIVO` + `direccion_id`) creates a `PENDIENTE` order with shipping cost and no `Pago`; old `invalid_payment_for_delivery` block no longer fires; cash+pickup still works.
 - [x] 3.4 Implement P0.2 — remove the hard block (`orders/service.py:129-136`); add cash-on-delivery schema + service path + router endpoint (mirror `crear_pedido_pickup_efectivo`).
-- [ ] 3.5 Test (vitest): product-ingredient assignment request omits per-association `es_removible` (P2.7).
-- [ ] 3.6 Implement P2.7 — drop the `es_removible` argument from `addProductIngredient` calls in `ProductFormModal.tsx:209`; manage `es_removible` only on the ingredient entity.
-- [ ] 3.7 Test (vitest): pre-checkout review step lists removable ingredients per cart item; non-removable shown fixed; toggling records exclusions (P1.6).
-- [ ] 3.8 Implement P1.6 — pre-checkout removable-ingredients step component wired before checkout.
+- [x] 3.5 Test (vitest): product-ingredient assignment request omits per-association `es_removible` (P2.7).
+- [x] 3.6 Implement P2.7 — drop the `es_removible` argument from `addProductIngredient` calls in `ProductFormModal.tsx:209`; manage `es_removible` only on the ingredient entity.
+- [x] 3.7 Test (vitest): pre-checkout review step lists removable ingredients per cart item; non-removable shown fixed; toggling records exclusions (P1.6).
+- [x] 3.8 Implement P1.6 — pre-checkout removable-ingredients step component wired before checkout.
 - [ ] 3.9 Run backend checkout/orders suite + frontend products/checkout suite green.
 
 ## 4. Phase 4 — Realtime order-detail consumers (PR4)
 
-- [ ] 4.1 Test (vitest): a shared WS client/hook subscribes to a topic, handles `order_state_changed`, and falls back to 30s polling when disconnected (read `/ws/health`).
-- [ ] 4.2 Implement the shared frontend WS client/hook (subscribe, reconnect, degraded mode).
-- [ ] 4.3 Test (vitest): client `OrderDetailModal` subscribes to its own `order:{id}` and auto-updates on state change; does not receive other clients' orders.
-- [ ] 4.4 Implement P1.5 (client) — wire `OrderDetailModal` as an `order:{id}` consumer, preserving polling fallback.
-- [ ] 4.5 Test (vitest): admin `OrderDetailModal` subscribes to all order events and auto-updates.
-- [ ] 4.6 Implement P1.5 (admin) — wire the admin view as an `orders:all` consumer.
+- [x] 4.1 Test (vitest): a shared WS client/hook subscribes to a topic, handles `order_state_changed`, and falls back to 30s polling when disconnected (read `/ws/health`).
+- [x] 4.2 Implement the shared frontend WS client/hook (subscribe, reconnect, degraded mode).
+- [x] 4.3 Test (vitest): client `OrderDetailModal` subscribes to its own `order:{id}` and auto-updates on state change; does not receive other clients' orders.
+- [x] 4.4 Implement P1.5 (client) — wire `OrderDetailModal` as an `order:{id}` consumer, preserving polling fallback.
+- [x] 4.5 Test (vitest): admin `OrderDetailModal` subscribes to all order events and auto-updates.
+- [x] 4.6 Implement P1.5 (admin) — wire the admin view as an `orders:all` consumer.
 - [x] 4.7 Test: backend publishes `order_state_changed` to the correct topic (`order:{id}`) so both consumer classes receive it appropriately.
 - [x] 4.8 Implement/verify topic routing for order events end-to-end; run suites green.
 
