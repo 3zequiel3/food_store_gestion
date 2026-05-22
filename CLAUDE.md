@@ -8,13 +8,21 @@ Reglas específicas de Claude Code para este proyecto.
 
 ---
 
-## Spec canónica (leer ANTES de tocar código)
+## Spec — fuentes de verdad
 
-- `docs/Integrador.txt` — spec técnica v5 (ERD, módulos, diagramas).
-- `docs/Descripcion.txt` — arquitectura, patrones, rúbrica.
-- `docs/Historias_de_usuario.txt` — historias US-* y reglas de negocio RN-*.
+> ⚠️ **Los `.txt` ya NO son canon completo.** Se contradicen entre sí en funcionalidad, así que dejaron de ser la spec autoritativa. **No leerlos por defecto.** Tomarlos solo como referencia histórica de contexto cuando algo no esté definido en otro lado — nunca como regla vinculante.
 
-Si una instrucción de los `.md` entra en conflicto con los `.txt`, **gana la spec**.
+Orden de autoridad real (de mayor a menor):
+
+1. **Instrucciones explícitas del usuario** en la conversación (lo último que diga gana).
+2. **Specs vivas aprobadas**: `openspec/specs/<capability>/spec.md` (lo que ya está aplicado y archivado).
+3. **Changes activos**: `openspec/changes/<nombre>/`.
+4. **Referencia histórica (NO canónica, no leer salvo necesidad puntual)**:
+   - `docs/Integrador.txt` — spec técnica v5 (ERD, módulos, diagramas).
+   - `docs/Descripcion.txt` — arquitectura, patrones, rúbrica.
+   - `docs/Historias_de_usuario.txt` — historias US-* y reglas de negocio RN-*.
+
+Ante conflicto entre estas fuentes, **gana la de mayor autoridad** en la lista. Si un `.txt` contradice una spec viva o una instrucción del usuario, **se ignora el `.txt`**.
 
 ---
 
