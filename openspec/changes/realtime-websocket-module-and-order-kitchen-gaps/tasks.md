@@ -70,8 +70,8 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 
 - [x] 5.1 Test: kitchen payload includes each product's full ingredient list with `nombre`+`es_removible` and resolves exclusion IDs to names (P1.4 backend).
 - [x] 5.2 Implement P1.4 backend — join `product_ingredients → ingredients` in the kitchen payload builder; resolve exclusions to names.
-- [ ] 5.3 Test (vitest): `KitchenOrderDetail` renders ingredient names + full list; no "Ingrediente #N".
-- [ ] 5.4 Implement P1.4 frontend — render names + full list in `KitchenOrderDetail.tsx` (replace `:73` raw-ID rendering).
+- [x] 5.3 Test (vitest): `KitchenOrderDetail` renders ingredient names + full list; no "Ingrediente #N".
+- [x] 5.4 Implement P1.4 frontend — render names + full list in `KitchenOrderDetail.tsx` (replace `:73` raw-ID rendering).
 - [x] 5.5 Test: inbound message router dispatches by `type`; unknown/malformed frames return an error frame without crashing; `subscribe` honored only within JWT scope.
 - [x] 5.6 Implement P0.3 — replace the disconnect-only `receive_text()` loop with the typed inbound router.
 - [x] 5.7 Test: `kitchen.ingredient_unavailable` is authorized for COCINA/ADMIN only (CLIENT rejected) and routes to the messaging service handler.
@@ -108,11 +108,11 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 - [x] 6.19 Implement the admin Faltantes list + resolve endpoints/service.
 
 ### 6e. Frontend
-- [ ] 6.20 Test (vitest): cook trigger in `KitchenOrderDetail` (only for `CONFIRMADO`/`EN_PREPARACION`) sends `kitchen.ingredient_unavailable` with `order_id`+`ingredient_id`; cook receives `ingredient_availability_restored`.
-- [ ] 6.21 Implement P0.1 frontend (cook) — "mark unavailable" trigger in `KitchenOrderDetail.tsx` + restored notification handling.
-- [ ] 6.22 Test (vitest): navbar inbox indicator shows a live badge on `ingredient_unavailable_reported` and loads open shortages on open; the "Faltantes" view (comidas section of the admin sidebar) lists open shortages and resolves with a friendly label.
-- [ ] 6.23 Implement P0.1 frontend (admin) — navbar inbox indicator + "Faltantes" view (open + resolved/audit) in the comidas sidebar section + resolve action.
-- [ ] 6.24 Run full backend + frontend suites green; end-to-end smoke of cook report → admin Faltantes → resolve → cook notified → order advance unblocked.
+- [x] 6.20 Test (vitest): cook trigger in `KitchenOrderDetail` (only for `CONFIRMADO`/`EN_PREPARACION`) sends `kitchen.ingredient_unavailable` with `order_id`+`ingredient_id`; cook receives `ingredient_availability_restored`.
+- [x] 6.21 Implement P0.1 frontend (cook) — "mark unavailable" trigger in `KitchenOrderDetail.tsx` + restored notification handling.
+- [x] 6.22 Test (vitest): navbar inbox indicator shows a live badge on `ingredient_unavailable_reported` and loads open shortages on open; the "Faltantes" view (comidas section of the admin sidebar) lists open shortages and resolves with a friendly label.
+- [x] 6.23 Implement P0.1 frontend (admin) — navbar inbox indicator + "Faltantes" view (open + resolved/audit) in the comidas sidebar section + resolve action.
+- [x] 6.24 Run full backend + frontend suites green; end-to-end smoke of cook report → admin Faltantes → resolve → cook notified → order advance unblocked.
 
 ## 7. Cross-cutting verification
 
