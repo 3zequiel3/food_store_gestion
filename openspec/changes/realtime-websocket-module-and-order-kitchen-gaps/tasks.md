@@ -63,8 +63,8 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 - [ ] 4.4 Implement P1.5 (client) — wire `OrderDetailModal` as an `order:{id}` consumer, preserving polling fallback.
 - [ ] 4.5 Test (vitest): admin `OrderDetailModal` subscribes to all order events and auto-updates.
 - [ ] 4.6 Implement P1.5 (admin) — wire the admin view as an `orders:all` consumer.
-- [ ] 4.7 Test: backend publishes `order_state_changed` to the correct topic (`order:{id}`) so both consumer classes receive it appropriately.
-- [ ] 4.8 Implement/verify topic routing for order events end-to-end; run suites green.
+- [x] 4.7 Test: backend publishes `order_state_changed` to the correct topic (`order:{id}`) so both consumer classes receive it appropriately.
+- [x] 4.8 Implement/verify topic routing for order events end-to-end; run suites green.
 
 ## 5. Phase 5 — Kitchen recipe view + bidirectional inbound (PR5)
 

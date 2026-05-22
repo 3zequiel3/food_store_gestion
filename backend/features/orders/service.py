@@ -70,18 +70,18 @@ _KITCHEN_STATES = frozenset({
 
 def _publish_order_state_event(pedido_id: int, estado_nuevo: str) -> None:
     """
-    Publish an order_state_changed domain event via the EventPublisher port.
+    Publish order_state_changed domain events via the EventPublisher port.
+
+    Fan-out (D4 Phase 4):
+      - topic "order:{id}"   → owning client subscriber (always)
+      - topic "orders:all"   → admin/PEDIDOS subscribers (always)
+      - topic "kitchen:all"  → COCINA/ADMIN subscribers (kitchen-relevant states only)
 
     Best-effort: any exception is caught and logged at DEBUG level; the HTTP
     response for the originating transition is never affected.
 
     Design D2: versioned contract {v, type, topic, payload, ts}.
-    Design D4: kitchen-relevant states go to kitchen:all; other states are
-    silently skipped (not kitchen-relevant in Phase 1).
     """
-    if estado_nuevo not in _KITCHEN_STATES:
-        return
-
     try:
         from features.websocket.registration import get_event_publisher
         from features.websocket.contracts import DomainEvent
@@ -91,13 +91,30 @@ def _publish_order_state_event(pedido_id: int, estado_nuevo: str) -> None:
             # register_realtime hasn't been called yet (e.g. tests without lifespan).
             return
 
-        event = DomainEvent(
+        payload = {"order_id": pedido_id, "estado": estado_nuevo}
+
+        # Always fan-out to the client's own topic and the admin topic.
+        publisher.publish(DomainEvent(
             v=1,
             type="order_state_changed",
-            topic="kitchen:all",
-            payload={"order_id": pedido_id, "estado": estado_nuevo},
-        )
-        publisher.publish(event)
+            topic=f"order:{pedido_id}",
+            payload=payload,
+        ))
+        publisher.publish(DomainEvent(
+            v=1,
+            type="order_state_changed",
+            topic="orders:all",
+            payload=payload,
+        ))
+
+        # Kitchen-relevant states also fan-out to kitchen:all for the KDS.
+        if estado_nuevo in _KITCHEN_STATES:
+            publisher.publish(DomainEvent(
+                v=1,
+                type="order_state_changed",
+                topic="kitchen:all",
+                payload=payload,
+            ))
     except Exception:
         _svc_logger.debug(
             "orders/service: post-commit publish failed (best-effort, discarded)",
