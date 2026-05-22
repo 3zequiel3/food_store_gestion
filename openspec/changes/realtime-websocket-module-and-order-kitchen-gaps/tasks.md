@@ -95,11 +95,11 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 - [x] 6.10 Implement the open-shortages + resolved-history queries.
 
 ### 6c. FSM availability guard (D6b)
-- [ ] 6.11 Test: single-line order requiring an `activo=false` ingredient (not excluded) → `CONFIRMADO → EN_PREPARACION` raises `BusinessRuleError` (422) naming the ingredient.
-- [ ] 6.12 Test: order where the `activo=false` ingredient is excluded in ALL lines → advance allowed.
-- [ ] 6.13 Test: two-line order — line A excludes the `activo=false` ingredient, line B requires it → `EN_PREPARACION → TERMINADO` blocked (order-level).
-- [ ] 6.14 Test: block lifts after the ingredient returns to `activo=true`; guard does NOT intervene on non-kitchen transitions (e.g. cancellation).
-- [ ] 6.15 Implement the availability guard in the service layer (eager-load `producto.ingredientes` to avoid N+1), invoked from `avanzar_estado` before `validate_transition`, only for `CONFIRMADO → EN_PREPARACION` and `EN_PREPARACION → TERMINADO`. `state_machine.py` stays pure.
+- [x] 6.11 Test: single-line order requiring an `activo=false` ingredient (not excluded) → `CONFIRMADO → EN_PREPARACION` raises `BusinessRuleError` (422) naming the ingredient.
+- [x] 6.12 Test: order where the `activo=false` ingredient is excluded in ALL lines → advance allowed.
+- [x] 6.13 Test: two-line order — line A excludes the `activo=false` ingredient, line B requires it → `EN_PREPARACION → TERMINADO` blocked (order-level).
+- [x] 6.14 Test: block lifts after the ingredient returns to `activo=true`; guard does NOT intervene on non-kitchen transitions (e.g. cancellation).
+- [x] 6.15 Implement the availability guard in the service layer (eager-load `producto.ingredientes` to avoid N+1), invoked from `avanzar_estado` before `validate_transition`, only for `CONFIRMADO → EN_PREPARACION` and `EN_PREPARACION → TERMINADO`. `state_machine.py` stays pure.
 
 ### 6d. Inbound WS handler + admin read/resolve endpoints
 - [ ] 6.16 Test: the `kitchen.ingredient_unavailable` handler (Phase 5 stub) now invokes the report service with `order_id`+`ingredient_id`; CLIENT still rejected.

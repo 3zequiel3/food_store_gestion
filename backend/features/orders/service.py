@@ -67,6 +67,44 @@ _KITCHEN_STATES = frozenset({
     "CANCELADO", "CANCELADO_ADMIN", "CANCELADO_CLIENTE",
 })
 
+# ---------------------------------------------------------------------------
+# Ingredient availability guard — D6b (Phase 6).
+# Only invoked for kitchen-advancing transitions:
+#   CONFIRMADO → EN_PREPARACION
+#   EN_PREPARACION → TERMINADO
+# state_machine.py stays pure — the guard lives here in the service layer.
+# ---------------------------------------------------------------------------
+
+# Transitions that must be blocked if an ingredient is unavailable.
+_KITCHEN_ADVANCING_TRANSITIONS = frozenset({
+    ("CONFIRMADO", "EN_PREPARACION"),
+    ("EN_PREPARACION", "TERMINADO"),
+})
+
+
+def _check_ingredient_availability_guard(pedido) -> None:
+    """
+    D6b availability guard: block kitchen-advancing transitions when a required
+    ingredient has activo=False and is NOT excluded in that order line.
+
+    Operates on the already-loaded pedido ORM object (items → producto → ingredientes
+    must be eager-loaded by the caller to avoid N+1).
+
+    Raises BusinessRuleError (HTTP 422) naming the first unavailable ingredient found.
+    Does NOT raise for any other situation (allowed → returns silently).
+
+    This function is a module-level callable so it can be patched independently in tests
+    without patching the whole service method.
+    """
+    for linea in pedido.items:
+        excluded_ids: set[int] = set(linea.personalizacion or [])
+        for ing in linea.producto.ingredientes:
+            if not ing.activo and ing.id not in excluded_ids:
+                raise BusinessRuleError(
+                    f"El ingrediente '{ing.nombre}' no está disponible en este momento. "
+                    f"Resolvé el faltante antes de avanzar el pedido."
+                )
+
 
 def _publish_order_state_event(pedido_id: int, estado_nuevo: str) -> None:
     """
@@ -541,6 +579,25 @@ class OrderService:
             # D13: ownership check — CLIENT can only act on their own orders
             if user_roles == {"CLIENT"} and pedido.user_id != user_id:
                 raise NotFoundError(f"Pedido no encontrado: id={pedido_id}")
+
+            # D6b: ingredient availability guard — only for kitchen-advancing transitions.
+            # Runs BEFORE validate_transition so a blocked order gets a clear 422 message.
+            if (pedido.estado_codigo, nuevo_estado) in _KITCHEN_ADVANCING_TRANSITIONS:
+                # Reload pedido with eager-load of items → producto → ingredientes to avoid N+1.
+                from sqlalchemy.orm import selectinload
+                from features.orders.models import DetallePedido, Pedido as PedidoModel
+                from features.products.models import Producto
+                pedido_with_ings = (
+                    session.query(PedidoModel)
+                    .options(
+                        selectinload(PedidoModel.items)
+                        .selectinload(DetallePedido.producto)
+                        .selectinload(Producto.ingredientes)
+                    )
+                    .filter(PedidoModel.id == pedido_id)
+                    .one()
+                )
+                _check_ingredient_availability_guard(pedido_with_ings)
 
             # D3 + D4: FSM and RBAC validation
             validate_transition(pedido.estado_codigo, nuevo_estado, user_roles)
