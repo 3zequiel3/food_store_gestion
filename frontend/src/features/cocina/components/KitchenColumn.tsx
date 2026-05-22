@@ -7,6 +7,7 @@ interface KitchenColumnProps {
   orders: CocinaPedidoResponse[];
   onTransition: (orderId: number, targetState: string) => void;
   transitioningId: number | null;
+  onIngredientUnavailable?: (orderId: number, ingredientId: number) => void;
 }
 
 /**
@@ -21,6 +22,7 @@ export function KitchenColumn({
   orders,
   onTransition,
   transitioningId,
+  onIngredientUnavailable,
 }: KitchenColumnProps) {
   const filtered = orders.filter((o) => o.estado === estado);
 
@@ -51,6 +53,11 @@ export function KitchenColumn({
               order={order}
               onTransition={onTransition}
               isTransitioning={transitioningId === order.id}
+              onIngredientUnavailable={
+                onIngredientUnavailable
+                  ? (ingredientId) => onIngredientUnavailable(order.id, ingredientId)
+                  : undefined
+              }
             />
           ))
         )}

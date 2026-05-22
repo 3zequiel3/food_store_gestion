@@ -81,6 +81,9 @@ from features.admin_users.router import router as admin_users_router
 from features.admin_metrics.router import router as admin_metrics_router
 from features.checkout.router import router as checkout_router
 from features.cocina.router import router as cocina_router
+from features.websocket.router import router as ws_router
+from features.availability.router import router as availability_router
+from features.availability import models as _availability_models  # noqa: F401
 
 
 @asynccontextmanager
@@ -105,14 +108,10 @@ async def lifespan(app: FastAPI):
 
     run_seed()
 
-    # Start KDS WebSocket event drain task (D5, Slice 3)
-    try:
-        loop = asyncio.get_running_loop()
-        from features.cocina.service import start_drain_task
-        start_drain_task(loop)
-    except RuntimeError:
-        # No running event loop during startup — will be started when first request comes
-        pass
+    # Start WebSocket realtime transport — drain task + EventPublisher (D3, Phase 1).
+    # Routes are already mounted at module level via mount_ws_routes().
+    from features.websocket.registration import register_realtime
+    register_realtime(app)
 
     yield
     # Shutdown
@@ -245,6 +244,14 @@ app.include_router(
     admin_metrics_router, prefix="/api/v1/admin/metricas", tags=["admin-metrics"]
 )
 app.include_router(cocina_router, prefix="/api/v1/cocina", tags=["cocina"])
+
+# Ingredient availability — admin Faltantes view + resolve action (D6, Phase 6).
+app.include_router(availability_router, prefix="/api/v1/availability", tags=["availability"])
+
+# WebSocket module — /ws (WS endpoint) + /ws/health (HTTP health check).
+# Routes registered here (module level) so they survive lifespan overrides in tests.
+# The drain task is started inside the lifespan via register_realtime().
+app.include_router(ws_router, prefix="/ws", tags=["websocket"])
 
 
 if __name__ == "__main__":

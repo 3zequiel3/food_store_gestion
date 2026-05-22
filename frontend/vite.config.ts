@@ -19,6 +19,13 @@ export default defineProject(
           changeOrigin: true,
           ws: true,
         },
+        // WebSocket endpoint for the shared realtime module (Phase 4).
+        // The /ws path lives outside /api so it needs its own proxy entry.
+        '/ws': {
+          target: process.env.API_PROXY_TARGET ?? 'http://localhost:8000',
+          changeOrigin: true,
+          ws: true,
+        },
       },
     },
     test: {

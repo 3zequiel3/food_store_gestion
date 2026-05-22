@@ -1,0 +1,151 @@
+import { useEffect } from 'react';
+import { AlertTriangle, CheckCircle2, Loader2, ShoppingBag } from 'lucide-react';
+import { useFaltantes, useResolverFaltante } from '../../features/availability/hooks/useFaltantes';
+import { useFaltantesStore } from '../../features/availability/stores/faltantesStore';
+
+/**
+ * Admin "Faltantes" view — lists open ingredient shortages and allows resolving them.
+ *
+ * P0.1 (admin): displays all rows where resuelto_en IS NULL.
+ * Admin resolves with friendly labels: "ingrediente comprado" or "solucionado".
+ * On open: resets the navbar badge counter.
+ *
+ * Route: /admin/faltantes (within the Comidas section of the sidebar).
+ */
+export function AdminFaltantesPage() {
+  const { data: faltantes = [], isLoading, isError, refetch } = useFaltantes();
+  const { mutate: resolver, isPending: isResolving } = useResolverFaltante();
+  const resetBadge = useFaltantesStore((s) => s.reset);
+
+  // Reset badge when the view is opened
+  useEffect(() => {
+    resetBadge();
+  }, [resetBadge]);
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">Ingredientes faltantes</h1>
+              <p className="text-sm text-gray-500">
+                {faltantes.length === 0
+                  ? 'Sin reportes pendientes'
+                  : `${faltantes.length} reporte${faltantes.length > 1 ? 's' : ''} pendiente${faltantes.length > 1 ? 's' : ''}`}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-6 h-6 animate-spin text-red-500" />
+            </div>
+          ) : isError ? (
+            <div className="py-12 text-center">
+              <p className="text-sm text-red-500 mb-3">Error al cargar los faltantes</p>
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                className="text-sm text-gray-500 underline"
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : faltantes.length === 0 ? (
+            <div className="py-16 text-center">
+              <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-3" />
+              <p className="text-sm font-medium text-gray-600">Todo en orden</p>
+              <p className="text-xs text-gray-400 mt-1">No hay ingredientes reportados como faltantes</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Ingrediente
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Pedido
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Reportado
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Resolver
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {faltantes.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
+                        <span className="text-sm font-medium text-gray-800">
+                          {item.ingrediente_nombre ?? `Ingrediente #${item.ingrediente_id}`}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-gray-600">
+                        Pedido #{item.pedido_id}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-gray-400">
+                        {new Date(item.creado_en).toLocaleDateString('es-AR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={isResolving}
+                          onClick={() =>
+                            resolver({
+                              ingredienteId: item.ingrediente_id,
+                              accion: 'ingrediente comprado',
+                            })
+                          }
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          <ShoppingBag className="w-3 h-3" />
+                          Ingrediente comprado
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isResolving}
+                          onClick={() =>
+                            resolver({
+                              ingredienteId: item.ingrediente_id,
+                              accion: 'solucionado',
+                            })
+                          }
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          Solucionado
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

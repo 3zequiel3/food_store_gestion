@@ -7,6 +7,7 @@ interface KitchenKanbanProps {
   isConnected: boolean;
   onTransition: (orderId: number, targetState: string) => void;
   transitioningId: number | null;
+  onIngredientUnavailable?: (orderId: number, ingredientId: number) => void;
 }
 
 /**
@@ -21,6 +22,7 @@ export function KitchenKanban({
   isConnected,
   onTransition,
   transitioningId,
+  onIngredientUnavailable,
 }: KitchenKanbanProps) {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
@@ -38,6 +40,7 @@ export function KitchenKanban({
           orders={orders}
           onTransition={onTransition}
           transitioningId={transitioningId}
+          onIngredientUnavailable={onIngredientUnavailable}
         />
         <KitchenColumn
           title="En preparación"
@@ -45,6 +48,7 @@ export function KitchenKanban({
           orders={orders}
           onTransition={onTransition}
           transitioningId={transitioningId}
+          onIngredientUnavailable={onIngredientUnavailable}
         />
       </div>
     </div>

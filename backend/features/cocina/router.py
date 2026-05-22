@@ -1,25 +1,26 @@
 """
 Kitchen Display System (KDS) router.
 
-D6: GET /api/v1/cocina/pedidos — REST endpoint for initial load + polling fallback.
-D5: WS /api/v1/cocina/ws — WebSocket for real-time push.
+GET /api/v1/cocina/pedidos — REST endpoint for initial load + polling fallback.
 
-Authorization: COCINA and ADMIN roles only (D3). CLIENT gets 403.
+Phase 1 cutover: the WS /api/v1/cocina/ws endpoint has been removed.
+Real-time updates for the KDS are now served through the shared transport:
+  WS /ws?token=<JWT>  (features/websocket/router.py)
+A COCINA connection auto-subscribes to kitchen:all at handshake.
+
+Authorization: COCINA and ADMIN roles only. CLIENT gets 403.
 """
 
 from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends
 
-from features.auth.dependencies import get_current_user, require_role
+from features.auth.dependencies import require_role
 from features.cocina.schemas import CocinaPedidoResponse
 from features.cocina.service import get_kitchen_orders
-from features.cocina.ws_manager import ws_manager
 from features.users.models import Usuario
-from shared.exceptions import ForbiddenError, UnauthorizedError
-from shared.security import decode_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +28,9 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# REST endpoint — D6
+# REST endpoint
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/pedidos",
@@ -51,59 +53,3 @@ async def get_pedidos_cocina(
     Authorization: require_role("COCINA", "ADMIN") — 403 otherwise.
     """
     return get_kitchen_orders()
-
-
-# ---------------------------------------------------------------------------
-# WebSocket endpoint — D5
-# ---------------------------------------------------------------------------
-
-@router.websocket("/ws")
-async def cocina_websocket(
-    websocket: WebSocket,
-    token: str | None = Query(None),
-) -> None:
-    """
-    WS /api/v1/cocina/ws?token=<JWT>
-
-    Real-time push for KDS screens. Auth validated in handshake:
-    - Missing or invalid token → close 1008
-    - Valid token but no COCINA/ADMIN role → close 1008
-    - Valid token with COCINA/ADMIN → register connection, keep alive
-    """
-    # ── Validate token ──────────────────────────────────────────────────
-    if not token:
-        await websocket.close(code=1008, reason="Token requerido")
-        return
-
-    payload = decode_access_token(token)
-    if not payload:
-        await websocket.close(code=1008, reason="Token inválido o expirado")
-        return
-
-    if payload.get("type") != "access":
-        await websocket.close(code=1008, reason="Tipo de token inválido")
-        return
-
-    roles = payload.get("roles", [])
-    if not {"COCINA", "ADMIN"}.intersection(set(roles)):
-        await websocket.close(code=1008, reason="Rol no autorizado")
-        return
-
-    # ── Accept and register ─────────────────────────────────────────────
-    await websocket.accept()
-    await ws_manager.connect(websocket)
-
-    try:
-        # Keep the connection alive. The client doesn't send messages;
-        # we just wait for disconnect.
-        while True:
-            # receive_text blocks until the client disconnects or sends data.
-            # KDS clients don't send messages, so this is essentially a
-            # disconnect detector.
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        logger.info("KDS WebSocket client disconnected normally")
-    except Exception:
-        logger.info("KDS WebSocket connection lost")
-    finally:
-        await ws_manager.disconnect(websocket)

@@ -111,16 +111,19 @@ describe('products.types.ts — type shape verification', () => {
       expect(Array.isArray(payload.categoria_ids)).toBe(true);
     });
 
-    it('supports optional ingrediente_ids', () => {
+    it('supports optional ingrediente_ids (no es_removible — P2.7)', () => {
+      // P2.7: es_removible lives on the Ingrediente entity, not the create association.
+      // The create payload sends only ingrediente_id.
       const payload: ProductoCreate = {
         nombre: 'Test',
         precio: 10,
         categoria_ids: [1],
-        ingrediente_ids: [{ ingrediente_id: 5, es_removible: true }],
+        ingrediente_ids: [{ ingrediente_id: 5 }],
       };
       expect(payload).toHaveProperty('ingrediente_ids');
       expect(payload.ingrediente_ids?.[0]).toHaveProperty('ingrediente_id');
-      expect(payload.ingrediente_ids?.[0]).toHaveProperty('es_removible');
+      // es_removible must NOT be in the create payload — it's managed on Ingrediente
+      expect(payload.ingrediente_ids?.[0]).not.toHaveProperty('es_removible');
     });
   });
 });

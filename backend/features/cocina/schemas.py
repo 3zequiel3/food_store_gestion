@@ -3,6 +3,8 @@ Pydantic schemas for the Kitchen Display System (KDS).
 
 D6: REST endpoint returns minimal order snapshots for the KDS.
 D5: WebSocket events carry the same minimal payload.
+D10: Kitchen payload includes full ingredient list and resolved exclusion names
+     so the cook sees ingredient names, not raw IDs.
 """
 
 from __future__ import annotations
@@ -13,8 +15,27 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict
 
 
+class IngredienteInfo(BaseModel):
+    """
+    Minimal ingredient info included in the kitchen order item payload.
+
+    Design D10: surfaces id, nombre, and es_removible so the cook can
+    see the full recipe and which ingredients are removable.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    es_removible: bool
+
+
 class CocinaPedidoItem(BaseModel):
-    """Minimal item info for a kitchen order card."""
+    """Minimal item info for a kitchen order card.
+
+    Design D10 (P1.4 backend): includes the product's full ingredient list
+    with names and resolves personalizacion exclusion IDs to names.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -23,6 +44,10 @@ class CocinaPedidoItem(BaseModel):
     cantidad: int
     personalizacion: Optional[list[int]] = None
     notas: Optional[str] = None
+    # D10: full ingredient list with names (avoids "Ingrediente #N" in the KDS)
+    ingredientes: list[IngredienteInfo] = []
+    # D10: exclusion IDs resolved to ingredient names for the cook
+    exclusiones_nombres: list[str] = []
 
 
 class CocinaPedidoResponse(BaseModel):

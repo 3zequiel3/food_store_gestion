@@ -206,11 +206,13 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
       if (change.type === 'remove') {
         await removeProductIngredient(productoId, change.ingrediente.id);
       } else if (change.type === 'add') {
-        await addProductIngredient(productoId, change.ingrediente.id, change.ingrediente.es_removible);
+        // P2.7: es_removible is on the Ingrediente entity, not the association.
+        await addProductIngredient(productoId, change.ingrediente.id);
       } else if (change.type === 'update') {
-        // DELETE first (soft-deletes the pivot), then POST (reactivates with new es_removible)
+        // DELETE first (soft-deletes the pivot), then POST (reactivates the association).
+        // es_removible is owned by the Ingrediente entity and not carried here.
         await removeProductIngredient(productoId, change.after.id);
-        await addProductIngredient(productoId, change.after.id, change.after.es_removible);
+        await addProductIngredient(productoId, change.after.id);
       }
     }
   }
@@ -366,9 +368,10 @@ export function ProductFormModal({ producto, onClose }: ProductFormModalProps) {
       stock_cantidad: parseInt(stock, 10),
       disponible,
       categoria_ids: categoriaIds,
+      // P2.7: es_removible is managed on the Ingrediente entity, not the association.
+      // The backend ignores es_removible on create — only ingrediente_id is used.
       ingrediente_ids: ingredientes.map((ing) => ({
         ingrediente_id: ing.id,
-        es_removible: ing.es_removible,
       })),
       imagen_url: initialImageUrl,
     };

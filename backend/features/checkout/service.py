@@ -32,11 +32,14 @@ from features.checkout.exceptions import (
     PaymentUnexpectedStatusError,
 )
 from features.checkout.schemas import (
+    CheckoutDeliveryEfectivoRequest,
+    CheckoutDeliveryEfectivoResponse,
     CheckoutOnlineRequest,
     CheckoutOnlineResponse,
     CheckoutPickupEfectivoRequest,
     CheckoutPickupEfectivoResponse,
 )
+from features.addresses.repository import AddressRepository
 from features.orders.models import DetallePedido, HistorialEstadoPedido, Pedido
 from features.orders.repository import OrderRepository
 from features.payments.models import Pago
@@ -119,6 +122,16 @@ class CheckoutService:
             NotFoundError: Product not found or belongs to another user
             BusinessRuleError: Stock insufficient or product not available
         """
+        # D6 (mirrored from orders/service.py): verify the delivery address
+        # belongs to the authenticated user before processing the order.
+        # Anti-leak pattern: returns None for both "not found" and "not yours"
+        # → raises NotFoundError (404), never ForbiddenError (403).
+        if direccion_id is not None:
+            address_repo = AddressRepository(session)
+            owned = address_repo.find_by_id_and_user(direccion_id, user_id)
+            if owned is None:
+                raise NotFoundError("Dirección no encontrada")
+
         product_repo = ProductRepository(session)
         validated_items = []
         subtotal = Decimal("0.00")
@@ -142,6 +155,23 @@ class CheckoutService:
                         f"Stock insuficiente para '{producto.nombre}': "
                         f"disponible {producto.stock_cantidad}, solicitado {item.cantidad}",
                         code="insufficient_stock"
+                    )
+
+            # P2.8: Validate personalizacion IDs — each must reference an
+            # es_removible=True ingredient that belongs to this product.
+            if item.personalizacion:
+                # Build a set of removable ingredient IDs for this product.
+                removable_ids = {
+                    ing.id for ing in producto.ingredientes if ing.es_removible
+                }
+                invalid_ids = [
+                    pid for pid in item.personalizacion if pid not in removable_ids
+                ]
+                if invalid_ids:
+                    raise BusinessRuleError(
+                        f"Los siguientes ingredientes no son removibles o no pertenecen "
+                        f"al producto '{producto.nombre}': {invalid_ids}",
+                        code="invalid_personalizacion",
                     )
 
             # Calculate item total
@@ -506,5 +536,87 @@ class CheckoutService:
             )
 
             return CheckoutPickupEfectivoResponse(
+                pedido_id=pedido.id,
+            )
+
+    def crear_pedido_delivery_efectivo(
+        self,
+        user_id: int,
+        request: CheckoutDeliveryEfectivoRequest,
+    ) -> CheckoutDeliveryEfectivoResponse:
+        """
+        Create a delivery order with cash payment (P0.2 — cash-on-delivery).
+
+        The customer pays in cash when the order arrives at their door.
+        The order is created directly in PENDIENTE state with the standard
+        shipping cost (COSTO_ENVIO). No Pago record is created.
+
+        Args:
+            user_id: Authenticated user ID
+            request: CheckoutDeliveryEfectivoRequest with items and direccion_id
+
+        Returns:
+            CheckoutDeliveryEfectivoResponse with the new order ID
+
+        Raises:
+            BusinessRuleError: Stock insufficient, product unavailable,
+                or invalid personalizacion IDs (P2.8).
+            NotFoundError: Product or address not found.
+        """
+        with UnitOfWork() as uow:
+            # Validate cart and calculate total (including shipping cost).
+            validated_items, total = self._validar_y_calcular_carrito(
+                uow.session,
+                user_id,
+                request.items,
+                direccion_id=request.direccion_id,
+                tipo_entrega="DELIVERY",
+            )
+
+            # Create Pedido in PENDIENTE with EFECTIVO as payment method.
+            pedido = Pedido(
+                user_id=user_id,
+                estado_codigo="PENDIENTE",
+                forma_pago_codigo="EFECTIVO",
+                total=total,
+                direccion_entrega_id=request.direccion_id,
+                costo_envio=COSTO_ENVIO,
+                notas=request.notas,
+            )
+            uow.session.add(pedido)
+            uow.session.flush()  # Get pedido.id
+
+            # Create DetallePedido items.
+            for producto, cantidad, precio_unitario, personalizacion in validated_items:
+                detalle = DetallePedido(
+                    pedido_id=pedido.id,
+                    producto_id=producto.id,
+                    cantidad=cantidad,
+                    precio_snapshot=precio_unitario,
+                    nombre_snapshot=producto.nombre,
+                    personalizacion=personalizacion or None,
+                )
+                uow.session.add(detalle)
+
+            # Create HistorialEstadoPedido.
+            historial = HistorialEstadoPedido(
+                pedido_id=pedido.id,
+                estado_anterior_codigo=None,
+                estado_nuevo_codigo="PENDIENTE",
+                cambiado_por_id=user_id,
+                motivo=None,
+            )
+            uow.session.add(historial)
+
+            # No Pago created — payment happens at delivery.
+
+            logger.info(
+                "Created delivery+efectivo order %d for user %d (direccion_id=%d)",
+                pedido.id,
+                user_id,
+                request.direccion_id,
+            )
+
+            return CheckoutDeliveryEfectivoResponse(
                 pedido_id=pedido.id,
             )

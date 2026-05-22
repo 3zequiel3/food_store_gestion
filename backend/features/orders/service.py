@@ -48,8 +48,116 @@ from shared.exceptions import (
 )
 from shared.unit_of_work import UnitOfWork
 
+import logging as _logging
+
+_svc_logger = _logging.getLogger(__name__)
+
 # D5 — v1 fixed shipping cost. Replace with dynamic calculation in a future change.
 SHIPPING_COST_DEFAULT = Decimal("50.00")
+
+# ---------------------------------------------------------------------------
+# Domain event publishing — EventPublisher port (Design D2, D4).
+# The order domain publishes via the port; no import from features.cocina.
+# Kitchen-relevant states emit to kitchen:all so the KDS (cocina consumer)
+# receives them through the shared transport.
+# ---------------------------------------------------------------------------
+
+_KITCHEN_STATES = frozenset({
+    "CONFIRMADO", "EN_PREPARACION", "TERMINADO",
+    "CANCELADO", "CANCELADO_ADMIN", "CANCELADO_CLIENTE",
+})
+
+# ---------------------------------------------------------------------------
+# Ingredient availability guard — D6b (Phase 6).
+# Only invoked for kitchen-advancing transitions:
+#   CONFIRMADO → EN_PREPARACION
+#   EN_PREPARACION → TERMINADO
+# state_machine.py stays pure — the guard lives here in the service layer.
+# ---------------------------------------------------------------------------
+
+# Transitions that must be blocked if an ingredient is unavailable.
+_KITCHEN_ADVANCING_TRANSITIONS = frozenset({
+    ("CONFIRMADO", "EN_PREPARACION"),
+    ("EN_PREPARACION", "TERMINADO"),
+})
+
+
+def _check_ingredient_availability_guard(pedido) -> None:
+    """
+    D6b availability guard: block kitchen-advancing transitions when a required
+    ingredient has activo=False and is NOT excluded in that order line.
+
+    Operates on the already-loaded pedido ORM object (items → producto → ingredientes
+    must be eager-loaded by the caller to avoid N+1).
+
+    Raises BusinessRuleError (HTTP 422) naming the first unavailable ingredient found.
+    Does NOT raise for any other situation (allowed → returns silently).
+
+    This function is a module-level callable so it can be patched independently in tests
+    without patching the whole service method.
+    """
+    for linea in pedido.items:
+        excluded_ids: set[int] = set(linea.personalizacion or [])
+        for ing in linea.producto.ingredientes:
+            if not ing.activo and ing.id not in excluded_ids:
+                raise BusinessRuleError(
+                    f"El ingrediente '{ing.nombre}' no está disponible en este momento. "
+                    f"Resolvé el faltante antes de avanzar el pedido."
+                )
+
+
+def _publish_order_state_event(pedido_id: int, estado_nuevo: str) -> None:
+    """
+    Publish order_state_changed domain events via the EventPublisher port.
+
+    Fan-out (D4 Phase 4):
+      - topic "order:{id}"   → owning client subscriber (always)
+      - topic "orders:all"   → admin/PEDIDOS subscribers (always)
+      - topic "kitchen:all"  → COCINA/ADMIN subscribers (kitchen-relevant states only)
+
+    Best-effort: any exception is caught and logged at DEBUG level; the HTTP
+    response for the originating transition is never affected.
+
+    Design D2: versioned contract {v, type, topic, payload, ts}.
+    """
+    try:
+        from features.websocket.registration import get_event_publisher
+        from features.websocket.contracts import DomainEvent
+
+        publisher = get_event_publisher()
+        if publisher is None:
+            # register_realtime hasn't been called yet (e.g. tests without lifespan).
+            return
+
+        payload = {"order_id": pedido_id, "estado": estado_nuevo}
+
+        # Always fan-out to the client's own topic and the admin topic.
+        publisher.publish(DomainEvent(
+            v=1,
+            type="order_state_changed",
+            topic=f"order:{pedido_id}",
+            payload=payload,
+        ))
+        publisher.publish(DomainEvent(
+            v=1,
+            type="order_state_changed",
+            topic="orders:all",
+            payload=payload,
+        ))
+
+        # Kitchen-relevant states also fan-out to kitchen:all for the KDS.
+        if estado_nuevo in _KITCHEN_STATES:
+            publisher.publish(DomainEvent(
+                v=1,
+                type="order_state_changed",
+                topic="kitchen:all",
+                payload=payload,
+            ))
+    except Exception:
+        _svc_logger.debug(
+            "orders/service: post-commit publish failed (best-effort, discarded)",
+            exc_info=True,
+        )
 
 
 def _is_admin_view(user: Usuario) -> bool:
@@ -125,15 +233,9 @@ class OrderService:
             if forma is None:
                 raise BusinessRuleError("Forma de pago no válida o no disponible")
 
-            # RN: efectivo no disponible para envíos a domicilio
-            if (
-                payload.direccion_id is not None
-                and payload.forma_pago_codigo == "EFECTIVO"
-            ):
-                raise BusinessRuleError(
-                    "El pago en efectivo no está disponible para envíos. Elegí tarjeta o transferencia.",
-                    code="invalid_payment_for_delivery",
-                )
+            # P0.2: Cash-on-delivery (EFECTIVO + direccion_id) is now supported.
+            # The old hard block was removed — EFECTIVO + address creates a PENDIENTE
+            # order that the delivery driver collects at the door.
 
             # ── Step 2: Validate direccion ownership ──────────────────────
             direccion: Optional[object] = None
@@ -293,12 +395,13 @@ class OrderService:
             _event_pedido_id = pedido_id
             _event_estado_nuevo = estado_nuevo
 
-        # Post-commit: publish WebSocket event to KDS (best-effort, non-blocking)
+        # Post-commit: publish domain event via the EventPublisher port (best-effort).
+        # Design D2/D4: the order domain emits a versioned domain event; cocina
+        # consumes it via the kitchen:all topic. No import from features.cocina.
         try:
-            from features.cocina.service import publish_transition_event
-            publish_transition_event(_event_pedido_id, _event_estado_nuevo)
+            _publish_order_state_event(_event_pedido_id, _event_estado_nuevo)
         except Exception:
-            pass  # Best-effort — never let broadcast failure affect the transition
+            pass  # Best-effort — never let publish failure affect the HTTP response
 
         return pedido
 
@@ -476,6 +579,25 @@ class OrderService:
             # D13: ownership check — CLIENT can only act on their own orders
             if user_roles == {"CLIENT"} and pedido.user_id != user_id:
                 raise NotFoundError(f"Pedido no encontrado: id={pedido_id}")
+
+            # D6b: ingredient availability guard — only for kitchen-advancing transitions.
+            # Runs BEFORE validate_transition so a blocked order gets a clear 422 message.
+            if (pedido.estado_codigo, nuevo_estado) in _KITCHEN_ADVANCING_TRANSITIONS:
+                # Reload pedido with eager-load of items → producto → ingredientes to avoid N+1.
+                from sqlalchemy.orm import selectinload
+                from features.orders.models import DetallePedido, Pedido as PedidoModel
+                from features.products.models import Producto
+                pedido_with_ings = (
+                    session.query(PedidoModel)
+                    .options(
+                        selectinload(PedidoModel.items)
+                        .selectinload(DetallePedido.producto)
+                        .selectinload(Producto.ingredientes)
+                    )
+                    .filter(PedidoModel.id == pedido_id)
+                    .one()
+                )
+                _check_ingredient_availability_guard(pedido_with_ings)
 
             # D3 + D4: FSM and RBAC validation
             validate_transition(pedido.estado_codigo, nuevo_estado, user_roles)

@@ -85,6 +85,9 @@ import features.orders.models  # noqa: F401, E402
 # Payment models (payments)
 import features.payments.models  # noqa: F401, E402
 
+# Ingredient availability models (ingredient_availability_history — D6, Phase 6)
+import features.availability.models  # noqa: F401, E402
+
 target_metadata = Base.metadata
 
 

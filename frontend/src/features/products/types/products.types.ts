@@ -81,7 +81,11 @@ export interface ProductoCreate {
   disponible?: boolean;
   imagen_url?: string | null;
   categoria_ids: number[];
-  ingrediente_ids?: { ingrediente_id: number; es_removible: boolean }[];
+  /**
+   * P2.7: es_removible lives on the Ingrediente entity, not on the association.
+   * The create payload sends only ingrediente_id — the backend ignores any extra fields.
+   */
+  ingrediente_ids?: { ingrediente_id: number }[];
 }
 
 /** Payload para editar un producto — todos los campos opcionales (admin) */

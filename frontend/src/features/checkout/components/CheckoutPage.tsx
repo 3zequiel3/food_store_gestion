@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, ArrowLeft, MapPin, CreditCard } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, MapPin, CreditCard, Salad } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddressSelector } from './AddressSelector';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
 import { OrderSummaryPanel } from './OrderSummaryPanel';
+import { RemovableIngredientsStep } from './RemovableIngredientsStep';
 import { SecureCardForm } from '../../payments/components/SecureCardForm';
 import { useCheckoutOnline } from '../hooks/useCheckoutOnline';
 import { useCheckoutPickupEfectivo } from '../hooks/useCheckoutPickupEfectivo';
@@ -25,6 +26,13 @@ export function CheckoutPage() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
   const [notas, setNotas] = useState('');
   const [idempotencyKey] = useState<string>(() => crypto.randomUUID());
+
+  // P1.6 — per-product ingredient exclusions: { [producto_id]: Set<ingrediente_id> }
+  const [ingredientExclusions, setIngredientExclusions] = useState<Record<number, Set<number>>>({});
+
+  function handleExclusionsChange(productoId: number, newSet: Set<number>) {
+    setIngredientExclusions((prev) => ({ ...prev, [productoId]: newSet }));
+  }
 
   const cardFormRef = useRef<HTMLFormElement | null>(null);
 
@@ -65,11 +73,20 @@ export function CheckoutPage() {
   }
 
   function buildCheckoutItems(): CheckoutItem[] {
-    return items.map((item) => ({
-      producto_id: item.producto_id,
-      cantidad: item.cantidad,
-      personalizacion: item.personalizacionIds ?? null,
-    }));
+    return items.map((item) => {
+      // Merge ingredient exclusions from the pre-checkout step (P1.6) with any
+      // exclusions already set on the cart item (e.g. from ProductDetailPage).
+      const fromStep = ingredientExclusions[item.producto_id];
+      const merged: number[] = fromStep && fromStep.size > 0
+        ? Array.from(fromStep)
+        : (item.personalizacionIds ?? []);
+
+      return {
+        producto_id: item.producto_id,
+        cantidad: item.cantidad,
+        personalizacion: merged.length > 0 ? merged : null,
+      };
+    });
   }
 
   function handleCheckoutOnline(token: string, methodId: string, idType: string, idNumber: string) {
@@ -157,11 +174,36 @@ export function CheckoutPage() {
               </div>
             </section>
 
-            {/* Section 2 — Pago */}
+            {/* Section 2 — Ingredientes removibles (P1.6) */}
             <section className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border overflow-hidden">
               <div className="flex items-center gap-3 px-5 py-4 border-b border-glass-border">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground shrink-0">
                   2
+                </span>
+                <div className="flex items-center gap-2">
+                  <Salad className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground tracking-wide uppercase">
+                    Personalización
+                  </h2>
+                </div>
+              </div>
+              <div className="p-5">
+                <p className="text-xs text-muted-foreground mb-3">
+                  Revisá los ingredientes de cada producto y desmarcá los que no querés.
+                </p>
+                <RemovableIngredientsStep
+                  cartItems={items}
+                  exclusions={ingredientExclusions}
+                  onExclusionsChange={handleExclusionsChange}
+                />
+              </div>
+            </section>
+
+            {/* Section 3 — Pago */}
+            <section className="rounded-xl bg-glass backdrop-blur-xl border border-glass-border overflow-hidden">
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-glass-border">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground shrink-0">
+                  3
                 </span>
                 <div className="flex items-center gap-2">
                   <CreditCard className="h-4 w-4 text-muted-foreground" />

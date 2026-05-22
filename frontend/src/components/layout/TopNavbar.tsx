@@ -2,6 +2,7 @@ import { ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../features/auth/stores/authStore';
 import { useCartStore } from '../../features/cart/stores/cartStore';
+import { FaltantesBadge } from '../../features/availability/components/FaltantesBadge';
 
 interface TopNavbarProps {
   onCartOpen: () => void;
@@ -40,6 +41,9 @@ export function TopNavbar({ onCartOpen }: TopNavbarProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* P0.1 — Faltantes inbox badge: visible for ADMIN only. */}
+          {hasAdmin && <FaltantesBadge />}
+
           {/* D6 — Cart icon visible for non-staff users (anonymous + CLIENT). */}
           {/* isAdmin is false when user === null, so the cart shows for anonymous too. */}
           {!isAdmin && (
