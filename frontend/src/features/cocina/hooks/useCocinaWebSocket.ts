@@ -7,36 +7,66 @@ import { buildWebSocketUrl } from '../../../lib/ws';
 
 const RECONNECT_DELAY_MS = 5_000; // 5s between reconnect attempts
 
+/** Payload for the ingredient_availability_restored outbound event. */
+export interface AvailabilityRestoredPayload {
+  ingrediente_id: number;
+  ingrediente_nombre?: string;
+}
+
+interface UseCocinaWebSocketOptions {
+  /** Called when the backend emits ingredient_availability_restored to kitchen:all. */
+  onAvailabilityRestored?: (payload: AvailabilityRestoredPayload) => void;
+}
+
 /**
  * Hook de WebSocket para el KDS de cocina.
  *
  * - Obtiene access token vía GET /auth/token (las cookies son HttpOnly)
- * - Conecta a WS /ws?token=<accessToken> (shared realtime module — migrated from /api/v1/cocina/ws)
+ * - Conecta a WS /ws?token=<accessToken> (shared realtime module)
  * - On connect: invalida la query de pedidos para refrescar desde el REST endpoint
  * - On event: aplica cambios directamente al cache de TanStack Query
  * - On disconnect: programa reconexión automática cada 5s
  *
- * La resiliencia (polling de fallback + indicador de conexión) se maneja
- * en el componente padre que consume `isConnected`.
+ * Expone:
+ *   - isConnected: estado de la conexión
+ *   - reportIngredientUnavailable(orderId, ingredientId): envía
+ *     kitchen.ingredient_unavailable al backend (P0.1 cook trigger).
+ *     Solo funciona cuando la conexión está abierta.
  */
-export function useCocinaWebSocket() {
+export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
+  const { onAvailabilityRestored } = options;
+
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
 
+  // Keep latest callback in a ref so the stable handleEvent closure can see it
+  const onAvailabilityRestoredRef = useRef(onAvailabilityRestored);
+  useEffect(() => {
+    onAvailabilityRestoredRef.current = onAvailabilityRestored;
+  }, [onAvailabilityRestored]);
+
   const invalidateAndRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['cocina', 'pedidos'] });
   }, [queryClient]);
 
   const handleEvent = useCallback(
-    (event: CocinaWebSocketEvent) => {
+    (event: CocinaWebSocketEvent | { type: string; payload: unknown }) => {
+      // Handle availability restored (P0.1 — cook gets notified when admin resolves)
+      if (event.type === 'ingredient_availability_restored') {
+        onAvailabilityRestoredRef.current?.(event.payload as AvailabilityRestoredPayload);
+        return;
+      }
+
+      // Handle standard kitchen order events
+      const kitchenEvent = event as CocinaWebSocketEvent;
       queryClient.setQueryData<CocinaPedidoResponse[]>(
         ['cocina', 'pedidos'],
         (prev) => {
           if (!prev) return prev;
-          const { type, payload } = event;
+          const { type, payload } = kitchenEvent;
 
           switch (type) {
             case 'pedido_confirmado':
@@ -76,7 +106,7 @@ export function useCocinaWebSocket() {
 
       ws.onmessage = (msg) => {
         try {
-          const data = JSON.parse(msg.data) as CocinaWebSocketEvent;
+          const data = JSON.parse(msg.data) as CocinaWebSocketEvent | { type: string; payload: unknown };
           handleEvent(data);
         } catch {
           // Ignore malformed messages
@@ -116,5 +146,26 @@ export function useCocinaWebSocket() {
     };
   }, [user, connect]);
 
-  return { isConnected };
+  /**
+   * Send kitchen.ingredient_unavailable to the backend via the open WS connection.
+   * No-op if the connection is not currently open.
+   */
+  const reportIngredientUnavailable = useCallback(
+    (orderId: number, ingredientId: number) => {
+      const ws = wsRef.current;
+      // Use numeric 1 (OPEN) directly — avoids issues in test envs where
+      // the stubbed WebSocket constructor may not carry the static OPEN constant.
+      if (!ws || ws.readyState !== 1) return;
+
+      const msg = JSON.stringify({
+        v: 1,
+        type: 'kitchen.ingredient_unavailable',
+        payload: { order_id: orderId, ingredient_id: ingredientId },
+      });
+      ws.send(msg);
+    },
+    [],
+  );
+
+  return { isConnected, reportIngredientUnavailable };
 }

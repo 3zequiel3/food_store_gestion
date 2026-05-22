@@ -9,6 +9,8 @@ interface KitchenOrderCardProps {
   order: CocinaPedidoResponse;
   onTransition: (orderId: number, targetState: string) => void;
   isTransitioning: boolean;
+  /** Called when the cook marks an ingredient as unavailable (P0.1 cook trigger). */
+  onIngredientUnavailable?: (ingredientId: number) => void;
 }
 
 /**
@@ -29,6 +31,7 @@ export function KitchenOrderCard({
   order,
   onTransition,
   isTransitioning,
+  onIngredientUnavailable,
 }: KitchenOrderCardProps) {
   const [showDetail, setShowDetail] = useState(false);
   const { elapsedMinutes, level } = useUrgencyTimer(order.cocina_entry_at);
@@ -117,6 +120,8 @@ export function KitchenOrderCard({
           items={order.items}
           notas={order.notas}
           onClose={() => setShowDetail(false)}
+          orderEstado={order.estado}
+          onIngredientUnavailable={onIngredientUnavailable}
         />
       )}
     </>
