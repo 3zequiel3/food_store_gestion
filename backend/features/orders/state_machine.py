@@ -21,8 +21,12 @@ from shared.exceptions import BusinessRuleError, ForbiddenError
 
 ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     "PENDIENTE": {"CANCELADO", "CANCELADO_ADMIN", "CANCELADO_CLIENTE", "CONFIRMADO"},
-    "CONFIRMADO": {"EN_PREPARACION", "ENTREGADO", "CANCELADO_ADMIN"},
+    # P3.10: ENTREGADO removed — CONFIRMADO can only go to EN_PREPARACION or be cancelled.
+    # The direct CONFIRMADO→ENTREGADO shortcut was a design error (orders must be
+    # prepared before delivery; there is no "instant delivery" path in v1).
+    "CONFIRMADO": {"EN_PREPARACION", "CANCELADO_ADMIN"},
     "EN_PREPARACION": {"TERMINADO", "CANCELADO_ADMIN"},
+    # P3.9: TERMINADO can now be cancelled by ADMIN (e.g. post-completion dispute).
     "TERMINADO": {"EN_CAMINO", "ENTREGADO", "CANCELADO_ADMIN"},
     "EN_CAMINO": {"ENTREGADO"},
     "ENTREGADO": set(),
@@ -45,12 +49,14 @@ TRANSITION_ROLES: dict[tuple[str, str], set[str]] = {
     ("PENDIENTE", "CANCELADO_ADMIN"): {"ADMIN", "PEDIDOS"},
     ("PENDIENTE", "CONFIRMADO"): {"PEDIDOS", "ADMIN"},
     ("CONFIRMADO", "EN_PREPARACION"): {"PEDIDOS", "ADMIN", "COCINA"},
-    ("CONFIRMADO", "ENTREGADO"): {"PEDIDOS", "ADMIN"},
+    # P3.10: ("CONFIRMADO", "ENTREGADO") removed — see ALLOWED_TRANSITIONS comment.
     ("CONFIRMADO", "CANCELADO_ADMIN"): {"PEDIDOS", "ADMIN"},
     ("EN_PREPARACION", "TERMINADO"): {"PEDIDOS", "ADMIN", "COCINA"},
     ("EN_PREPARACION", "CANCELADO_ADMIN"): {"ADMIN"},  # RN-RB08 — solo ADMIN
     ("TERMINADO", "EN_CAMINO"): {"PEDIDOS", "ADMIN"},
     ("TERMINADO", "ENTREGADO"): {"PEDIDOS", "ADMIN"},
+    # P3.9: ADMIN-only post-completion cancellation (e.g. dispute/refund scenario).
+    ("TERMINADO", "CANCELADO_ADMIN"): {"ADMIN"},
     ("EN_CAMINO", "ENTREGADO"): {"PEDIDOS", "ADMIN"},
 }
 
