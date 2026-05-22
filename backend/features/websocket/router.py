@@ -25,7 +25,6 @@ from typing import Any
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
-from features.websocket.contracts import DomainEvent
 from features.websocket.manager import connection_manager
 from features.websocket.scope import default_topic, is_topic_allowed, scope_from_jwt
 from shared.security import decode_access_token
@@ -134,9 +133,6 @@ async def websocket_endpoint(
 # Inbound message router (D5 — Phase 1 subset; Phase 5 extends this)
 # ---------------------------------------------------------------------------
 
-_ERROR_FRAME = json.dumps({"v": 1, "type": "error", "payload": {"message": "unknown_type"}})
-
-
 async def _handle_inbound(
     websocket: WebSocket,
     raw: str,
@@ -160,7 +156,7 @@ async def _handle_inbound(
     if msg_type == "subscribe":
         await _handle_subscribe(websocket, msg, scope, user_id, roles)
     elif msg_type == "kitchen.ingredient_unavailable":
-        await _handle_kitchen_ingredient_unavailable(websocket, msg, scope, roles)
+        await _handle_kitchen_ingredient_unavailable(websocket, msg, roles)
     else:
         await _send_error(websocket, f"unknown_type:{msg_type}")
 
@@ -193,7 +189,6 @@ async def _handle_subscribe(
 async def _handle_kitchen_ingredient_unavailable(
     websocket: WebSocket,
     msg: dict,
-    scope: dict,
     roles: list[str],
 ) -> None:
     """

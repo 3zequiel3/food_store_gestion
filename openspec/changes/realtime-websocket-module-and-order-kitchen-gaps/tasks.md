@@ -14,24 +14,24 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 
 ## 1. Phase 1 — WebSocket module foundation (PR1, parity-only)
 
-- [ ] 1.1 Characterization tests (pytest): capture CURRENT KDS behavior — `publish_transition_event` enqueues for CONFIRMADO/EN_PREPARACION/TERMINADO/CANCELADO*, broadcast fan-out, best-effort swallow. (red against not-yet-moved code = baseline)
-- [ ] 1.2 Test: `EventPublisher` port contract — `publish(DomainEvent)` is best-effort and never raises; emits versioned `{v,type,topic,payload,ts}`.
-- [ ] 1.3 Implement `backend/features/websocket/` skeleton: `EventPublisher` Protocol + `DomainEvent` + versioned contract types.
-- [ ] 1.4 Test: connection manager registers/disconnects and broadcasts only to a topic's subscribers.
-- [ ] 1.5 Implement the connection manager with topic indexing (move logic out of `features/cocina/ws_manager.py`).
-- [ ] 1.6 Test: `InProcessEventPublisher` enqueues onto the asyncio queue; drain task broadcasts each event.
-- [ ] 1.7 Implement drain/broadcast service + `InProcessEventPublisher` (relocate from `features/cocina/service.py`).
-- [ ] 1.8 Test: topic/room scope derived from JWT at handshake; CLIENT scope = owned `order:{id}`, ADMIN/PEDIDOS = `orders:all`, COCINA/ADMIN = `kitchen:all`; client-declared scope is ignored.
-- [ ] 1.9 Implement WS handshake auth + scope binding + `/ws` endpoint in the module (relocate from `features/cocina/router.py`).
-- [ ] 1.10 Test: `GET /ws/health` returns 200 with drain-task/connection status.
-- [ ] 1.11 Implement `/ws/health`.
-- [ ] 1.12 Test: `register_realtime(app)` mounts routes, starts drain task, binds publisher; `main.py` has exactly one realtime touchpoint and no manager/queue references.
-- [ ] 1.13 Implement `register_realtime(app)`; wire it into `main.py` lifespan; remove inline cocina drain wiring (`main.py:108-115`).
-- [ ] 1.14 Test: `orders/service.py` publishes a domain event via the port and has no `from features.cocina` import; transition still succeeds when publish fails.
-- [ ] 1.15 Invert the coupling — replace `from features.cocina.service import publish_transition_event` (`orders/service.py:296-301`) with port-based `publish`.
-- [ ] 1.16 Test: KDS parity — COCINA on `kitchen:all` still receives confirmadо/preparación/terminado/cancelado updates as before.
-- [ ] 1.17 Make cocina a consumer of the shared transport; remove the kitchen-owned manager + `/ws` route.
-- [ ] 1.18 Run full backend suite green; confirm KDS behavior parity.
+- [x] 1.1 Characterization tests (pytest): capture CURRENT KDS behavior — `publish_transition_event` enqueues for CONFIRMADO/EN_PREPARACION/TERMINADO/CANCELADO*, broadcast fan-out, best-effort swallow. (red against not-yet-moved code = baseline)
+- [x] 1.2 Test: `EventPublisher` port contract — `publish(DomainEvent)` is best-effort and never raises; emits versioned `{v,type,topic,payload,ts}`.
+- [x] 1.3 Implement `backend/features/websocket/` skeleton: `EventPublisher` Protocol + `DomainEvent` + versioned contract types.
+- [x] 1.4 Test: connection manager registers/disconnects and broadcasts only to a topic's subscribers.
+- [x] 1.5 Implement the connection manager with topic indexing (move logic out of `features/cocina/ws_manager.py`).
+- [x] 1.6 Test: `InProcessEventPublisher` enqueues onto the asyncio queue; drain task broadcasts each event.
+- [x] 1.7 Implement drain/broadcast service + `InProcessEventPublisher` (relocate from `features/cocina/service.py`).
+- [x] 1.8 Test: topic/room scope derived from JWT at handshake; CLIENT scope = owned `order:{id}`, ADMIN/PEDIDOS = `orders:all`, COCINA/ADMIN = `kitchen:all`; client-declared scope is ignored.
+- [x] 1.9 Implement WS handshake auth + scope binding + `/ws` endpoint in the module (relocate from `features/cocina/router.py`).
+- [x] 1.10 Test: `GET /ws/health` returns 200 with drain-task/connection status.
+- [x] 1.11 Implement `/ws/health`.
+- [x] 1.12 Test: `register_realtime(app)` mounts routes, starts drain task, binds publisher; `main.py` has exactly one realtime touchpoint and no manager/queue references.
+- [x] 1.13 Implement `register_realtime(app)`; wire it into `main.py` lifespan; remove inline cocina drain wiring (`main.py:108-115`).
+- [x] 1.14 Test: `orders/service.py` publishes a domain event via the port and has no `from features.cocina` import; transition still succeeds when publish fails.
+- [x] 1.15 Invert the coupling — replace `from features.cocina.service import publish_transition_event` (`orders/service.py:296-301`) with port-based `publish`.
+- [x] 1.16 Test: KDS parity — COCINA on `kitchen:all` still receives confirmadо/preparación/terminado/cancelado updates as before.
+- [x] 1.17 Make cocina a consumer of the shared transport; remove the kitchen-owned manager + `/ws` route.
+- [x] 1.18 Run full backend suite green; confirm KDS behavior parity.
 
 ## 2. Phase 2 — FSM fixes (PR2)
 

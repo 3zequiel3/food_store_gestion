@@ -32,6 +32,18 @@ def _cocina_service_source() -> str:
     return path.read_text()
 
 
+def _has_function_def(source: str, name: str) -> bool:
+    """Return True if the source AST contains a function definition with `name`."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return True
+    return False
+
+
 class TestCocinaRouterNolongerOwnsWS:
     """cocina/router.py must not define a WebSocket endpoint."""
 
@@ -76,8 +88,8 @@ class TestCocinaServiceNolongerOwnsQueue:
         The drain task is started by register_realtime in the websocket module.
         """
         source = _cocina_service_source()
-        assert "start_drain_task" not in source, (
-            "cocina/service.py still defines start_drain_task — "
+        assert not _has_function_def(source, "start_drain_task"), (
+            "cocina/service.py still defines start_drain_task() — "
             "drain task ownership belongs to the websocket module (task 1.17)."
         )
 
@@ -87,7 +99,7 @@ class TestCocinaServiceNolongerOwnsQueue:
         orders/service.py now publishes via the EventPublisher port.
         """
         source = _cocina_service_source()
-        assert "publish_transition_event" not in source, (
-            "cocina/service.py still defines publish_transition_event — "
+        assert not _has_function_def(source, "publish_transition_event"), (
+            "cocina/service.py still defines publish_transition_event() — "
             "this belongs to the orders→port inversion path (task 1.15/1.17)."
         )
