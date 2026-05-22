@@ -147,6 +147,15 @@ class DetallePedido(BaseModel):
         lazy="select",
     )
 
+    # Relationship to the live product (for ingredient eager-load in kitchen service,
+    # D10 / P1.4). Lazy — callers must explicitly eager-load to avoid N+1.
+    producto: Mapped["features.products.models.Producto"] = relationship(
+        "Producto",
+        foreign_keys=[producto_id],
+        lazy="select",
+        viewonly=True,
+    )
+
     def __repr__(self) -> str:
         return (
             f"<DetallePedido(id={self.id}, pedido_id={self.pedido_id}, "

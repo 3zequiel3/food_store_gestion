@@ -68,8 +68,8 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 
 ## 5. Phase 5 — Kitchen recipe view + bidirectional inbound (PR5)
 
-- [ ] 5.1 Test: kitchen payload includes each product's full ingredient list with `nombre`+`es_removible` and resolves exclusion IDs to names (P1.4 backend).
-- [ ] 5.2 Implement P1.4 backend — join `product_ingredients → ingredients` in the kitchen payload builder; resolve exclusions to names.
+- [x] 5.1 Test: kitchen payload includes each product's full ingredient list with `nombre`+`es_removible` and resolves exclusion IDs to names (P1.4 backend).
+- [x] 5.2 Implement P1.4 backend — join `product_ingredients → ingredients` in the kitchen payload builder; resolve exclusions to names.
 - [ ] 5.3 Test (vitest): `KitchenOrderDetail` renders ingredient names + full list; no "Ingrediente #N".
 - [ ] 5.4 Implement P1.4 frontend — render names + full list in `KitchenOrderDetail.tsx` (replace `:73` raw-ID rendering).
 - [ ] 5.5 Test: inbound message router dispatches by `type`; unknown/malformed frames return an error frame without crashing; `subscribe` honored only within JWT scope.
