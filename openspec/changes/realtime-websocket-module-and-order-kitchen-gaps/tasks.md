@@ -72,10 +72,10 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 - [x] 5.2 Implement P1.4 backend — join `product_ingredients → ingredients` in the kitchen payload builder; resolve exclusions to names.
 - [ ] 5.3 Test (vitest): `KitchenOrderDetail` renders ingredient names + full list; no "Ingrediente #N".
 - [ ] 5.4 Implement P1.4 frontend — render names + full list in `KitchenOrderDetail.tsx` (replace `:73` raw-ID rendering).
-- [ ] 5.5 Test: inbound message router dispatches by `type`; unknown/malformed frames return an error frame without crashing; `subscribe` honored only within JWT scope.
-- [ ] 5.6 Implement P0.3 — replace the disconnect-only `receive_text()` loop with the typed inbound router.
-- [ ] 5.7 Test: `kitchen.ingredient_unavailable` is authorized for COCINA/ADMIN only (CLIENT rejected) and routes to the messaging service handler.
-- [ ] 5.8 Implement the inbound `kitchen.ingredient_unavailable` handler (auth re-check + handoff to Phase 6 service stub).
+- [x] 5.5 Test: inbound message router dispatches by `type`; unknown/malformed frames return an error frame without crashing; `subscribe` honored only within JWT scope.
+- [x] 5.6 Implement P0.3 — replace the disconnect-only `receive_text()` loop with the typed inbound router.
+- [x] 5.7 Test: `kitchen.ingredient_unavailable` is authorized for COCINA/ADMIN only (CLIENT rejected) and routes to the messaging service handler.
+- [x] 5.8 Implement the inbound `kitchen.ingredient_unavailable` handler (auth re-check + handoff to Phase 6 service stub).
 - [ ] 5.9 Run backend websocket/kitchen suite + frontend cocina suite green.
 
 ## 6. Phase 6 — Ingredient availability + kitchen→admin signalling (PR6)

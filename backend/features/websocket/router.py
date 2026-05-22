@@ -186,6 +186,25 @@ async def _handle_subscribe(
         pass
 
 
+def kitchen_ingredient_unavailable_stub(*, order_id: int, ingredient_id: int) -> None:
+    """
+    Phase-6 stub — placeholder for the ingredient-availability service handler.
+
+    Phase 6 task 6.17 will replace this stub with the real call to the
+    IngredientAvailabilityService (report service: toggle activo=False +
+    insert HistorialDisponibilidadIngrediente row in a single UoW + publish
+    ingredient_unavailable_reported event to the admin scope).
+
+    DO NOT implement the report/availability logic here — stub only.
+    """
+    logger.debug(
+        "kitchen.ingredient_unavailable: order_id=%s ingredient_id=%s "
+        "(Phase-6 stub — not yet wired to the availability service)",
+        order_id,
+        ingredient_id,
+    )
+
+
 async def _handle_kitchen_ingredient_unavailable(
     websocket: WebSocket,
     msg: dict,
@@ -194,8 +213,10 @@ async def _handle_kitchen_ingredient_unavailable(
     """
     Handle kitchen.ingredient_unavailable inbound message.
 
-    Authorization: COCINA or ADMIN only.
-    Phase 1: stub — the actual service call is wired in Phase 5.
+    Authorization: COCINA or ADMIN only (re-checked from JWT roles, D5).
+    Payload: {order_id: int, ingredient_id: int} — both required.
+    On success: hands off to kitchen_ingredient_unavailable_stub (Phase-6 placeholder).
+    On auth failure: error frame sent, no side-effects.
     """
     role_set = set(roles)
     if not role_set & {"COCINA", "ADMIN"}:
@@ -210,12 +231,8 @@ async def _handle_kitchen_ingredient_unavailable(
         await _send_error(websocket, "invalid_payload:kitchen.ingredient_unavailable")
         return
 
-    # Phase 5 will wire this to the ingredient-availability service.
-    logger.debug(
-        "kitchen.ingredient_unavailable: order_id=%s ingredient_id=%s (Phase 5 stub)",
-        order_id,
-        ingredient_id,
-    )
+    # Hand off to the Phase-6 stub. Phase 6 task 6.17 wires this to the real service.
+    kitchen_ingredient_unavailable_stub(order_id=order_id, ingredient_id=ingredient_id)
 
 
 async def _send_error(websocket: WebSocket, reason: str) -> None:
