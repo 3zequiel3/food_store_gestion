@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../auth/stores/authStore';
 import { getToken } from '../../auth/services/auth.service';
 import type { CocinaWebSocketEvent, CocinaPedidoResponse } from '../types/cocina.types';
+import { buildWebSocketUrl } from '../../../lib/ws';
 
 const RECONNECT_DELAY_MS = 5_000; // 5s between reconnect attempts
 
@@ -65,11 +66,7 @@ export function useCocinaWebSocket() {
     try {
       const { access_token } = await getToken();
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/ws?token=${encodeURIComponent(access_token)}`;
-
-      const ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(buildWebSocketUrl(access_token));
       wsRef.current = ws;
 
       ws.onopen = () => {

@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getToken } from '../../auth/services/auth.service';
 import { useAuthStore } from '../../auth/stores/authStore';
+import { buildWebSocketUrl } from '../../../lib/ws';
 
 // ---------------------------------------------------------------------------
 // Types — mirrors the backend versioned wire format (contracts.py DomainEvent)
@@ -95,11 +96,7 @@ export function useOrderWebSocket({
     try {
       const { access_token } = await getToken();
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/ws?token=${encodeURIComponent(access_token)}`;
-
-      const ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(buildWebSocketUrl(access_token));
       wsRef.current = ws;
 
       ws.onopen = () => {
