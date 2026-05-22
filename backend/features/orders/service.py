@@ -48,8 +48,61 @@ from shared.exceptions import (
 )
 from shared.unit_of_work import UnitOfWork
 
+import logging as _logging
+
+_svc_logger = _logging.getLogger(__name__)
+
 # D5 — v1 fixed shipping cost. Replace with dynamic calculation in a future change.
 SHIPPING_COST_DEFAULT = Decimal("50.00")
+
+# ---------------------------------------------------------------------------
+# Domain event publishing — EventPublisher port (Design D2, D4).
+# The order domain publishes via the port; no import from features.cocina.
+# Kitchen-relevant states emit to kitchen:all so the KDS (cocina consumer)
+# receives them through the shared transport.
+# ---------------------------------------------------------------------------
+
+_KITCHEN_STATES = frozenset({
+    "CONFIRMADO", "EN_PREPARACION", "TERMINADO",
+    "CANCELADO", "CANCELADO_ADMIN", "CANCELADO_CLIENTE",
+})
+
+
+def _publish_order_state_event(pedido_id: int, estado_nuevo: str) -> None:
+    """
+    Publish an order_state_changed domain event via the EventPublisher port.
+
+    Best-effort: any exception is caught and logged at DEBUG level; the HTTP
+    response for the originating transition is never affected.
+
+    Design D2: versioned contract {v, type, topic, payload, ts}.
+    Design D4: kitchen-relevant states go to kitchen:all; other states are
+    silently skipped (not kitchen-relevant in Phase 1).
+    """
+    if estado_nuevo not in _KITCHEN_STATES:
+        return
+
+    try:
+        from features.websocket.registration import get_event_publisher
+        from features.websocket.contracts import DomainEvent
+
+        publisher = get_event_publisher()
+        if publisher is None:
+            # register_realtime hasn't been called yet (e.g. tests without lifespan).
+            return
+
+        event = DomainEvent(
+            v=1,
+            type="order_state_changed",
+            topic="kitchen:all",
+            payload={"order_id": pedido_id, "estado": estado_nuevo},
+        )
+        publisher.publish(event)
+    except Exception:
+        _svc_logger.debug(
+            "orders/service: post-commit publish failed (best-effort, discarded)",
+            exc_info=True,
+        )
 
 
 def _is_admin_view(user: Usuario) -> bool:
@@ -293,12 +346,13 @@ class OrderService:
             _event_pedido_id = pedido_id
             _event_estado_nuevo = estado_nuevo
 
-        # Post-commit: publish WebSocket event to KDS (best-effort, non-blocking)
+        # Post-commit: publish domain event via the EventPublisher port (best-effort).
+        # Design D2/D4: the order domain emits a versioned domain event; cocina
+        # consumes it via the kitchen:all topic. No import from features.cocina.
         try:
-            from features.cocina.service import publish_transition_event
-            publish_transition_event(_event_pedido_id, _event_estado_nuevo)
+            _publish_order_state_event(_event_pedido_id, _event_estado_nuevo)
         except Exception:
-            pass  # Best-effort — never let broadcast failure affect the transition
+            pass  # Best-effort — never let publish failure affect the HTTP response
 
         return pedido
 

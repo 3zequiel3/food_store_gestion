@@ -34,21 +34,46 @@ def _orders_service_source() -> str:
     return path.read_text()
 
 
+def _has_cocina_import(source: str) -> bool:
+    """
+    Return True if the source has an actual 'from features.cocina' or
+    'import features.cocina' statement (ignoring comment lines and docstrings).
+    Uses AST parsing so comments and string literals are excluded.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return False  # If it doesn't parse, we can't check.
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if module == "features.cocina" or module.startswith("features.cocina."):
+                return True
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "features.cocina" or alias.name.startswith("features.cocina."):
+                    return True
+    return False
+
+
 class TestOrdersServiceNoCocinaImport:
     """orders/service.py must have zero 'from features.cocina' or 'import features.cocina'."""
 
     def test_no_features_cocina_import(self):
-        """orders/service.py must not contain any 'from features.cocina' import."""
+        """orders/service.py must not contain any AST-level import from features.cocina."""
         source = _orders_service_source()
-        assert "from features.cocina" not in source, (
-            "orders/service.py still contains 'from features.cocina' — "
+        assert not _has_cocina_import(source), (
+            "orders/service.py still contains an import from features.cocina — "
             "dependency inversion is not complete (task 1.15)."
         )
 
     def test_no_features_cocina_dotted_import(self):
         """orders/service.py must not contain 'import features.cocina'."""
         source = _orders_service_source()
-        assert "import features.cocina" not in source, (
+        # This test is subsumed by test_no_features_cocina_import above,
+        # but kept for explicit coverage of the dotted form.
+        assert not _has_cocina_import(source), (
             "orders/service.py still contains 'import features.cocina'."
         )
 
