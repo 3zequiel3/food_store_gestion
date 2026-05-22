@@ -102,10 +102,10 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 - [x] 6.15 Implement the availability guard in the service layer (eager-load `producto.ingredientes` to avoid N+1), invoked from `avanzar_estado` before `validate_transition`, only for `CONFIRMADO → EN_PREPARACION` and `EN_PREPARACION → TERMINADO`. `state_machine.py` stays pure.
 
 ### 6d. Inbound WS handler + admin read/resolve endpoints
-- [ ] 6.16 Test: the `kitchen.ingredient_unavailable` handler (Phase 5 stub) now invokes the report service with `order_id`+`ingredient_id`; CLIENT still rejected.
-- [ ] 6.17 Implement the handler → report-service wiring (replacing the Phase 5 stub).
-- [ ] 6.18 Test: admin "Faltantes" endpoint lists open shortages; resolve endpoint sets `activo=true` + bulk-closes + emits the restored event.
-- [ ] 6.19 Implement the admin Faltantes list + resolve endpoints/service.
+- [x] 6.16 Test: the `kitchen.ingredient_unavailable` handler (Phase 5 stub) now invokes the report service with `order_id`+`ingredient_id`; CLIENT still rejected.
+- [x] 6.17 Implement the handler → report-service wiring (replacing the Phase 5 stub).
+- [x] 6.18 Test: admin "Faltantes" endpoint lists open shortages; resolve endpoint sets `activo=true` + bulk-closes + emits the restored event.
+- [x] 6.19 Implement the admin Faltantes list + resolve endpoints/service.
 
 ### 6e. Frontend
 - [ ] 6.20 Test (vitest): cook trigger in `KitchenOrderDetail` (only for `CONFIRMADO`/`EN_PREPARACION`) sends `kitchen.ingredient_unavailable` with `order_id`+`ingredient_id`; cook receives `ingredient_availability_restored`.

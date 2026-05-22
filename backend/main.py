@@ -82,6 +82,8 @@ from features.admin_metrics.router import router as admin_metrics_router
 from features.checkout.router import router as checkout_router
 from features.cocina.router import router as cocina_router
 from features.websocket.router import router as ws_router
+from features.availability.router import router as availability_router
+from features.availability import models as _availability_models  # noqa: F401
 
 
 @asynccontextmanager
@@ -242,6 +244,9 @@ app.include_router(
     admin_metrics_router, prefix="/api/v1/admin/metricas", tags=["admin-metrics"]
 )
 app.include_router(cocina_router, prefix="/api/v1/cocina", tags=["cocina"])
+
+# Ingredient availability — admin Faltantes view + resolve action (D6, Phase 6).
+app.include_router(availability_router, prefix="/api/v1/availability", tags=["availability"])
 
 # WebSocket module — /ws (WS endpoint) + /ws/health (HTTP health check).
 # Routes registered here (module level) so they survive lifespan overrides in tests.

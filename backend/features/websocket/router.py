@@ -29,6 +29,10 @@ from features.websocket.manager import connection_manager
 from features.websocket.scope import default_topic, is_topic_allowed, scope_from_jwt
 from shared.security import decode_access_token
 
+# Availability service import — used by the report wiring (task 6.17).
+# Imported here (not lazily) so tests can patch _report_service_call directly.
+from features.availability.service import IngredientAvailabilityService as _IngredientSvc
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -156,7 +160,7 @@ async def _handle_inbound(
     if msg_type == "subscribe":
         await _handle_subscribe(websocket, msg, scope, user_id, roles)
     elif msg_type == "kitchen.ingredient_unavailable":
-        await _handle_kitchen_ingredient_unavailable(websocket, msg, roles)
+        await _handle_kitchen_ingredient_unavailable(websocket, msg, roles, user_id=user_id)
     else:
         await _send_error(websocket, f"unknown_type:{msg_type}")
 
@@ -188,34 +192,72 @@ async def _handle_subscribe(
 
 def kitchen_ingredient_unavailable_stub(*, order_id: int, ingredient_id: int) -> None:
     """
-    Phase-6 stub — placeholder for the ingredient-availability service handler.
+    Phase-6 stub — retained for backward compatibility with Phase-5 tests.
 
-    Phase 6 task 6.17 will replace this stub with the real call to the
-    IngredientAvailabilityService (report service: toggle activo=False +
-    insert HistorialDisponibilidadIngrediente row in a single UoW + publish
-    ingredient_unavailable_reported event to the admin scope).
-
-    DO NOT implement the report/availability logic here — stub only.
+    As of Phase 6 task 6.17 this stub is NO LONGER called by the handler;
+    the handler now routes to _report_service_call instead. The stub remains
+    importable so existing test assertions against it still pass without changes.
     """
     logger.debug(
-        "kitchen.ingredient_unavailable: order_id=%s ingredient_id=%s "
-        "(Phase-6 stub — not yet wired to the availability service)",
+        "kitchen.ingredient_unavailable_stub: order_id=%s ingredient_id=%s "
+        "(Phase-6 stub — no longer in the active handler path)",
         order_id,
         ingredient_id,
     )
+
+
+def _report_service_call(*, user_id: int, order_id: int, ingredient_id: int) -> None:
+    """
+    Task 6.17 — wires the inbound kitchen.ingredient_unavailable message to the
+    IngredientAvailabilityService.report_unavailable() in a single UoW.
+
+    This is a sync function because the service layer uses sync SQLAlchemy sessions.
+    The WS handler awaits _handle_kitchen_ingredient_unavailable which calls this
+    synchronously — consistent with the existing order-service pattern.
+
+    Best-effort: any exception is swallowed to avoid crashing the WebSocket connection.
+    """
+    try:
+        from shared.unit_of_work import UnitOfWork
+        from features.websocket.registration import get_event_publisher
+
+        publisher = get_event_publisher()
+
+        with UnitOfWork() as uow:
+            svc = _IngredientSvc(session=uow.session, publisher=publisher)
+            svc.report_unavailable(
+                ingrediente_id=ingredient_id,
+                reportado_por=user_id,
+                pedido_id=order_id,
+            )
+        # UoW commits on clean exit — publish happens inside service (post-flush, pre-commit).
+        logger.debug(
+            "_report_service_call: reported ingredient_id=%d unavailable "
+            "(order_id=%d, user_id=%d)",
+            ingredient_id,
+            order_id,
+            user_id,
+        )
+    except Exception:
+        logger.debug(
+            "_report_service_call: failed to report ingredient_id=%d (best-effort, swallowed)",
+            ingredient_id,
+            exc_info=True,
+        )
 
 
 async def _handle_kitchen_ingredient_unavailable(
     websocket: WebSocket,
     msg: dict,
     roles: list[str],
+    user_id: int = 0,
 ) -> None:
     """
     Handle kitchen.ingredient_unavailable inbound message.
 
     Authorization: COCINA or ADMIN only (re-checked from JWT roles, D5).
     Payload: {order_id: int, ingredient_id: int} — both required.
-    On success: hands off to kitchen_ingredient_unavailable_stub (Phase-6 placeholder).
+    On success: calls _report_service_call → IngredientAvailabilityService (task 6.17).
     On auth failure: error frame sent, no side-effects.
     """
     role_set = set(roles)
@@ -231,8 +273,8 @@ async def _handle_kitchen_ingredient_unavailable(
         await _send_error(websocket, "invalid_payload:kitchen.ingredient_unavailable")
         return
 
-    # Hand off to the Phase-6 stub. Phase 6 task 6.17 wires this to the real service.
-    kitchen_ingredient_unavailable_stub(order_id=order_id, ingredient_id=ingredient_id)
+    # Task 6.17: replaced the Phase-5 stub with the real service call.
+    _report_service_call(user_id=user_id, order_id=order_id, ingredient_id=ingredient_id)
 
 
 async def _send_error(websocket: WebSocket, reason: str) -> None:

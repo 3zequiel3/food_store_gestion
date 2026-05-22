@@ -196,15 +196,19 @@ class TestIngredientUnavailablePayload:
 
 class TestIngredientUnavailableStub:
     """
-    When COCINA/ADMIN sends a valid kitchen.ingredient_unavailable message,
-    the router hands off to kitchen_ingredient_unavailable_stub — the Phase-6
-    placeholder that will be wired to the real service in task 6.17.
+    Phase-5 stub tests — updated for Phase 6 (task 6.17 wired the real service).
+
+    As of Phase 6:
+    - kitchen_ingredient_unavailable_stub still EXISTS (backward compat) but is NOT
+      called by the handler — _report_service_call is called instead.
+    - The stub's docstring marks it as the Phase-6 placeholder (now retired from the path).
     """
 
     @pytest.mark.asyncio
-    async def test_valid_cocina_message_calls_stub(self):
+    async def test_valid_cocina_message_calls_report_service_not_stub(self):
         """
-        COCINA + valid payload → stub is invoked with order_id and ingredient_id.
+        Phase 6 update (task 6.17): COCINA + valid payload → _report_service_call
+        is invoked. The stub is NO LONGER called by the active handler path.
         """
         from features.websocket.router import _handle_inbound
 
@@ -216,12 +220,15 @@ class TestIngredientUnavailableStub:
         })
         ws = AsyncMock()
 
-        with patch(
-            "features.websocket.router.kitchen_ingredient_unavailable_stub"
-        ) as mock_stub:
+        with (
+            patch("features.websocket.router.kitchen_ingredient_unavailable_stub") as mock_stub,
+            patch("features.websocket.router._report_service_call") as mock_report,
+        ):
             await _handle_inbound(ws, raw, scope, user_id=1, roles=["COCINA"])
 
-        mock_stub.assert_called_once_with(order_id=42, ingredient_id=7)
+        # Phase 6: stub no longer called; report service called instead
+        mock_stub.assert_not_called()
+        mock_report.assert_called_once_with(user_id=1, order_id=42, ingredient_id=7)
 
     @pytest.mark.asyncio
     async def test_stub_is_a_named_placeholder(self):
