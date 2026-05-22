@@ -21,6 +21,8 @@ from features.checkout.exceptions import (
     PaymentUnexpectedStatusError,
 )
 from features.checkout.schemas import (
+    CheckoutDeliveryEfectivoRequest,
+    CheckoutDeliveryEfectivoResponse,
     CheckoutErrorResponse,
     CheckoutOnlineRequest,
     CheckoutOnlineResponse,
@@ -179,6 +181,49 @@ def checkout_pickup_efectivo(
     try:
         service = CheckoutService()
         return service.crear_pedido_pickup_efectivo(
+            user_id=current_user.id,
+            request=body,
+        )
+    except Exception as e:
+        http_error = _handle_checkout_error(e)
+        raise http_error
+
+
+@router.post(
+    "/delivery-efectivo",
+    response_model=CheckoutDeliveryEfectivoResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        404: {"model": CheckoutErrorResponse, "description": "Address not found"},
+        422: {"model": CheckoutErrorResponse, "description": "Validation error"},
+    },
+    summary="Cash-on-delivery order",
+    description=(
+        "Create a delivery order with cash payment (P0.2). "
+        "The order is created in PENDIENTE state with shipping cost included. "
+        "Payment is collected at the door — no Pago record is created. "
+        "Requires CLIENT role."
+    ),
+)
+def checkout_delivery_efectivo(
+    body: CheckoutDeliveryEfectivoRequest,
+    current_user: Usuario = Depends(require_role("CLIENT")),
+) -> CheckoutDeliveryEfectivoResponse:
+    """
+    POST /api/v1/checkout/delivery-efectivo — cash-on-delivery.
+
+    The customer receives the order at their address and pays the driver in cash.
+    Mirrors the pickup-efectivo endpoint but adds shipping cost and stores
+    the delivery address on the Pedido.
+
+    Authentication: cookie-backed session (CLIENT role).
+    HTTP mapping:
+      NotFoundError → 404 (product or address not found)
+      BusinessRuleError → 422 (stock, availability, invalid personalizacion)
+    """
+    try:
+        service = CheckoutService()
+        return service.crear_pedido_delivery_efectivo(
             user_id=current_user.id,
             request=body,
         )

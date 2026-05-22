@@ -35,20 +35,20 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 
 ## 2. Phase 2 — FSM fixes (PR2)
 
-- [ ] 2.1 Test: `validate_transition("TERMINADO","CANCELADO_ADMIN",{"ADMIN"})` passes; with `{"PEDIDOS"}` → 403.
-- [ ] 2.2 Implement P3.9 — add `("TERMINADO","CANCELADO_ADMIN"): {"ADMIN"}` to `TRANSITION_ROLES`.
-- [ ] 2.3 Test: `validate_transition("CONFIRMADO","ENTREGADO",{"ADMIN"})` raises `BusinessRuleError`; `("CONFIRMADO","ENTREGADO")` absent from `TRANSITION_ROLES`.
-- [ ] 2.4 Implement P3.10 — remove `ENTREGADO` from `ALLOWED_TRANSITIONS["CONFIRMADO"]` and the RBAC entry.
+- [x] 2.1 Test: `validate_transition("TERMINADO","CANCELADO_ADMIN",{"ADMIN"})` passes; with `{"PEDIDOS"}` → 403.
+- [x] 2.2 Implement P3.9 — add `("TERMINADO","CANCELADO_ADMIN"): {"ADMIN"}` to `TRANSITION_ROLES`.
+- [x] 2.3 Test: `validate_transition("CONFIRMADO","ENTREGADO",{"ADMIN"})` raises `BusinessRuleError`; `("CONFIRMADO","ENTREGADO")` absent from `TRANSITION_ROLES`.
+- [x] 2.4 Implement P3.10 — remove `ENTREGADO` from `ALLOWED_TRANSITIONS["CONFIRMADO"]` and the RBAC entry.
 - [ ] 2.5 Test (vitest): `OrderStateActions` for `PENDIENTE` does NOT render a "Confirmar pedido" / CONFIRMADO action; reject/cancel still present.
 - [ ] 2.6 Implement P3.11 — remove the CONFIRMADO transition from the PENDIENTE set in `OrderStateActions.tsx`.
 - [ ] 2.7 Run backend FSM/RBAC suite + frontend orders suite green.
 
 ## 3. Phase 3 — Business logic: payment + customization + removable step (PR3)
 
-- [ ] 3.1 Test: customization IDs that are not `es_removible=true` ingredients of the product → 422 (P2.8); valid removable exclusion accepted.
-- [ ] 3.2 Implement P2.8 — server-side validation joining `product_ingredients`+`Ingrediente.es_removible` at the checkout/order-creation boundary.
-- [ ] 3.3 Test: cash-on-delivery (`EFECTIVO` + `direccion_id`) creates a `PENDIENTE` order with shipping cost and no `Pago`; old `invalid_payment_for_delivery` block no longer fires; cash+pickup still works.
-- [ ] 3.4 Implement P0.2 — remove the hard block (`orders/service.py:129-136`); add cash-on-delivery schema + service path + router endpoint (mirror `crear_pedido_pickup_efectivo`).
+- [x] 3.1 Test: customization IDs that are not `es_removible=true` ingredients of the product → 422 (P2.8); valid removable exclusion accepted.
+- [x] 3.2 Implement P2.8 — server-side validation joining `product_ingredients`+`Ingrediente.es_removible` at the checkout/order-creation boundary.
+- [x] 3.3 Test: cash-on-delivery (`EFECTIVO` + `direccion_id`) creates a `PENDIENTE` order with shipping cost and no `Pago`; old `invalid_payment_for_delivery` block no longer fires; cash+pickup still works.
+- [x] 3.4 Implement P0.2 — remove the hard block (`orders/service.py:129-136`); add cash-on-delivery schema + service path + router endpoint (mirror `crear_pedido_pickup_efectivo`).
 - [ ] 3.5 Test (vitest): product-ingredient assignment request omits per-association `es_removible` (P2.7).
 - [ ] 3.6 Implement P2.7 — drop the `es_removible` argument from `addProductIngredient` calls in `ProductFormModal.tsx:209`; manage `es_removible` only on the ingredient entity.
 - [ ] 3.7 Test (vitest): pre-checkout review step lists removable ingredients per cart item; non-removable shown fixed; toggling records exclusions (P1.6).

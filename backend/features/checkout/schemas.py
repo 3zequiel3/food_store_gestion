@@ -52,12 +52,34 @@ class CheckoutOnlineRequest(BaseModel):
 
 class CheckoutPickupEfectivoRequest(BaseModel):
     """Request to create a pickup order with cash payment."""
-    
+
     model_config = ConfigDict(extra="forbid")
-    
+
     items: list[CheckoutItem] = Field(..., min_length=1)
     notas: str | None = Field(default=None, max_length=500)
     # Note: no direccion_id, no payment fields
+
+
+class CheckoutDeliveryEfectivoRequest(BaseModel):
+    """
+    Request to create a delivery order with cash payment (P0.2).
+
+    The customer pays in cash at the door when the order is delivered.
+    The order is created in PENDIENTE state with shipping cost applied.
+    No Pago record is created — payment is tracked manually at delivery time.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[CheckoutItem] = Field(..., min_length=1)
+    direccion_id: int = Field(..., ge=1, description="Delivery address ID (required for cash-on-delivery)")
+    notas: str | None = Field(default=None, max_length=500)
+
+
+class CheckoutDeliveryEfectivoResponse(BaseModel):
+    """Response for successful cash-on-delivery checkout."""
+
+    pedido_id: int
 
 
 class CheckoutOnlineResponse(BaseModel):

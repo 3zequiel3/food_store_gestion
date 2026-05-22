@@ -178,15 +178,9 @@ class OrderService:
             if forma is None:
                 raise BusinessRuleError("Forma de pago no válida o no disponible")
 
-            # RN: efectivo no disponible para envíos a domicilio
-            if (
-                payload.direccion_id is not None
-                and payload.forma_pago_codigo == "EFECTIVO"
-            ):
-                raise BusinessRuleError(
-                    "El pago en efectivo no está disponible para envíos. Elegí tarjeta o transferencia.",
-                    code="invalid_payment_for_delivery",
-                )
+            # P0.2: Cash-on-delivery (EFECTIVO + direccion_id) is now supported.
+            # The old hard block was removed — EFECTIVO + address creates a PENDIENTE
+            # order that the delivery driver collects at the door.
 
             # ── Step 2: Validate direccion ownership ──────────────────────
             direccion: Optional[object] = None
