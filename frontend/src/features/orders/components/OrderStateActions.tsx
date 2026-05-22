@@ -13,8 +13,9 @@ interface Transition {
 function getTransitions(estado: EstadoCodigo): Transition[] {
   switch (estado) {
     case 'PENDIENTE':
+      // P3.11: CONFIRMADO transition is webhook-only (auto-confirmed by the payment
+      // gateway). The admin panel must NOT expose a manual "Confirmar pedido" button.
       return [
-        { estado_codigo_destino: 'CONFIRMADO', label: 'Confirmar pedido', variant: 'primary', requiresMotivo: false },
         { estado_codigo_destino: 'CANCELADO_ADMIN', label: 'Rechazar', variant: 'danger', requiresMotivo: true },
       ];
     case 'CONFIRMADO':

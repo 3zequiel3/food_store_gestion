@@ -99,15 +99,20 @@ export async function setProductImageOrder(id: number, imagenId: number, orden: 
 
 // Ingredient association functions (M:N sync for edit mode)
 
-/** POST /productos/{id}/ingredientes — associate an ingredient with es_removible flag */
+/**
+ * POST /productos/{id}/ingredientes — associate an ingredient with a product.
+ *
+ * P2.7: `es_removible` is a property of the Ingrediente entity, NOT a
+ * per-association flag. The backend reads it from the Ingrediente row, so the
+ * request body only carries `ingrediente_id`.
+ */
 export async function addProductIngredient(
   productoId: number,
   ingredienteId: number,
-  esRemovible: boolean,
 ): Promise<IngredienteAsociadoRead> {
   const response = await apiClient.post<IngredienteAsociadoRead>(
     ENDPOINTS.productos.ingredientes(productoId),
-    { ingrediente_id: ingredienteId, es_removible: esRemovible },
+    { ingrediente_id: ingredienteId },
   );
   return response.data;
 }
