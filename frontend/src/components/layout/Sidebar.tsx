@@ -40,6 +40,7 @@ const ADMIN_NAV: NavItem[] = [
       { label: 'Productos', path: '/admin/productos' },
       { label: 'Categorías', path: '/admin/categorias' },
       { label: 'Ingredientes', path: '/admin/ingredientes' },
+      { label: 'Faltantes', path: '/admin/faltantes' },
     ],
   },
   {

@@ -103,4 +103,9 @@ export const ENDPOINTS = {
     topProductos: '/admin/metricas/top-productos',
     pedidosPorEstado: '/admin/metricas/pedidos-por-estado',
   },
+
+  availability: {
+    faltantes: '/availability/faltantes',
+    resolver: (ingredienteId: number) => `/availability/faltantes/${ingredienteId}/resolver`,
+  },
 } as const;
