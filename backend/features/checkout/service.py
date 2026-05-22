@@ -39,6 +39,7 @@ from features.checkout.schemas import (
     CheckoutPickupEfectivoRequest,
     CheckoutPickupEfectivoResponse,
 )
+from features.addresses.repository import AddressRepository
 from features.orders.models import DetallePedido, HistorialEstadoPedido, Pedido
 from features.orders.repository import OrderRepository
 from features.payments.models import Pago
@@ -121,6 +122,16 @@ class CheckoutService:
             NotFoundError: Product not found or belongs to another user
             BusinessRuleError: Stock insufficient or product not available
         """
+        # D6 (mirrored from orders/service.py): verify the delivery address
+        # belongs to the authenticated user before processing the order.
+        # Anti-leak pattern: returns None for both "not found" and "not yours"
+        # → raises NotFoundError (404), never ForbiddenError (403).
+        if direccion_id is not None:
+            address_repo = AddressRepository(session)
+            owned = address_repo.find_by_id_and_user(direccion_id, user_id)
+            if owned is None:
+                raise NotFoundError("Dirección no encontrada")
+
         product_repo = ProductRepository(session)
         validated_items = []
         subtotal = Decimal("0.00")
