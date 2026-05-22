@@ -81,10 +81,10 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 ## 6. Phase 6 — Ingredient availability + kitchen→admin signalling (PR6)
 
 ### 6a. Data model + migrations
-- [ ] 6.1 Test: `Ingrediente.activo` defaults to `true` for new and existing rows; the column is NOT NULL.
-- [ ] 6.2 Implement the `Ingrediente.activo: bool` column (`catalog/models.py`) + Alembic migration adding `activo BOOLEAN NOT NULL DEFAULT true`; `downgrade()` drops the column.
-- [ ] 6.3 Test: `HistorialDisponibilidadIngrediente` model/migration — columns (`ingrediente_id`, `reportado_por`, `pedido_id`, `creado_en`, `resuelto_en` nullable, `resuelto_por` nullable); `pendiente`/`resuelto` derived from `resuelto_en`; `downgrade()` drops the table.
-- [ ] 6.4 Implement the `HistorialDisponibilidadIngrediente` model (table `ingredient_availability_history`, `BaseModel`-based since rows mutate on resolution, following the `HistorialEstadoPedido` precedent) + Alembic migration.
+- [x] 6.1 Test: `Ingrediente.activo` defaults to `true` for new and existing rows; the column is NOT NULL.
+- [x] 6.2 Implement the `Ingrediente.activo: bool` column (`catalog/models.py`) + Alembic migration adding `activo BOOLEAN NOT NULL DEFAULT true`; `downgrade()` drops the column.
+- [x] 6.3 Test: `HistorialDisponibilidadIngrediente` model/migration — columns (`ingrediente_id`, `reportado_por`, `pedido_id`, `creado_en`, `resuelto_en` nullable, `resuelto_por` nullable); `pendiente`/`resuelto` derived from `resuelto_en`; `downgrade()` drops the table.
+- [x] 6.4 Implement the `HistorialDisponibilidadIngrediente` model (table `ingredient_availability_history`, `BaseModel`-based since rows mutate on resolution, following the `HistorialEstadoPedido` precedent) + Alembic migration.
 
 ### 6b. Report + resolution services (UoW)
 - [ ] 6.5 Test: reporting an ingredient unavailable sets `Ingrediente.activo=false` AND appends one `HistorialDisponibilidadIngrediente` row (`resuelto_en=NULL`) inside ONE UoW; survives with no admin connected.

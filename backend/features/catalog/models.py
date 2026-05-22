@@ -156,6 +156,17 @@ class Ingrediente(BaseModel):
     nombre: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     es_alergeno: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     es_removible: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Kitchen availability flag (D6 — Phase 6).
+    # True = ingredient is available in the kitchen (default).
+    # False = cook has flagged it unavailable; the FSM availability guard (D6b)
+    # blocks CONFIRMADO→EN_PREPARACION and EN_PREPARACION→TERMINADO until resolved.
+    # Distinct from es_removible (client-side customization) — do NOT conflate.
+    activo: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default="true",
+        nullable=False,
+    )
 
     def __repr__(self) -> str:
-        return f"<Ingrediente(id={self.id}, nombre={self.nombre!r})>"
+        return f"<Ingrediente(id={self.id}, nombre={self.nombre!r}, activo={self.activo})>"
