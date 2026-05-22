@@ -34,6 +34,8 @@ function makeOrder(overrides: Partial<CocinaPedidoResponse> = {}): CocinaPedidoR
         cantidad: 2,
         personalizacion: null,
         notas: null,
+        ingredientes: [],
+        exclusiones_nombres: [],
       },
     ],
     notas: null,
@@ -119,8 +121,8 @@ describe('KitchenOrderCard', () => {
     it('shows item names and quantities', () => {
       renderCard(makeOrder({
         items: [
-          { producto_id: 1, nombre_snapshot: 'Pizza Margarita', cantidad: 1, personalizacion: null, notas: null },
-          { producto_id: 2, nombre_snapshot: 'Papas Fritas', cantidad: 3, personalizacion: null, notas: null },
+          { producto_id: 1, nombre_snapshot: 'Pizza Margarita', cantidad: 1, personalizacion: null, notas: null, ingredientes: [], exclusiones_nombres: [] },
+          { producto_id: 2, nombre_snapshot: 'Papas Fritas', cantidad: 3, personalizacion: null, notas: null, ingredientes: [], exclusiones_nombres: [] },
         ],
       }));
 
@@ -130,7 +132,7 @@ describe('KitchenOrderCard', () => {
       expect(screen.getByText('× 3')).toBeInTheDocument();
     });
 
-    it('shows exclusion notes when personalizacion is present', () => {
+    it('shows exclusion notes by name when exclusiones_nombres is present', () => {
       renderCard(makeOrder({
         items: [
           {
@@ -139,31 +141,72 @@ describe('KitchenOrderCard', () => {
             cantidad: 1,
             personalizacion: [3, 7],
             notas: null,
+            ingredientes: [
+              { id: 3, nombre: 'Lechuga', es_removible: true },
+              { id: 7, nombre: 'Tomate', es_removible: true },
+            ],
+            exclusiones_nombres: ['Lechuga', 'Tomate'],
           },
         ],
       }));
 
-      expect(screen.getByText('(sin ingredientes 3, 7)')).toBeInTheDocument();
+      // D10: names, not raw IDs
+      expect(screen.getByText('(sin: Lechuga, Tomate)')).toBeInTheDocument();
+    });
+
+    it('falls back to IDs in exclusion text when exclusiones_nombres is empty but personalizacion has IDs', () => {
+      renderCard(makeOrder({
+        items: [
+          {
+            producto_id: 1,
+            nombre_snapshot: 'Hamburguesa',
+            cantidad: 1,
+            personalizacion: [3, 7],
+            notas: null,
+            ingredientes: [],
+            exclusiones_nombres: [],
+          },
+        ],
+      }));
+
+      // Fallback: show IDs when names unavailable (legacy data)
+      expect(screen.getByText('(sin: 3, 7)')).toBeInTheDocument();
     });
 
     it('does NOT show exclusion text when personalizacion is null', () => {
       renderCard(makeOrder({
         items: [
-          { producto_id: 1, nombre_snapshot: 'Ensalada', cantidad: 1, personalizacion: null, notas: null },
+          {
+            producto_id: 1,
+            nombre_snapshot: 'Ensalada',
+            cantidad: 1,
+            personalizacion: null,
+            notas: null,
+            ingredientes: [],
+            exclusiones_nombres: [],
+          },
         ],
       }));
 
-      expect(screen.queryByText(/sin ingredientes/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/sin:/i)).not.toBeInTheDocument();
     });
 
     it('does NOT show exclusion text when personalizacion is empty array', () => {
       renderCard(makeOrder({
         items: [
-          { producto_id: 1, nombre_snapshot: 'Ensalada', cantidad: 1, personalizacion: [], notas: null },
+          {
+            producto_id: 1,
+            nombre_snapshot: 'Ensalada',
+            cantidad: 1,
+            personalizacion: [],
+            notas: null,
+            ingredientes: [],
+            exclusiones_nombres: [],
+          },
         ],
       }));
 
-      expect(screen.queryByText(/sin ingredientes/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/sin:/i)).not.toBeInTheDocument();
     });
   });
 

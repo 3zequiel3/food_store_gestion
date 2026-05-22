@@ -48,17 +48,27 @@ export function KitchenOrderCard({
 
         {/* Items list */}
         <ul className="space-y-1.5 mb-3">
-          {order.items.map((item, idx) => (
-            <li key={`${item.producto_id}-${idx}`} className="text-sm text-foreground">
-              <span className="font-medium">{item.nombre_snapshot}</span>
-              <span className="text-muted-foreground"> × {item.cantidad}</span>
-              {item.personalizacion && item.personalizacion.length > 0 && (
-                <span className="ml-1 text-xs text-destructive">
-                  (sin ingredientes {item.personalizacion.join(', ')})
-                </span>
-              )}
-            </li>
-          ))}
+          {order.items.map((item, idx) => {
+            // D10: prefer resolved names; fall back gracefully when absent.
+            const exclusionLabel =
+              item.exclusiones_nombres && item.exclusiones_nombres.length > 0
+                ? item.exclusiones_nombres.join(', ')
+                : item.personalizacion && item.personalizacion.length > 0
+                  ? item.personalizacion.join(', ')
+                  : null;
+
+            return (
+              <li key={`${item.producto_id}-${idx}`} className="text-sm text-foreground">
+                <span className="font-medium">{item.nombre_snapshot}</span>
+                <span className="text-muted-foreground"> × {item.cantidad}</span>
+                {exclusionLabel && (
+                  <span className="ml-1 text-xs text-destructive">
+                    (sin: {exclusionLabel})
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
 
         {/* Order-level notes */}
