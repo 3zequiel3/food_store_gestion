@@ -87,12 +87,12 @@ Phasing follows design.md D11 (foundation-first). Each phase = one chained PR.
 - [x] 6.4 Implement the `HistorialDisponibilidadIngrediente` model (table `ingredient_availability_history`, `BaseModel`-based since rows mutate on resolution, following the `HistorialEstadoPedido` precedent) + Alembic migration.
 
 ### 6b. Report + resolution services (UoW)
-- [ ] 6.5 Test: reporting an ingredient unavailable sets `Ingrediente.activo=false` AND appends one `HistorialDisponibilidadIngrediente` row (`resuelto_en=NULL`) inside ONE UoW; survives with no admin connected.
-- [ ] 6.6 Implement the report service — UoW: toggle `activo=false` + insert history row; on commit publish `ingredient_unavailable_reported` (best-effort) to the admin scope.
-- [ ] 6.7 Test: resolving sets `Ingrediente.activo=true` AND bulk-closes ALL open rows for that ingredient (`resuelto_en`+`resuelto_por` on every `resuelto_en IS NULL` row) inside ONE UoW; resolved rows retained.
-- [ ] 6.8 Implement the resolution service — UoW: toggle `activo=true` + bulk-close open rows; on commit publish `ingredient_availability_restored` (best-effort) to `kitchen:all`.
-- [ ] 6.9 Test: the "Faltantes" query returns only open shortages (`resuelto_en IS NULL`); a separate query returns resolved history.
-- [ ] 6.10 Implement the open-shortages + resolved-history queries.
+- [x] 6.5 Test: reporting an ingredient unavailable sets `Ingrediente.activo=false` AND appends one `HistorialDisponibilidadIngrediente` row (`resuelto_en=NULL`) inside ONE UoW; survives with no admin connected.
+- [x] 6.6 Implement the report service — UoW: toggle `activo=false` + insert history row; on commit publish `ingredient_unavailable_reported` (best-effort) to the admin scope.
+- [x] 6.7 Test: resolving sets `Ingrediente.activo=true` AND bulk-closes ALL open rows for that ingredient (`resuelto_en`+`resuelto_por` on every `resuelto_en IS NULL` row) inside ONE UoW; resolved rows retained.
+- [x] 6.8 Implement the resolution service — UoW: toggle `activo=true` + bulk-close open rows; on commit publish `ingredient_availability_restored` (best-effort) to `kitchen:all`.
+- [x] 6.9 Test: the "Faltantes" query returns only open shortages (`resuelto_en IS NULL`); a separate query returns resolved history.
+- [x] 6.10 Implement the open-shortages + resolved-history queries.
 
 ### 6c. FSM availability guard (D6b)
 - [ ] 6.11 Test: single-line order requiring an `activo=false` ingredient (not excluded) → `CONFIRMADO → EN_PREPARACION` raises `BusinessRuleError` (422) naming the ingredient.
