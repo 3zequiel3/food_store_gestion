@@ -461,6 +461,44 @@ class CheckoutService:
                 code="persistence_failed",
             )
 
+    def _auto_confirm_efectivo(self, pedido_id: int) -> None:
+        """
+        Auto-transition an EFECTIVO pedido from PENDIENTE → CONFIRMADO.
+
+        TARJETA orders rely on the MP webhook to fire this transition. EFECTIVO
+        orders have no webhook (payment happens in person), so the system
+        triggers the transition synchronously right after the create UoW
+        commits. Uses the SISTEMA path (actor_id=None, actor_roles=None) which
+        bypasses the user-facing CONFIRMADO block (C1) and the ownership/RBAC
+        re-checks (C2) — both inappropriate for a system-driven step.
+
+        Best-effort: failures are logged and swallowed so the user still gets
+        a successful checkout response. The pedido stays in PENDIENTE in that
+        case, which mirrors what happens to an MP order whose webhook is
+        delayed — admins can recover it manually.
+        """
+        # Lazy import to avoid an import cycle with features.orders.service.
+        from features.orders.service import OrderService
+
+        try:
+            OrderService().transicionar_estado(
+                pedido_id=pedido_id,
+                estado_anterior="PENDIENTE",
+                estado_nuevo="CONFIRMADO",
+                actor_id=None,
+                actor_roles=None,
+            )
+            logger.info(
+                "Auto-confirmed EFECTIVO pedido %d (PENDIENTE → CONFIRMADO)",
+                pedido_id,
+            )
+        except Exception:
+            logger.warning(
+                "Auto-confirm failed for EFECTIVO pedido %d — staying in PENDIENTE",
+                pedido_id,
+                exc_info=True,
+            )
+
     def crear_pedido_pickup_efectivo(
         self,
         user_id: int,
@@ -535,9 +573,13 @@ class CheckoutService:
                 user_id
             )
 
-            return CheckoutPickupEfectivoResponse(
-                pedido_id=pedido.id,
-            )
+            pedido_id = pedido.id
+
+        # UoW committed — auto-confirm so the kitchen sees the pedido without
+        # needing an MP webhook.
+        self._auto_confirm_efectivo(pedido_id)
+
+        return CheckoutPickupEfectivoResponse(pedido_id=pedido_id)
 
     def crear_pedido_delivery_efectivo(
         self,
@@ -617,6 +659,10 @@ class CheckoutService:
                 request.direccion_id,
             )
 
-            return CheckoutDeliveryEfectivoResponse(
-                pedido_id=pedido.id,
-            )
+            pedido_id = pedido.id
+
+        # UoW committed — auto-confirm so the kitchen sees the pedido without
+        # needing an MP webhook.
+        self._auto_confirm_efectivo(pedido_id)
+
+        return CheckoutDeliveryEfectivoResponse(pedido_id=pedido_id)
