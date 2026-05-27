@@ -181,6 +181,11 @@ async def _handle_subscribe(
     if not is_topic_allowed(topic, scope, user_id=user_id, roles=roles):
         await _send_error(websocket, f"subscribe_denied:{topic}")
         return
+    
+    if topic.startswith("order:") and not scope.get("orders_all"):
+        if not _client_owns_order(topic, user_id):
+            await _send_error(websocket, f"subscribe_denied:{topic}")
+            return
 
     await connection_manager.connect(websocket, topic=topic)
     ack = json.dumps({"v": 1, "type": "subscribed", "payload": {"topic": topic}})
@@ -244,6 +249,40 @@ def _report_service_call(*, user_id: int, order_id: int, ingredient_id: int) -> 
             ingredient_id,
             exc_info=True,
         )
+
+
+def _client_owns_order(topic: str, user_id: int) -> bool | None:
+    """
+    Verify that the pedido in the topic 'order:{N}' belongs to user_id.
+
+    Used by the WS subscribe handler to enforce ownership on CLIENT
+    subscriptions to `order:{N}` topics (D4 hardening). Staff with the
+    `orders_all` scope skip this check at the call site.
+
+    Returns False on parse errors, missing pedido, ownership mismatch, or any
+    DB exception (fail closed).
+    """
+    try:
+        order_id = int(topic.split(":", 1)[1])
+    except (IndexError, ValueError):
+        return False
+
+    try:
+        from shared.unit_of_work import UnitOfWork
+        from features.orders.repository import OrderRepository
+
+        with UnitOfWork() as uow:
+            repo = OrderRepository(session=uow.session)
+            return repo.pedido_belongs_to_user(pedido_id=order_id, user_id=user_id)
+    except Exception:
+        logger.debug(
+            "_client_owns_order: ownership check failed for topic=%s user=%d "
+            "(failing closed)",
+            topic,
+            user_id,
+            exc_info=True,
+        )
+        return False
 
 
 async def _handle_kitchen_ingredient_unavailable(

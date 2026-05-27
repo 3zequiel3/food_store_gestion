@@ -31,10 +31,13 @@ vi.mock('../../auth/services/auth.service', () => ({
   getToken: vi.fn().mockResolvedValue({ access_token: 'mock-token' }),
 }));
 
+const mockInvalidateQueries = vi.fn();
+const mockSetQueryData = vi.fn();
+
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: vi.fn(() => ({
-    invalidateQueries: vi.fn(),
-    setQueryData: vi.fn(),
+    invalidateQueries: mockInvalidateQueries,
+    setQueryData: mockSetQueryData,
   })),
 }));
 
@@ -178,5 +181,43 @@ describe('useCocinaWebSocket — cook trigger (Task 6.20)', () => {
     });
 
     void ws; // referenced above via lastWsInstance
+  });
+
+  it('invalidates the kitchen orders query on order_state_changed', async () => {
+    await renderAndConnect();
+    // Clear the invalidation that happens on ws.onopen (initial refresh).
+    mockInvalidateQueries.mockClear();
+
+    act(() => {
+      lastWsInstance.onmessage?.({
+        data: JSON.stringify({
+          v: 1,
+          type: 'order_state_changed',
+          topic: 'kitchen:all',
+          payload: { order_id: 42, estado: 'EN_PREPARACION' },
+        }),
+      });
+    });
+
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['cocina', 'pedidos'],
+    });
+  });
+
+  it('ignores unknown event types without crashing', async () => {
+    await renderAndConnect();
+    mockInvalidateQueries.mockClear();
+
+    act(() => {
+      lastWsInstance.onmessage?.({
+        data: JSON.stringify({
+          v: 1,
+          type: 'something_we_dont_handle',
+          payload: {},
+        }),
+      });
+    });
+
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
   });
 });

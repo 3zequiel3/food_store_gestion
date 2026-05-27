@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '../../auth/stores/authStore';
-import { getToken } from '../../auth/services/auth.service';
-import type { CocinaWebSocketEvent, CocinaPedidoResponse } from '../types/cocina.types';
-import { buildWebSocketUrl } from '../../../lib/ws';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuthStore } from "../../auth/stores/authStore";
+import { getToken } from "../../auth/services/auth.service";
+import { buildWebSocketUrl } from "../../../lib/ws";
 
 const RECONNECT_DELAY_MS = 5_000; // 5s between reconnect attempts
 
@@ -49,45 +48,24 @@ export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
   }, [onAvailabilityRestored]);
 
   const invalidateAndRefresh = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['cocina', 'pedidos'] });
+    queryClient.invalidateQueries({ queryKey: ["cocina", "pedidos"] });
   }, [queryClient]);
 
   const handleEvent = useCallback(
-    (event: CocinaWebSocketEvent | { type: string; payload: unknown }) => {
-      // Handle availability restored (P0.1 — cook gets notified when admin resolves)
-      if (event.type === 'ingredient_availability_restored') {
-        onAvailabilityRestoredRef.current?.(event.payload as AvailabilityRestoredPayload);
+    (event: { type: string; payload: unknown }) => {
+      if (event.type === "ingredient_availability_restored") {
+        onAvailabilityRestoredRef.current?.(
+          event.payload as AvailabilityRestoredPayload,
+        );
         return;
       }
 
-      // Handle standard kitchen order events
-      const kitchenEvent = event as CocinaWebSocketEvent;
-      queryClient.setQueryData<CocinaPedidoResponse[]>(
-        ['cocina', 'pedidos'],
-        (prev) => {
-          if (!prev) return prev;
-          const { type, payload } = kitchenEvent;
-
-          switch (type) {
-            case 'pedido_confirmado':
-              return [payload, ...prev.filter((o) => o.id !== payload.id)];
-
-            case 'pedido_en_preparacion':
-              return prev.map((o) =>
-                o.id === payload.id ? { ...o, estado: payload.estado } : o,
-              );
-
-            case 'pedido_terminado':
-            case 'pedido_cancelado':
-              return prev.filter((o) => o.id !== payload.id);
-
-            default:
-              return prev;
-          }
-        },
-      );
+      if (event.type === "order_state_changed") {
+        invalidateAndRefresh();
+        return;
+      }
     },
-    [queryClient],
+    [invalidateAndRefresh],
   );
 
   const connect = useCallback(async () => {
@@ -106,7 +84,10 @@ export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
 
       ws.onmessage = (msg) => {
         try {
-          const data = JSON.parse(msg.data) as CocinaWebSocketEvent | { type: string; payload: unknown };
+          const data = JSON.parse(msg.data) as {
+            type: string;
+            payload: unknown;
+          };
           handleEvent(data);
         } catch {
           // Ignore malformed messages
@@ -116,7 +97,10 @@ export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
       ws.onclose = () => {
         setIsConnected(false);
         wsRef.current = null;
-        reconnectTimerRef.current = setTimeout(() => void connect(), RECONNECT_DELAY_MS);
+        reconnectTimerRef.current = setTimeout(
+          () => void connect(),
+          RECONNECT_DELAY_MS,
+        );
       };
 
       ws.onerror = () => {
@@ -125,7 +109,10 @@ export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
     } catch {
       // Token fetch failed — retry connection after delay
       setIsConnected(false);
-      reconnectTimerRef.current = setTimeout(() => void connect(), RECONNECT_DELAY_MS);
+      reconnectTimerRef.current = setTimeout(
+        () => void connect(),
+        RECONNECT_DELAY_MS,
+      );
     }
   }, [user, invalidateAndRefresh, handleEvent]);
 
@@ -159,7 +146,7 @@ export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
 
       const msg = JSON.stringify({
         v: 1,
-        type: 'kitchen.ingredient_unavailable',
+        type: "kitchen.ingredient_unavailable",
         payload: { order_id: orderId, ingredient_id: ingredientId },
       });
       ws.send(msg);
