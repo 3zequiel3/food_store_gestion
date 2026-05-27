@@ -15,6 +15,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   LogIn,
+  ChefHat,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuthStore } from '../../features/auth/stores/authStore';
 import { SidebarFooter } from './SidebarFooter';
@@ -40,13 +42,21 @@ const ADMIN_NAV: NavItem[] = [
       { label: 'Productos', path: '/admin/productos' },
       { label: 'Categorías', path: '/admin/categorias' },
       { label: 'Ingredientes', path: '/admin/ingredientes' },
-      { label: 'Faltantes', path: '/admin/faltantes' },
     ],
   },
   {
     label: 'Pedidos',
     path: '/admin/pedidos',
     icon: <ClipboardList className="h-5 w-5" />,
+  },
+  {
+    label: 'Cocina',
+    path: '/cocina',
+    icon: <ChefHat className="h-5 w-5" />,
+    subItems: [
+      { label: 'Preparaciones', path: '/cocina' },
+      { label: 'Faltantes', path: '/admin/faltantes' },
+    ],
   },
   {
     label: 'Usuarios',
@@ -57,6 +67,19 @@ const ADMIN_NAV: NavItem[] = [
     label: 'Métricas',
     path: '/admin/metricas',
     icon: <BarChart3 className="h-5 w-5" />,
+  },
+];
+
+const COCINA_NAV: NavItem[] = [
+  {
+    label: 'Preparación',
+    path: '/cocina',
+    icon: <ChefHat className="h-5 w-5" />,
+  },
+  {
+    label: 'Faltantes',
+    path: '/admin/faltantes',
+    icon: <AlertTriangle className="h-5 w-5" />,
   },
 ];
 
@@ -203,15 +226,22 @@ export function Sidebar({ onLockChange }: SidebarProps) {
   const hasAdmin = useAuthStore((s) => s.hasRole('ADMIN'));
   const hasPedidos = useAuthStore((s) => s.hasRole('PEDIDOS'));
   const hasStock = useAuthStore((s) => s.hasRole('STOCK'));
+  const hasCocina = useAuthStore((s) => s.hasRole('COCINA'));
 
-  const navItems = !user
-    ? [
-        { label: 'Inicio', path: '/', icon: <Home className="h-5 w-5" /> },
-        { label: 'Catálogo', path: '/cliente/catalogo', icon: <ShoppingBag className="h-5 w-5" /> },
-      ]
-    : hasAdmin || hasPedidos || hasStock
-      ? ADMIN_NAV
-      : CLIENT_NAV;
+  let navItems: NavItem[];
+  if (!user) {
+    navItems = [
+      { label: 'Inicio', path: '/', icon: <Home className="h-5 w-5" /> },
+      { label: 'Catálogo', path: '/cliente/catalogo', icon: <ShoppingBag className="h-5 w-5" /> },
+    ];
+  } else if (hasAdmin || hasPedidos || hasStock) {
+    // Staff con roles operativos toman precedencia sobre COCINA pura.
+    navItems = ADMIN_NAV;
+  } else if (hasCocina) {
+    navItems = COCINA_NAV;
+  } else {
+    navItems = CLIENT_NAV;
+  }
 
   const handleToggle = () => {
     const next: SidebarMode =

@@ -44,6 +44,33 @@ export function CocinaPage() {
     refetchInterval: isConnected ? false : 30_000,
   });
 
+  /**
+   * Wrap reportIngredientUnavailable so the cook gets immediate feedback:
+   * - WS sent → success toast (admin gets the report via WS broadcast).
+   * - WS down → error toast asking to retry. The hook returns false here so
+   *   we know not to optimistically claim success.
+   */
+  const handleIngredientUnavailable = useCallback(
+    (orderId: number, ingredientId: number) => {
+      const sent = reportIngredientUnavailable(orderId, ingredientId);
+      if (sent) {
+        toast.success('Ingrediente reportado al admin', {
+          description: 'El pedido queda bloqueado hasta que lo resuelvan.',
+          duration: 4_000,
+        });
+        // Refresh the board so the now-unavailable ingredient reflects state
+        // when the backend's FSM guard kicks in on the next transition attempt.
+        queryClient.invalidateQueries({ queryKey: ['cocina', 'pedidos'] });
+      } else {
+        toast.error('No se pudo reportar', {
+          description: 'La conexión al servidor está caída. Reintentá en unos segundos.',
+          duration: 5_000,
+        });
+      }
+    },
+    [reportIngredientUnavailable, queryClient],
+  );
+
   async function handleTransition(orderId: number, targetState: string) {
     setTransitioningId(orderId);
     try {
@@ -63,7 +90,7 @@ export function CocinaPage() {
       isConnected={isConnected}
       onTransition={handleTransition}
       transitioningId={transitioningId}
-      onIngredientUnavailable={reportIngredientUnavailable}
+      onIngredientUnavailable={handleIngredientUnavailable}
     />
   );
 }

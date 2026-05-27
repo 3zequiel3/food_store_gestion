@@ -96,15 +96,25 @@ export default function AppRoute() {
 
       {/* ── Rutas privadas (requieren autenticación) ─────────────────────── */}
       <Route element={<PrivateRoute />}>
-        {/* ── Cocina: vista exclusiva sin AppLayout (D7) ─────────────────── */}
-        <Route element={<RoleGuard roles={['COCINA', 'ADMIN']} />}>
-          <Route path="/cocina" element={<CocinaPage />} />
-        </Route>
-
-        {/* AppLayout envuelve TODAS las rutas autenticadas (excepto /cocina) */}
+        {/* AppLayout envuelve TODAS las rutas autenticadas */}
         <Route element={<AppLayout />}>
           {/* Dashboard → redirect role-aware (staff → /admin, cliente → /cliente) */}
           <Route path="/dashboard" element={<RootRedirect />} />
+
+          {/* Cocina (rol COCINA o ADMIN). Vive adentro del AppLayout para
+              tener sidebar + logout iguales al resto del panel staff. */}
+          <Route element={<RoleGuard roles={['COCINA', 'ADMIN']} />}>
+            <Route path="/cocina" element={<CocinaPage />} />
+          </Route>
+
+          {/* /admin/faltantes: accesible para COCINA (read-only) y staff
+              operativo. La página detecta el rol del user y oculta los
+              botones de resolución cuando es COCINA puro. */}
+          <Route element={<RoleGuard roles={['COCINA', 'ADMIN', 'PEDIDOS', 'STOCK']} />}>
+            <Route path="/admin/faltantes" element={<AdminLayout />}>
+              <Route index element={<AdminFaltantesPage />} />
+            </Route>
+          </Route>
 
           {/* Admin (roles operativos) — rutas hijas declaradas explícitamente. */}
           <Route element={<RoleGuard roles={['ADMIN', 'STOCK', 'PEDIDOS']} />}>
@@ -120,7 +130,6 @@ export default function AppRoute() {
               <Route path="metricas" element={<AdminMetricasPage />} />
               <Route path="categorias" element={<AdminCategoriasPage />} />
               <Route path="ingredientes" element={<AdminIngredientesPage />} />
-              <Route path="faltantes" element={<AdminFaltantesPage />} />
               <Route path="perfil" element={<AdminProfilePage />} />
             </Route>
           </Route>

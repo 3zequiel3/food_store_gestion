@@ -17,6 +17,9 @@ export interface IngredienteInfo {
   id: number;
   nombre: string;
   es_removible: boolean;
+  /** Kitchen-availability flag. False = ingredient reported unavailable; the FSM
+      guard blocks the pedido from advancing until admin resolves. */
+  activo: boolean;
 }
 
 export interface CocinaPedidoItem {

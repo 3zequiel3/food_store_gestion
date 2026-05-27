@@ -230,24 +230,36 @@ class IngredientAvailabilityService:
         ingrediente_nombre: str,
         resuelto_por: int,
     ) -> None:
-        """Publish ingredient_availability_restored to kitchen:all. Never raises."""
+        """
+        Publish ingredient_availability_restored to kitchen:all AND orders:all.
+
+        Fan-out:
+          - kitchen:all  → cocina shows the toast and unblocks affected pedidos.
+          - orders:all   → admin's faltantes view refreshes its list without
+                           a manual reload.
+        Never raises.
+        """
         if self._publisher is None:
             return
-        try:
-            event = DomainEvent(
-                v=1,
-                type="ingredient_availability_restored",
-                topic="kitchen:all",
-                payload={
-                    "ingrediente_id": ingrediente_id,
-                    "ingrediente_nombre": ingrediente_nombre,
-                    "resuelto_por": resuelto_por,
-                },
-            )
-            self._publisher.publish(event)
-        except Exception:
-            logger.debug(
-                "IngredientAvailabilityService: failed to publish ingredient_availability_restored "
-                "(best-effort, swallowed)",
-                exc_info=True,
-            )
+        payload = {
+            "ingrediente_id": ingrediente_id,
+            "ingrediente_nombre": ingrediente_nombre,
+            "resuelto_por": resuelto_por,
+        }
+        for topic in ("kitchen:all", "orders:all"):
+            try:
+                event = DomainEvent(
+                    v=1,
+                    type="ingredient_availability_restored",
+                    topic=topic,
+                    payload=payload,
+                )
+                self._publisher.publish(event)
+            except Exception:
+                logger.debug(
+                    "IngredientAvailabilityService: failed to publish "
+                    "ingredient_availability_restored on topic=%s "
+                    "(best-effort, swallowed)",
+                    topic,
+                    exc_info=True,
+                )

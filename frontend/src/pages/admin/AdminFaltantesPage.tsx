@@ -1,7 +1,10 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, ShoppingBag } from 'lucide-react';
-import { useFaltantes, useResolverFaltante } from '../../features/availability/hooks/useFaltantes';
+import { useQueryClient } from '@tanstack/react-query';
+import { useFaltantes, useResolverFaltante, FALTANTES_QUERY_KEY } from '../../features/availability/hooks/useFaltantes';
 import { useFaltantesStore } from '../../features/availability/stores/faltantesStore';
+import { useAuthStore } from '../../features/auth/stores/authStore';
+import { useOrderWebSocket, type WsFrame } from '../../features/orders/hooks/useOrderWebSocket';
 
 /**
  * Admin "Faltantes" view — lists open ingredient shortages and allows resolving them.
@@ -13,14 +16,42 @@ import { useFaltantesStore } from '../../features/availability/stores/faltantesS
  * Route: /admin/faltantes (within the Comidas section of the sidebar).
  */
 export function AdminFaltantesPage() {
+  const queryClient = useQueryClient();
   const { data: faltantes = [], isLoading, isError, refetch } = useFaltantes();
   const { mutate: resolver, isPending: isResolving } = useResolverFaltante();
   const resetBadge = useFaltantesStore((s) => s.reset);
+
+  // Solo staff operativo (ADMIN / PEDIDOS / STOCK) resuelve faltantes.
+  // COCINA accede a esta vista en modo read-only para conocer qué
+  // ingredientes están caídos antes de marcar nuevos.
+  const canResolve = useAuthStore(
+    (s) => s.hasRole('ADMIN') || s.hasRole('PEDIDOS') || s.hasRole('STOCK'),
+  );
 
   // Reset badge when the view is opened
   useEffect(() => {
     resetBadge();
   }, [resetBadge]);
+
+  // WS realtime: invalidate the faltantes list when a new report arrives
+  // (ingredient_unavailable_reported) or one gets resolved
+  // (ingredient_availability_restored — backend fans out to orders:all too).
+  const handleWsEvent = useCallback(
+    (frame: WsFrame) => {
+      if (
+        frame.type === 'ingredient_unavailable_reported' ||
+        frame.type === 'ingredient_availability_restored'
+      ) {
+        void queryClient.invalidateQueries({ queryKey: FALTANTES_QUERY_KEY });
+      }
+    },
+    [queryClient],
+  );
+
+  useOrderWebSocket({
+    topic: 'orders:all',
+    onEvent: handleWsEvent,
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
@@ -76,9 +107,11 @@ export function AdminFaltantesPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                     Reportado
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Resolver
-                  </th>
+                  {canResolve && (
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Resolver
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -107,38 +140,40 @@ export function AdminFaltantesPage() {
                         })}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={isResolving}
-                          onClick={() =>
-                            resolver({
-                              ingredienteId: item.ingrediente_id,
-                              accion: 'ingrediente comprado',
-                            })
-                          }
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          <ShoppingBag className="w-3 h-3" />
-                          Ingrediente comprado
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isResolving}
-                          onClick={() =>
-                            resolver({
-                              ingredienteId: item.ingrediente_id,
-                              accion: 'solucionado',
-                            })
-                          }
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          <CheckCircle2 className="w-3 h-3" />
-                          Solucionado
-                        </button>
-                      </div>
-                    </td>
+                    {canResolve && (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={isResolving}
+                            onClick={() =>
+                              resolver({
+                                ingredienteId: item.ingrediente_id,
+                                accion: 'ingrediente comprado',
+                              })
+                            }
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            <ShoppingBag className="w-3 h-3" />
+                            Ingrediente comprado
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isResolving}
+                            onClick={() =>
+                              resolver({
+                                ingredienteId: item.ingrediente_id,
+                                accion: 'solucionado',
+                              })
+                            }
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            Solucionado
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

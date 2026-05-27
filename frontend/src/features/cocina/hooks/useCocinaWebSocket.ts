@@ -57,6 +57,10 @@ export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
         onAvailabilityRestoredRef.current?.(
           event.payload as AvailabilityRestoredPayload,
         );
+        // Refresh the board so any card blocked by this ingredient unblocks.
+        // The Ingrediente.activo flag in the cocina payload drives the
+        // "blocked" UI; we need to re-fetch to pick up the new value.
+        invalidateAndRefresh();
         return;
       }
 
@@ -135,14 +139,16 @@ export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
 
   /**
    * Send kitchen.ingredient_unavailable to the backend via the open WS connection.
-   * No-op if the connection is not currently open.
+   *
+   * Returns true when the frame was actually sent, false when the connection
+   * was not OPEN. Callers use the return value to drive UX feedback (toast).
    */
   const reportIngredientUnavailable = useCallback(
-    (orderId: number, ingredientId: number) => {
+    (orderId: number, ingredientId: number): boolean => {
       const ws = wsRef.current;
       // Use numeric 1 (OPEN) directly — avoids issues in test envs where
       // the stubbed WebSocket constructor may not carry the static OPEN constant.
-      if (!ws || ws.readyState !== 1) return;
+      if (!ws || ws.readyState !== 1) return false;
 
       const msg = JSON.stringify({
         v: 1,
@@ -150,6 +156,7 @@ export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
         payload: { order_id: orderId, ingredient_id: ingredientId },
       });
       ws.send(msg);
+      return true;
     },
     [],
   );

@@ -1,9 +1,27 @@
 import { useState } from 'react';
-import { FileText, Play, CheckCircle } from 'lucide-react';
+import { FileText, Play, CheckCircle, Lock } from 'lucide-react';
 import type { CocinaPedidoResponse } from '../types/cocina.types';
 import { useUrgencyTimer } from '../hooks/useUrgencyTimer';
 import { UrgencyBadge } from './UrgencyBadge';
 import { KitchenOrderDetail } from './KitchenOrderDetail';
+
+/**
+ * Collect the names of non-excluded ingredients that the kitchen marked as
+ * unavailable. Excluded ingredients (via personalizacion) don't block the
+ * pedido because they're skipped in preparation anyway.
+ */
+function collectBlockedIngredients(order: CocinaPedidoResponse): string[] {
+  const blocked = new Set<string>();
+  for (const item of order.items) {
+    const excluded = new Set(item.exclusiones_nombres);
+    for (const ing of item.ingredientes) {
+      if (!ing.activo && !excluded.has(ing.nombre)) {
+        blocked.add(ing.nombre);
+      }
+    }
+  }
+  return [...blocked];
+}
 
 interface KitchenOrderCardProps {
   order: CocinaPedidoResponse;
@@ -38,9 +56,22 @@ export function KitchenOrderCard({
 
   const isConfirmado = order.estado === 'CONFIRMADO';
 
+  // Pedido is blocked from advancing when at least one required ingredient
+  // is reported unavailable (Ingrediente.activo = false on the backend).
+  // The FSM guard on the server rejects the transition with a 422; we mirror
+  // that here so the cook can't even attempt the click and sees the reason.
+  const blockedIngredients = collectBlockedIngredients(order);
+  const isBlocked = blockedIngredients.length > 0;
+
   return (
     <>
-      <div className="bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+      <div
+        className={`bg-card border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow ${
+          isBlocked
+            ? 'border-destructive/40 ring-1 ring-destructive/30 bg-destructive/[0.03]'
+            : 'border-border'
+        }`}
+      >
         {/* Header: order number + urgency */}
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-bold text-foreground">
@@ -48,6 +79,24 @@ export function KitchenOrderCard({
           </h3>
           <UrgencyBadge elapsedMinutes={elapsedMinutes} level={level} />
         </div>
+
+        {/* Blocked banner: shown when one or more ingredients are unavailable */}
+        {isBlocked && (
+          <div className="mb-3 flex items-start gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/30 text-xs">
+            <Lock className="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-destructive">
+                Bloqueado — faltante de ingredientes
+              </p>
+              <p className="text-destructive/80 mt-0.5">
+                {blockedIngredients.join(', ')}
+              </p>
+              <p className="text-destructive/60 mt-1">
+                El admin tiene que resolver el faltante antes de avanzar el pedido.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Items list */}
         <ul className="space-y-1.5 mb-3">
@@ -86,20 +135,22 @@ export function KitchenOrderCard({
           {isConfirmado ? (
             <button
               onClick={() => onTransition(order.id, 'EN_PREPARACION')}
-              disabled={isTransitioning}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              disabled={isTransitioning || isBlocked}
+              title={isBlocked ? 'Esperando que el admin resuelva el faltante' : undefined}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Play className="h-3.5 w-3.5" />
-              Iniciar preparación
+              {isBlocked ? <Lock className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+              {isBlocked ? 'Bloqueado' : 'Iniciar preparación'}
             </button>
           ) : (
             <button
               onClick={() => onTransition(order.id, 'TERMINADO')}
-              disabled={isTransitioning}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm bg-success text-success-foreground rounded-lg hover:bg-success/90 transition-colors disabled:opacity-50"
+              disabled={isTransitioning || isBlocked}
+              title={isBlocked ? 'Esperando que el admin resuelva el faltante' : undefined}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm bg-success text-success-foreground rounded-lg hover:bg-success/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <CheckCircle className="h-3.5 w-3.5" />
-              Terminado
+              {isBlocked ? <Lock className="h-3.5 w-3.5" /> : <CheckCircle className="h-3.5 w-3.5" />}
+              {isBlocked ? 'Bloqueado' : 'Terminado'}
             </button>
           )}
 

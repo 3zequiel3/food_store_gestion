@@ -14,7 +14,12 @@ export function useFaltantes(enabled = true) {
     queryKey: FALTANTES_QUERY_KEY,
     queryFn: getFaltantes,
     enabled,
-    staleTime: 30_000,
+    // Always refetch on mount and on window focus so navigating back or
+    // reloading the tab brings fresh data. The WS subscription pushes
+    // updates while the page is open; this covers cold opens + tab focus.
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 }
 

@@ -21,6 +21,11 @@ class IngredienteInfo(BaseModel):
 
     Design D10: surfaces id, nombre, and es_removible so the cook can
     see the full recipe and which ingredients are removable.
+
+    `activo` reflects the kitchen-availability flag (D6 — Phase 6). When
+    false, the FSM guard `_check_ingredient_availability_guard` blocks the
+    pedido from advancing; the frontend uses this to render the card as
+    "blocked by faltante" and disable the advance button.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -28,6 +33,7 @@ class IngredienteInfo(BaseModel):
     id: int
     nombre: str
     es_removible: bool
+    activo: bool
 
 
 class CocinaPedidoItem(BaseModel):

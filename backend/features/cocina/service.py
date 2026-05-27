@@ -55,7 +55,12 @@ def _build_cocina_item(item: DetallePedido) -> CocinaPedidoItem:
     id_to_nombre: dict[int, str] = {ing.id: ing.nombre for ing in ingrediente_objs}
 
     ingredientes = [
-        IngredienteInfo(id=ing.id, nombre=ing.nombre, es_removible=ing.es_removible)
+        IngredienteInfo(
+            id=ing.id,
+            nombre=ing.nombre,
+            es_removible=ing.es_removible,
+            activo=ing.activo,
+        )
         for ing in ingrediente_objs
     ]
 

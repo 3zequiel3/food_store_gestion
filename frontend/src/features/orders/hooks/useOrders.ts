@@ -6,6 +6,11 @@ export function useOrders(filters: OrderFilters = {}) {
   return useQuery({
     queryKey: ['orders', filters],
     queryFn: () => listOrders(filters),
-    staleTime: 30_000,
+    // Always refetch on mount + focus so re-navigating to "Mis pedidos"
+    // or coming back to the tab brings the latest list. WS realtime
+    // updates the cache while open; these settings cover cold loads.
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 }
