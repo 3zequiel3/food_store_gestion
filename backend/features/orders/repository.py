@@ -218,6 +218,21 @@ class OrderRepository(BaseRepository[Pedido]):
         )
         return self.session.execute(stmt).scalar_one_or_none()
 
+    def pedido_belongs_to_user(self, pedido_id: int, user_id: int) -> bool:
+        """
+        Return True if a non-deleted Pedido with pedido_id exists and belongs to user_id.
+
+        Used by the WebSocket subscribe handler to enforce ownership on CLIENT
+        subscriptions to `order:{N}` topics (D4 hardening). Selects only
+        Pedido.id to avoid loading the full ORM row for a boolean check.
+        """
+        stmt = select(Pedido.id).where(
+            Pedido.id == pedido_id,
+            Pedido.user_id == user_id,
+            Pedido.eliminado_en.is_(None),
+        )
+        return self.session.execute(stmt).scalar_one_or_none() is not None
+
     def find_by_id(self, pedido_id: int) -> Optional[Pedido]:
         """Return a Pedido by id (no ownership check — for system transitions)."""
         stmt = select(Pedido).where(
@@ -234,6 +249,9 @@ class OrderRepository(BaseRepository[Pedido]):
 
         D8 — called inside transicionar_estado() UoW when PENDIENTE → CONFIRMADO.
         Each product row is locked before decrement to serialize concurrent requests.
+
+        S1: a single flush after the loop replaces N per-iteration flushes —
+        FOR UPDATE locks remain held until the UoW commits, so batching is safe.
 
         Raises:
             BusinessRuleError: if stock would go negative for any product.
@@ -259,6 +277,8 @@ class OrderRepository(BaseRepository[Pedido]):
                     f"se necesitan {item.cantidad}"
                 )
             producto.stock_cantidad -= item.cantidad
+
+        if items:
             self.session.flush()
 
     def restore_stock_for_items(self, items: list[DetallePedido]) -> None:
@@ -267,6 +287,8 @@ class OrderRepository(BaseRepository[Pedido]):
 
         D6 — called inside transicionar_estado() UoW when (CONFIRMADO|EN_PREPARACION)
         → CANCELADO. Adds item.cantidad back to each product's stock.
+
+        S1: a single flush after the loop replaces N per-iteration flushes.
         """
         for item in items:
             stmt = (
@@ -283,9 +305,57 @@ class OrderRepository(BaseRepository[Pedido]):
                     f"Producto id={item.producto_id} no encontrado al restaurar stock"
                 )
             producto.stock_cantidad += item.cantidad
+
+        if items:
             self.session.flush()
 
     # ── Order retrieval (order-visualization-backend #17) ────────────────────
+
+    def _apply_pedido_filters(
+        self,
+        stmt,
+        *,
+        user_id: int | None,
+        estado: str | None,
+        desde: date | None,
+        hasta: date | None,
+        q: str | None,
+    ):
+        """
+        Apply the standard pedido filters to a select statement.
+
+        Always filters out soft-deleted rows. Single source of truth shared by
+        `list_with_filter` and `count_with_filter` so a `total` cannot diverge
+        from the listed rows when a filter is added or removed.
+
+        Behavior:
+        - `user_id`, `estado`, `desde`, `hasta` → narrow scalar WHERE clauses.
+        - `q` numeric → match `Pedido.id`.
+        - `q` non-numeric → JOIN `Pedido.usuario` + ilike over "nombre apellido".
+        """
+        stmt = stmt.where(Pedido.eliminado_en.is_(None))
+
+        if user_id is not None:
+            stmt = stmt.where(Pedido.user_id == user_id)
+        if estado is not None:
+            stmt = stmt.where(Pedido.estado_codigo == estado)
+        if desde is not None:
+            stmt = stmt.where(
+                Pedido.creado_en >= datetime.combine(desde, time_type.min)
+            )
+        if hasta is not None:
+            stmt = stmt.where(
+                Pedido.creado_en < datetime.combine(hasta + timedelta(days=1), time_type.min)
+            )
+        if q is not None:
+            if q.isdigit():
+                stmt = stmt.where(Pedido.id == int(q))
+            else:
+                stmt = stmt.join(Pedido.usuario).where(
+                    (Usuario.nombre + " " + Usuario.apellido).ilike(f"%{q}%")
+                )
+
+        return stmt
 
     def list_with_filter(
         self,
@@ -307,34 +377,6 @@ class OrderRepository(BaseRepository[Pedido]):
         D4: no selectinload — list does NOT eager-load relations to avoid N+1.
         Order: creado_en DESC (US-049).
         """
-        where_clauses = [Pedido.eliminado_en.is_(None)]
-        q_needs_user_join = False
-
-        if user_id is not None:
-            where_clauses.append(Pedido.user_id == user_id)
-        if estado is not None:
-            where_clauses.append(Pedido.estado_codigo == estado)
-        if desde is not None:
-            where_clauses.append(
-                Pedido.creado_en >= datetime.combine(desde, time_type.min)
-            )
-        if hasta is not None:
-            where_clauses.append(
-                Pedido.creado_en < datetime.combine(hasta + timedelta(days=1), time_type.min)
-            )
-        if q is not None:
-            if q.isdigit():
-                where_clauses.append(Pedido.id == int(q))
-            else:
-                q_needs_user_join = True
-
-        def _apply_q_join(stmt):
-            if q_needs_user_join:
-                return stmt.join(Pedido.usuario).where(
-                    (Usuario.nombre + " " + Usuario.apellido).ilike(f"%{q}%")
-                )
-            return stmt
-
         items_count_sq = (
             select(func.count(DetallePedido.id))
             .where(DetallePedido.pedido_id == Pedido.id)
@@ -342,8 +384,9 @@ class OrderRepository(BaseRepository[Pedido]):
             .scalar_subquery()
         )
 
-        full_stmt = _apply_q_join(
-            select(Pedido, items_count_sq.label("items_count")).where(*where_clauses)
+        full_stmt = self._apply_pedido_filters(
+            select(Pedido, items_count_sq.label("items_count")),
+            user_id=user_id, estado=estado, desde=desde, hasta=hasta, q=q,
         ).order_by(Pedido.creado_en.desc()).offset((page - 1) * limit).limit(limit)
 
         try:
@@ -351,8 +394,9 @@ class OrderRepository(BaseRepository[Pedido]):
             return [(row[0], row[1]) for row in rows]
         except OperationalError:
             # SQLite: order_items table not available — return 0 for items_count
-            plain_stmt = _apply_q_join(
-                select(Pedido).where(*where_clauses)
+            plain_stmt = self._apply_pedido_filters(
+                select(Pedido),
+                user_id=user_id, estado=estado, desde=desde, hasta=hasta, q=q,
             ).order_by(Pedido.creado_en.desc()).offset((page - 1) * limit).limit(limit)
             pedidos = self.session.execute(plain_stmt).scalars().all()
             return [(p, 0) for p in pedidos]
@@ -369,29 +413,13 @@ class OrderRepository(BaseRepository[Pedido]):
         """
         Count orders matching the same filters as list_with_filter (no offset/limit).
 
-        Used for the `total` field in PaginatedPedidos.
+        Used for the `total` field in PaginatedPedidos. Filter logic is shared
+        via `_apply_pedido_filters` so total cannot drift from listed rows.
         """
-        stmt = select(func.count(Pedido.id)).where(Pedido.eliminado_en.is_(None))
-
-        if user_id is not None:
-            stmt = stmt.where(Pedido.user_id == user_id)
-        if estado is not None:
-            stmt = stmt.where(Pedido.estado_codigo == estado)
-        if desde is not None:
-            stmt = stmt.where(
-                Pedido.creado_en >= datetime.combine(desde, time_type.min)
-            )
-        if hasta is not None:
-            stmt = stmt.where(
-                Pedido.creado_en < datetime.combine(hasta + timedelta(days=1), time_type.min)
-            )
-        if q is not None:
-            if q.isdigit():
-                stmt = stmt.where(Pedido.id == int(q))
-            else:
-                stmt = stmt.join(Pedido.usuario).where(
-                    (Usuario.nombre + " " + Usuario.apellido).ilike(f"%{q}%")
-                )
+        stmt = self._apply_pedido_filters(
+            select(func.count(Pedido.id)),
+            user_id=user_id, estado=estado, desde=desde, hasta=hasta, q=q,
+        )
 
         return self.session.execute(stmt).scalar_one()
 
