@@ -321,24 +321,31 @@ class OrderService:
         estado_anterior: str,
         estado_nuevo: str,
         actor_id: Optional[int] = None,
+        actor_roles: Optional[set[str]] = None,
         motivo: Optional[str] = None,
-    ) -> Pedido:
+    ) -> tuple[Pedido, HistorialItem]:
         """
         Transition an order from estado_anterior to estado_nuevo atomically.
 
         Used by PaymentService.procesar_webhook() (PENDIENTE→CONFIRMADO) and by
-        avanzar_estado() for manual transitions (#16).
+        avanzar_estado() / transicionar_pedido() for user-driven transitions.
 
         Backwards-compatible: the existing webhook call signature is unchanged.
-        actor_id=None means the transition was triggered by SISTEMA (webhook).
+        - actor_id=None means the transition was triggered by SISTEMA (webhook).
+        - actor_roles=None means skip ownership and RBAC re-checks inside the
+          lock (SISTEMA path). User-driven callers MUST pass actor_roles to
+          close the TOCTOU window between the validation read and the lock.
 
         Side-effects (D2, D6):
         - PENDIENTE → CONFIRMADO: decrements stock for each DetallePedido.
         - (CONFIRMADO|EN_PREPARACION) → CANCELADO: restores stock.
 
         Raises:
-            NotFoundError: pedido_id doesn't exist.
+            NotFoundError: pedido_id doesn't exist, or CLIENT actor lost
+                ownership between read and lock (re-checked under FOR UPDATE).
             InvalidStateTransitionError: current state != estado_anterior (409).
+            ForbiddenError: actor_roles is insufficient for the transition
+                against the LOCKED state (closes RBAC TOCTOU).
             BusinessRuleError: insufficient stock on confirmation (422).
         """
         with UnitOfWork() as uow:
@@ -348,6 +355,26 @@ class OrderService:
             pedido = uow.orders.get_pedido_for_update(pedido_id)
             if pedido is None:
                 raise NotFoundError(f"Pedido no encontrado: id={pedido_id}")
+
+            # C2 hardening: re-check ownership and RBAC inside the lock so the
+            # error type the user receives matches the LOCKED state, not a
+            # stale read. SISTEMA path (actor_roles=None) keeps legacy behavior.
+            if actor_roles is not None:
+                # Ownership: CLIENT-only actors can only act on their own orders.
+                # Returning NotFoundError (not ForbiddenError) is intentional —
+                # matches the read-time check in avanzar_estado / transicionar_pedido
+                # (D13: don't leak existence of other users' pedidos).
+                if (
+                    actor_id is not None
+                    and actor_roles == {"CLIENT"}
+                    and pedido.user_id != actor_id
+                ):
+                    raise NotFoundError(f"Pedido no encontrado: id={pedido_id}")
+
+                # RBAC: validate against the LOCKED current state. If the state
+                # changed concurrently and the new transition is not allowed
+                # for this role, raise ForbiddenError (403) — not 409.
+                validate_transition(pedido.estado_codigo, estado_nuevo, actor_roles)
 
             if pedido.estado_codigo != estado_anterior:
                 raise InvalidStateTransitionError(
@@ -365,6 +392,7 @@ class OrderService:
                 ("PENDIENTE", "CONFIRMADO"),
                 ("CONFIRMADO", "CANCELADO"),
                 ("CONFIRMADO", "CANCELADO_ADMIN"),
+                ("CONFIRMADO", "CANCELADO_CLIENTE"),
                 ("EN_PREPARACION", "CANCELADO"),
                 ("EN_PREPARACION", "CANCELADO_ADMIN"),
             }
@@ -382,13 +410,19 @@ class OrderService:
             pedido.estado_codigo = estado_nuevo
             uow.session.flush()
 
-            uow.orders.create_historial_transicion(
+            historial = uow.orders.create_historial_transicion(
                 pedido_id=pedido_id,
                 estado_anterior_codigo=estado_anterior,
                 estado_nuevo_codigo=estado_nuevo,
                 actor_id=actor_id,
                 motivo=motivo,
             )
+            # W1 fix: build the response DTO INSIDE the UoW so the freshly
+            # inserted row's attributes are captured before the session closes.
+            # Eliminates the post-commit "ORDER BY creado_en DESC LIMIT 1"
+            # re-select, which could pick up a concurrent transaction's row.
+            uow.session.refresh(historial, attribute_names=["id", "creado_en"])
+            historial_item = HistorialItem.model_validate(historial)
 
             uow.session.refresh(pedido, attribute_names=["estado_codigo", "creado_en"])
             # Capture values for post-commit event publishing (D5, Slice 3)
@@ -403,7 +437,7 @@ class OrderService:
         except Exception:
             pass  # Best-effort — never let publish failure affect the HTTP response
 
-        return pedido
+        return pedido, historial_item
 
     def listar_pedidos(
         self, user: Usuario, filtros: PedidoListFilters
@@ -628,14 +662,18 @@ class OrderService:
         finally:
             session.close()
 
-        # Delegate to transicionar_estado which opens its own UoW with FOR UPDATE
-        return self.transicionar_estado(
+        # Delegate to transicionar_estado which opens its own UoW with FOR UPDATE.
+        # Pass actor_roles so the lock-time re-check closes the TOCTOU window (C2).
+        # avanzar_estado's contract returns only the Pedido — historial is dropped.
+        pedido, _ = self.transicionar_estado(
             pedido_id=pedido_id,
             estado_anterior=estado_actual,
             estado_nuevo=nuevo_estado,
             actor_id=user_id,
+            actor_roles=user_roles,
             motivo=motivo,
         )
+        return pedido
 
     def transicionar_pedido(
         self,
@@ -660,7 +698,16 @@ class OrderService:
             InvalidStateTransitionError: race condition (409).
         """
         import shared.unit_of_work as _uow_mod
-        from sqlalchemy import select as sa_select
+
+        # D5: block manual CONFIRMADO — that state is webhook-only (payment).
+        # Mirrors the same defense in avanzar_estado(). Without this, any
+        # ADMIN/PEDIDOS could confirm a pedido without going through payment,
+        # bypassing the business rule even though TRANSITION_ROLES allows
+        # ("PENDIENTE", "CONFIRMADO") for those roles to support the webhook.
+        if estado_codigo_destino == "CONFIRMADO":
+            raise BusinessRuleError(
+                "CONFIRMADO solo se setea automáticamente vía webhook de pago"
+            )
 
         # Read-only session for validation — no UoW, no lock (D14)
         session = _uow_mod.get_session_factory()()
@@ -708,40 +755,18 @@ class OrderService:
         finally:
             session.close()
 
-        # Delegate to transicionar_estado which opens its own UoW with FOR UPDATE
-        pedido = self.transicionar_estado(
+        # Delegate to transicionar_estado which opens its own UoW with FOR UPDATE.
+        # Pass actor_roles so the lock-time re-check closes the TOCTOU window (C2).
+        # W1 fix: transicionar_estado now returns the freshly inserted historial,
+        # so we no longer need a post-commit "ORDER BY creado_en DESC LIMIT 1"
+        # re-select that could race with concurrent transitions on the same pedido.
+        pedido, nuevo_historial = self.transicionar_estado(
             pedido_id=pedido_id,
             estado_anterior=estado_actual,
             estado_nuevo=estado_codigo_destino,
             actor_id=user_id,
+            actor_roles=user_roles,
             motivo=motivo,
         )
-
-        # Fetch the latest historial entry from a fresh read session
-        read_session = _uow_mod.get_session_factory()()
-        try:
-            from features.orders.models import HistorialEstadoPedido
-
-            stmt = (
-                sa_select(HistorialEstadoPedido)
-                .where(HistorialEstadoPedido.pedido_id == pedido_id)
-                .order_by(HistorialEstadoPedido.creado_en.desc())
-                .limit(1)
-            )
-            hist_row = read_session.execute(stmt).scalar_one_or_none()
-            nuevo_historial = (
-                HistorialItem.model_validate(hist_row)
-                if hist_row
-                else HistorialItem(
-                    id=0,
-                    estado_anterior_codigo=estado_actual,
-                    estado_nuevo_codigo=estado_codigo_destino,
-                    cambiado_por_id=user_id,
-                    motivo=motivo,
-                    creado_en=pedido.creado_en,
-                )
-            )
-        finally:
-            read_session.close()
 
         return pedido, estado_actual, nuevo_historial

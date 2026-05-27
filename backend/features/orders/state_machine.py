@@ -24,7 +24,9 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     # P3.10: ENTREGADO removed — CONFIRMADO can only go to EN_PREPARACION or be cancelled.
     # The direct CONFIRMADO→ENTREGADO shortcut was a design error (orders must be
     # prepared before delivery; there is no "instant delivery" path in v1).
-    "CONFIRMADO": {"EN_PREPARACION", "CANCELADO_ADMIN"},
+    # CLIENT can cancel a CONFIRMADO pedido — payment is approved at that point,
+    # so the UI surfaces a "support will contact you for refund" message.
+    "CONFIRMADO": {"EN_PREPARACION", "CANCELADO_ADMIN", "CANCELADO_CLIENTE"},
     "EN_PREPARACION": {"TERMINADO", "CANCELADO_ADMIN"},
     # P3.9: TERMINADO can now be cancelled by ADMIN (e.g. post-completion dispute).
     "TERMINADO": {"EN_CAMINO", "ENTREGADO", "CANCELADO_ADMIN"},
@@ -51,6 +53,9 @@ TRANSITION_ROLES: dict[tuple[str, str], set[str]] = {
     ("CONFIRMADO", "EN_PREPARACION"): {"PEDIDOS", "ADMIN", "COCINA"},
     # P3.10: ("CONFIRMADO", "ENTREGADO") removed — see ALLOWED_TRANSITIONS comment.
     ("CONFIRMADO", "CANCELADO_ADMIN"): {"PEDIDOS", "ADMIN"},
+    # CLIENT-driven cancellation post-payment. The frontend warns the user that
+    # support will reach out for the refund — the backend just restores stock.
+    ("CONFIRMADO", "CANCELADO_CLIENTE"): {"CLIENT"},
     ("EN_PREPARACION", "TERMINADO"): {"PEDIDOS", "ADMIN", "COCINA"},
     ("EN_PREPARACION", "CANCELADO_ADMIN"): {"ADMIN"},  # RN-RB08 — solo ADMIN
     ("TERMINADO", "EN_CAMINO"): {"PEDIDOS", "ADMIN"},

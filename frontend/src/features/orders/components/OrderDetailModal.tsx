@@ -106,19 +106,32 @@ export function OrderDetailModal({ orderId, isAdmin = false, onClose }: OrderDet
   if (orderId === null) return null;
 
   const isCancelled = order ? CANCELLED_STATES.includes(order.estado_codigo) : false;
+  const CLIENT_CANCELLABLE_STATES = ['PENDIENTE', 'CONFIRMADO'];
   const canClientCancel =
-    hasClientRole && !isAdmin && order?.estado_codigo === 'PENDIENTE' && !isCancelled;
+    hasClientRole &&
+    !isAdmin &&
+    !!order &&
+    CLIENT_CANCELLABLE_STATES.includes(order.estado_codigo) &&
+    !isCancelled;
   const isBlockedFromCancel =
     hasClientRole &&
     !isAdmin &&
     order &&
     !CANCELLED_STATES.includes(order.estado_codigo) &&
-    order.estado_codigo !== 'PENDIENTE';
+    !CLIENT_CANCELLABLE_STATES.includes(order.estado_codigo);
+
+  // Cancelling a CONFIRMADO pedido means the payment was already approved
+  // (PENDIENTE → CONFIRMADO happens via the MP webhook). Surface the refund
+  // process so the user knows support will reach out.
+  const cancellingPaidOrder = order?.estado_codigo === 'CONFIRMADO';
+  const wasPaidWhenCancelled =
+    order?.estado_codigo === 'CANCELADO_CLIENTE' &&
+    (order?.pagos?.some((p) => p.status === 'approved') ?? false);
 
   function handleClientCancel() {
     if (!order) return;
     advanceMutation.mutate(
-      { id: order.id, nuevo_estado: 'CANCELADO', motivo: cancelMotivo.trim() || undefined },
+      { id: order.id, nuevo_estado: 'CANCELADO_CLIENTE', motivo: cancelMotivo.trim() || undefined },
       {
         onSuccess: () => {
           setShowCancelModal(false);
@@ -349,6 +362,18 @@ export function OrderDetailModal({ orderId, isAdmin = false, onClose }: OrderDet
                   </div>
                 )}
 
+                {/* Refund-pending banner: client cancelled an already-paid order */}
+                {wasPaidWhenCancelled && (
+                  <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 px-4 py-3.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
+                      Reembolso en proceso
+                    </p>
+                    <p className="text-sm text-amber-700 dark:text-amber-200 leading-relaxed">
+                      El equipo de soporte se va a contactar con vos para gestionar la devolución del pago.
+                    </p>
+                  </div>
+                )}
+
                 {/* Timeline history */}
                 <div className="flex flex-col gap-2">
                   <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
@@ -386,6 +411,17 @@ export function OrderDetailModal({ orderId, isAdmin = false, onClose }: OrderDet
                 <p className="text-xs text-muted-foreground">Esta acción no se puede deshacer</p>
               </div>
             </div>
+
+            {cancellingPaidOrder && (
+              <div className="mb-4 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3.5 py-3 flex items-start gap-2.5">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-200">
+                  Tu pago ya fue procesado. Al cancelar, el equipo de soporte se va a contactar con vos
+                  para gestionar la devolución.
+                </p>
+              </div>
+            )}
+
             <label className="block text-sm font-medium text-foreground mb-1.5">
               Motivo{' '}
               <span className="font-normal text-muted-foreground">(opcional)</span>

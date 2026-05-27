@@ -23,26 +23,38 @@ class TestAllowedTransitions:
         plus empty sets for terminal states."""
         from features.orders.state_machine import ALLOWED_TRANSITIONS
 
-        # Non-terminal states with allowed targets
+        # PENDIENTE outgoing (4)
         assert "CANCELADO" in ALLOWED_TRANSITIONS["PENDIENTE"]
         assert "CANCELADO_ADMIN" in ALLOWED_TRANSITIONS["PENDIENTE"]
         assert "CANCELADO_CLIENTE" in ALLOWED_TRANSITIONS["PENDIENTE"]
+        assert "CONFIRMADO" in ALLOWED_TRANSITIONS["PENDIENTE"]
+
+        # CONFIRMADO outgoing (3) — includes client-cancel post-payment
         assert "EN_PREPARACION" in ALLOWED_TRANSITIONS["CONFIRMADO"]
         assert "CANCELADO_ADMIN" in ALLOWED_TRANSITIONS["CONFIRMADO"]
+        assert "CANCELADO_CLIENTE" in ALLOWED_TRANSITIONS["CONFIRMADO"]
+
+        # EN_PREPARACION outgoing (2)
         assert "TERMINADO" in ALLOWED_TRANSITIONS["EN_PREPARACION"]
         assert "CANCELADO_ADMIN" in ALLOWED_TRANSITIONS["EN_PREPARACION"]
-        assert "ENTREGADO" in ALLOWED_TRANSITIONS["TERMINADO"]
 
-        # Terminal states have no outgoing transitions
+        # TERMINADO outgoing (3) — P3.9 added CANCELADO_ADMIN; delivery branching keeps EN_CAMINO/ENTREGADO
+        assert "EN_CAMINO" in ALLOWED_TRANSITIONS["TERMINADO"]
+        assert "ENTREGADO" in ALLOWED_TRANSITIONS["TERMINADO"]
+        assert "CANCELADO_ADMIN" in ALLOWED_TRANSITIONS["TERMINADO"]
+
+        # EN_CAMINO outgoing (1)
+        assert "ENTREGADO" in ALLOWED_TRANSITIONS["EN_CAMINO"]
+
+        # Terminal states
         assert ALLOWED_TRANSITIONS["ENTREGADO"] == set()
         assert ALLOWED_TRANSITIONS["CANCELADO"] == set()
         assert ALLOWED_TRANSITIONS["CANCELADO_ADMIN"] == set()
         assert ALLOWED_TRANSITIONS["CANCELADO_CLIENTE"] == set()
 
-        # Total outgoing transitions: PENDIENTE(3) + CONFIRMADO(2) + EN_PREPARACION(2)
-        # + TERMINADO(1) = 8 edges
+        # Total outgoing edges: 4 + 3 + 2 + 3 + 1 = 13
         total = sum(len(v) for v in ALLOWED_TRANSITIONS.values())
-        assert total == 8  # 3+2+2+1+0+0+0+0
+        assert total == 13
 
 
 # ---------------------------------------------------------------------------
@@ -55,35 +67,37 @@ class TestTransitionRoles:
         """TRANSITION_ROLES must define all manual transitions with correct role sets."""
         from features.orders.state_machine import TRANSITION_ROLES
 
+        # From PENDIENTE (4 entries — includes ("PENDIENTE", "CONFIRMADO") used by webhook)
         assert TRANSITION_ROLES[("PENDIENTE", "CANCELADO")] == {
-            "CLIENT",
-            "PEDIDOS",
-            "ADMIN",
+            "CLIENT", "PEDIDOS", "ADMIN",
         }
         assert TRANSITION_ROLES[("PENDIENTE", "CANCELADO_CLIENTE")] == {"CLIENT"}
-        assert TRANSITION_ROLES[("PENDIENTE", "CANCELADO_ADMIN")] == {
-            "ADMIN",
-            "PEDIDOS",
-        }
+        assert TRANSITION_ROLES[("PENDIENTE", "CANCELADO_ADMIN")] == {"ADMIN", "PEDIDOS"}
+        assert TRANSITION_ROLES[("PENDIENTE", "CONFIRMADO")] == {"PEDIDOS", "ADMIN"}
+
+        # From CONFIRMADO (3 entries — includes CLIENT-driven cancel)
         assert TRANSITION_ROLES[("CONFIRMADO", "EN_PREPARACION")] == {
-            "PEDIDOS",
-            "ADMIN",
+            "PEDIDOS", "ADMIN", "COCINA",
         }
-        assert TRANSITION_ROLES[("CONFIRMADO", "CANCELADO_ADMIN")] == {
-            "PEDIDOS",
-            "ADMIN",
+        assert TRANSITION_ROLES[("CONFIRMADO", "CANCELADO_ADMIN")] == {"PEDIDOS", "ADMIN"}
+        assert TRANSITION_ROLES[("CONFIRMADO", "CANCELADO_CLIENTE")] == {"CLIENT"}
+
+        # From EN_PREPARACION (2 entries)
+        assert TRANSITION_ROLES[("EN_PREPARACION", "TERMINADO")] == {
+            "PEDIDOS", "ADMIN", "COCINA",
         }
-        assert TRANSITION_ROLES[("EN_PREPARACION", "TERMINADO")] == {"PEDIDOS", "ADMIN"}
-        assert TRANSITION_ROLES[("EN_PREPARACION", "CANCELADO_ADMIN")] == {
-            "ADMIN"
-        }  # RN-RB08
+        assert TRANSITION_ROLES[("EN_PREPARACION", "CANCELADO_ADMIN")] == {"ADMIN"}
+
+        # From TERMINADO (3 entries — P3.9 added CANCELADO_ADMIN)
+        assert TRANSITION_ROLES[("TERMINADO", "EN_CAMINO")] == {"PEDIDOS", "ADMIN"}
         assert TRANSITION_ROLES[("TERMINADO", "ENTREGADO")] == {"PEDIDOS", "ADMIN"}
+        assert TRANSITION_ROLES[("TERMINADO", "CANCELADO_ADMIN")] == {"ADMIN"}
 
-        # PENDIENTE→CONFIRMADO must NOT be in TRANSITION_ROLES (webhook-only)
-        assert ("PENDIENTE", "CONFIRMADO") not in TRANSITION_ROLES
+        # From EN_CAMINO (1 entry)
+        assert TRANSITION_ROLES[("EN_CAMINO", "ENTREGADO")] == {"PEDIDOS", "ADMIN"}
 
-        # 8 entries total
-        assert len(TRANSITION_ROLES) == 8
+        # 4 + 3 + 2 + 3 + 1 = 13 entries total
+        assert len(TRANSITION_ROLES) == 13
 
 
 # ---------------------------------------------------------------------------

@@ -391,7 +391,8 @@ class TestAvanzarEstadoInvokesGuard:
             fake_user.roles = [MagicMock(codigo="COCINA")]
             fake_user_repo.find_by_id_with_roles.return_value = fake_user
 
-            mock_trans.return_value = fake_pedido
+            # W1: transicionar_estado returns (Pedido, HistorialItem) tuple.
+            mock_trans.return_value = (fake_pedido, MagicMock())
 
             with (
                 patch("features.orders.service.OrderRepository", return_value=fake_order_repo),
@@ -431,7 +432,8 @@ class TestAvanzarEstadoInvokesGuard:
             fake_user.roles = [MagicMock(codigo="COCINA")]
             fake_user_repo.find_by_id_with_roles.return_value = fake_user
 
-            mock_trans.return_value = fake_pedido
+            # W1: transicionar_estado returns (Pedido, HistorialItem) tuple.
+            mock_trans.return_value = (fake_pedido, MagicMock())
 
             with (
                 patch("features.orders.service.OrderRepository", return_value=fake_order_repo),
@@ -471,7 +473,8 @@ class TestAvanzarEstadoInvokesGuard:
             fake_user.roles = [MagicMock(codigo="ADMIN")]
             fake_user_repo.find_by_id_with_roles.return_value = fake_user
 
-            mock_trans.return_value = fake_pedido
+            # W1: transicionar_estado returns (Pedido, HistorialItem) tuple.
+            mock_trans.return_value = (fake_pedido, MagicMock())
 
             with (
                 patch("features.orders.service.OrderRepository", return_value=fake_order_repo),

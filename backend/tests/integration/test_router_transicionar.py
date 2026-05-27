@@ -209,6 +209,50 @@ class TestTransicionarEndpoint:
         )
         assert response.status_code == 422
 
+    def test_admin_cannot_manually_confirm_pendiente_422(
+        self, client: TestClient, auth_headers_admin, pedido_pendiente
+    ):
+        """
+        D5 hardening: ADMIN cannot move PENDIENTE → CONFIRMADO via the manual
+        endpoint. CONFIRMADO is webhook-only (payment).
+        """
+        url = TRANSICIONAR_URL.format(pedido_id=pedido_pendiente.id)
+        response = client.post(
+            url,
+            json={"estado_codigo_destino": "CONFIRMADO"},
+            headers=auth_headers_admin,
+        )
+        assert response.status_code == 422
+        assert "webhook de pago" in response.json()["detail"]
+
+    def test_pedidos_cannot_manually_confirm_pendiente_422(
+        self, client: TestClient, auth_headers_pedidos, pedido_pendiente
+    ):
+        """D5 hardening: PEDIDOS cannot move PENDIENTE → CONFIRMADO manually either."""
+        url = TRANSICIONAR_URL.format(pedido_id=pedido_pendiente.id)
+        response = client.post(
+            url,
+            json={"estado_codigo_destino": "CONFIRMADO"},
+            headers=auth_headers_pedidos,
+        )
+        assert response.status_code == 422
+        assert "webhook de pago" in response.json()["detail"]
+
+    def test_cliente_puede_cancelar_confirmado_200(
+        self, client: TestClient, auth_headers, pedido_confirmado
+    ):
+        """CLIENT can cancel a CONFIRMADO pedido (refund handled out-of-band by support)."""
+        url = TRANSICIONAR_URL.format(pedido_id=pedido_confirmado.id)
+        response = client.post(
+            url,
+            json={"estado_codigo_destino": "CANCELADO_CLIENTE"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["estado_anterior"] == "CONFIRMADO"
+        assert body["estado_nuevo"] == "CANCELADO_CLIENTE"
+
     def test_pedido_inexistente_404(self, client: TestClient, auth_headers_admin):
         """Non-existent pedido → 404."""
         url = TRANSICIONAR_URL.format(pedido_id=999999)

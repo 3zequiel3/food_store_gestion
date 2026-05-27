@@ -133,17 +133,23 @@ class TestTransicionarEstadoRegression:
 
         pedido_id = pedido_pendiente_sin_items.id
 
-        resultado = order_service.transicionar_estado(
+        pedido_actualizado, historial_item = order_service.transicionar_estado(
             pedido_id=pedido_id,
             estado_anterior="PENDIENTE",
             estado_nuevo="CONFIRMADO",
             actor_id=None,
         )
 
-        assert resultado.estado_codigo == "CONFIRMADO"
-        assert resultado.id == pedido_id
+        assert pedido_actualizado.estado_codigo == "CONFIRMADO"
+        assert pedido_actualizado.id == pedido_id
 
-        # Verify historial was created
+        # W1: transicionar_estado now returns the freshly inserted historial.
+        assert historial_item.id > 0
+        assert historial_item.estado_anterior_codigo == "PENDIENTE"
+        assert historial_item.estado_nuevo_codigo == "CONFIRMADO"
+        assert historial_item.cambiado_por_id is None
+
+        # Verify historial was persisted in DB (extra paranoid check)
         historial = test_db_session.execute(
             select(HistorialEstadoPedido).where(
                 HistorialEstadoPedido.pedido_id == pedido_id,
@@ -151,9 +157,10 @@ class TestTransicionarEstadoRegression:
             )
         ).scalar_one_or_none()
         assert historial is not None
+        assert historial.id == historial_item.id  # same row, no race
         assert historial.estado_anterior_codigo == "PENDIENTE"
         assert historial.cambiado_por_id is None
-        assert historial.motivo is None  # No motivo passed = NULL
+        assert historial.motivo is None
 
     def test_transicionar_estado_idempotencia_409(
         self, order_service, test_db_session: Session, pedido_pendiente_sin_items
@@ -168,6 +175,66 @@ class TestTransicionarEstadoRegression:
                 estado_anterior="CONFIRMADO",
                 estado_nuevo="EN_PREPARACION",
                 actor_id=None,
+            )
+
+    # ── C2 hardening: lock-time re-check of ownership + RBAC ────────────────
+
+    def test_transicionar_estado_sin_actor_roles_mantiene_path_sistema(
+        self, order_service, pedido_pendiente_sin_items
+    ):
+        """SISTEMA path (actor_roles=None, used by the payment webhook) skips
+        the lock-time ownership/RBAC checks. Legacy behavior preserved."""
+        from shared.exceptions import InvalidStateTransitionError
+
+        # estado_anterior mismatch still raises 409 — the SISTEMA-only guard.
+        with pytest.raises(InvalidStateTransitionError):
+            order_service.transicionar_estado(
+                pedido_id=pedido_pendiente_sin_items.id,
+                estado_anterior="CONFIRMADO",  # wrong on purpose
+                estado_nuevo="EN_PREPARACION",
+                actor_id=None,
+                actor_roles=None,
+            )
+
+    def test_transicionar_estado_client_ownership_rechecked_in_lock(
+        self, order_service, pedido_pendiente_sin_items, sample_user
+    ):
+        """
+        C2: A CLIENT actor whose user_id does not match the locked pedido
+        gets NotFoundError (not InvalidStateTransitionError), even when
+        invoked directly against transicionar_estado.
+        """
+        from shared.exceptions import NotFoundError
+
+        intruder_id = sample_user.id + 9999  # any non-owner id
+
+        with pytest.raises(NotFoundError):
+            order_service.transicionar_estado(
+                pedido_id=pedido_pendiente_sin_items.id,
+                estado_anterior="PENDIENTE",
+                estado_nuevo="CANCELADO_CLIENTE",
+                actor_id=intruder_id,
+                actor_roles={"CLIENT"},
+            )
+
+    def test_transicionar_estado_rbac_rechecked_in_lock(
+        self, order_service, pedido_pendiente_sin_items, sample_user
+    ):
+        """
+        C2: validate_transition runs against the LOCKED state. A CLIENT
+        cannot do PENDIENTE → CANCELADO_ADMIN (FSM allows it, RBAC restricts
+        it to ADMIN/PEDIDOS), so ForbiddenError (403) wins over the 409 that
+        the old code path would have produced if estado_anterior matched.
+        """
+        from shared.exceptions import ForbiddenError
+
+        with pytest.raises(ForbiddenError):
+            order_service.transicionar_estado(
+                pedido_id=pedido_pendiente_sin_items.id,
+                estado_anterior="PENDIENTE",
+                estado_nuevo="CANCELADO_ADMIN",
+                actor_id=sample_user.id,
+                actor_roles={"CLIENT"},
             )
 
 
