@@ -40,7 +40,10 @@ export function AdminFaltantesPage() {
     (frame: WsFrame) => {
       if (
         frame.type === 'ingredient_unavailable_reported' ||
-        frame.type === 'ingredient_availability_restored'
+        frame.type === 'ingredient_availability_restored' ||
+        // Decision 2 (design.md): server emits connection_resynced after every
+        // successful subscribe. Trigger a refetch to close reconnect-race gaps.
+        frame.type === 'connection_resynced'
       ) {
         void queryClient.invalidateQueries({ queryKey: FALTANTES_QUERY_KEY });
       }

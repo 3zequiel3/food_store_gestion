@@ -221,3 +221,29 @@ describe('useCocinaWebSocket — cook trigger (Task 6.20)', () => {
     expect(mockInvalidateQueries).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 4.1 — connection_resynced handler
+// ---------------------------------------------------------------------------
+describe('useCocinaWebSocket — connection_resynced (Task 4.1)', () => {
+  it('calls invalidateQueries with ["cocina","pedidos"] when connection_resynced arrives', async () => {
+    await renderAndConnect();
+    // Clear the initial invalidation that fires on ws.onopen
+    mockInvalidateQueries.mockClear();
+
+    act(() => {
+      lastWsInstance.onmessage?.({
+        data: JSON.stringify({
+          v: 1,
+          type: 'connection_resynced',
+          topic: 'kitchen:all',
+          payload: { topic: 'kitchen:all', server_ts: '2026-05-28T00:00:00Z' },
+        }),
+      });
+    });
+
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['cocina', 'pedidos'],
+    });
+  });
+});

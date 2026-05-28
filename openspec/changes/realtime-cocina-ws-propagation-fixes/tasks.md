@@ -23,10 +23,10 @@
 
 ## 4. Phase 4 — Frontend: handle `connection_resynced` in cocina and order hooks (Bug 2a, client side)
 
-- [ ] 4.1 Write failing vitest in `frontend/src/features/cocina/hooks/__tests__/useCocinaWebSocket.test.ts` (create if missing): push a synthetic `{ type: "connection_resynced", topic: "kitchen:all", payload: { ... } }` into the hook's `handleEvent` and assert `queryClient.invalidateQueries` was called with `["cocina","pedidos"]`. Confirm FAIL.
-- [ ] 4.2 Add a `case "connection_resynced":` (or matching `if` branch) in `frontend/src/features/cocina/hooks/useCocinaWebSocket.ts:handleEvent` that calls the existing `invalidateAndRefresh()`. Leave the `onopen → invalidateAndRefresh` belt-and-braces fallback intact.
-- [ ] 4.3 Re-run vitest 4.1 → PASS.
-- [ ] 4.4 Write failing vitest for `frontend/src/features/orders/hooks/useOrderWebSocket.ts` asserting the same handler is added; then implement and confirm PASS.
+- [x] 4.1 Write failing vitest in `frontend/src/features/cocina/hooks/__tests__/useCocinaWebSocket.test.ts` (create if missing): push a synthetic `{ type: "connection_resynced", topic: "kitchen:all", payload: { ... } }` into the hook's `handleEvent` and assert `queryClient.invalidateQueries` was called with `["cocina","pedidos"]`. Confirm FAIL.
+- [x] 4.2 Add a `case "connection_resynced":` (or matching `if` branch) in `frontend/src/features/cocina/hooks/useCocinaWebSocket.ts:handleEvent` that calls the existing `invalidateAndRefresh()`. Leave the `onopen → invalidateAndRefresh` belt-and-braces fallback intact.
+- [x] 4.3 Re-run vitest 4.1 → PASS.
+- [x] 4.4 Write failing vitest for `frontend/src/features/orders/hooks/useOrderWebSocket.ts` asserting the same handler is added; then implement and confirm PASS.
 
 ## 5. Phase 5 — Frontend: single resolver button in Faltantes (Bug 3)
 

@@ -68,6 +68,15 @@ export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
         invalidateAndRefresh();
         return;
       }
+
+      // Decision 2 (design.md): server emits connection_resynced after every
+      // successful subscribe (auto or explicit). Trigger a deterministic refetch
+      // to close any reconnect-race gap. The onopen → invalidateAndRefresh() above
+      // stays as a belt-and-braces fallback for the very first connection.
+      if (event.type === "connection_resynced") {
+        invalidateAndRefresh();
+        return;
+      }
     },
     [invalidateAndRefresh],
   );

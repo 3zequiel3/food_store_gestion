@@ -270,6 +270,49 @@ describe('useOrderWebSocket — event handling', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Task 4.4 — connection_resynced forwarded to onEvent
+// ---------------------------------------------------------------------------
+
+describe('useOrderWebSocket — connection_resynced (Task 4.4)', () => {
+  it('forwards connection_resynced frame to onEvent when topic matches', async () => {
+    /**
+     * The hook filters frames by topic. A connection_resynced frame emitted
+     * for 'orders:all' must be forwarded to the onEvent callback so that
+     * AdminFaltantesPage can trigger invalidateQueries.
+     *
+     * FAILS if the hook drops connection_resynced frames or doesn't call onEvent.
+     * (Currently the hook forwards ALL frames whose topic matches — so this
+     * may pass already, but the test is needed to prevent future regression.)
+     */
+    const onEvent = vi.fn();
+    renderHook(
+      () => useOrderWebSocket({ topic: 'orders:all', onEvent }),
+      { wrapper },
+    );
+
+    await act(async () => { await vi.runAllTicks(); });
+    const ws = FakeWebSocket.lastInstance!;
+    act(() => { ws.simulateOpen(); });
+
+    act(() => {
+      ws.simulateMessage({
+        v: 1,
+        type: 'connection_resynced',
+        topic: 'orders:all',
+        payload: { topic: 'orders:all', server_ts: '2026-05-28T00:00:00Z' },
+        ts: '2026-05-28T00:00:00Z',
+      });
+    });
+
+    expect(onEvent).toHaveBeenCalledOnce();
+    expect(onEvent.mock.calls[0][0]).toMatchObject({
+      type: 'connection_resynced',
+      topic: 'orders:all',
+    });
+  });
+});
+
 describe('useOrderWebSocket — degraded mode / polling fallback', () => {
   it('isDegraded is true when not connected', async () => {
     const onEvent = vi.fn();
