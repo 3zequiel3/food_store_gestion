@@ -8,9 +8,9 @@
 
 ## 2. Phase 2 — Backend: drain task uses `get_running_loop` (Bug 2b)
 
-- [ ] 2.1 Write failing pytest-asyncio test in `backend/tests/features/websocket/test_registration_running_loop.py` that imports `backend/features/websocket/registration.py` source as text and asserts the substring `asyncio.get_event_loop(` is NOT present outside comments/docstrings. Confirm the test FAILS against current code.
-- [ ] 2.2 Replace the `asyncio.get_event_loop()` call in `backend/features/websocket/registration.py:71` with `asyncio.get_running_loop()`. Ensure the call site is reached only from within the FastAPI lifespan async context (lifespan IS the natural caller of `register_realtime`).
-- [ ] 2.3 Run the regression test from 2.1 → PASSES. Run the existing websocket test suite to confirm no behavioural regression.
+- [x] 2.1 Write failing pytest-asyncio test in `backend/tests/features/websocket/test_registration_running_loop.py` that imports `backend/features/websocket/registration.py` source as text and asserts the substring `asyncio.get_event_loop(` is NOT present outside comments/docstrings. Confirm the test FAILS against current code.
+- [x] 2.2 Replace the `asyncio.get_event_loop()` call in `backend/features/websocket/registration.py:71` with `asyncio.get_running_loop()`. Ensure the call site is reached only from within the FastAPI lifespan async context (lifespan IS the natural caller of `register_realtime`).
+- [x] 2.3 Run the regression test from 2.1 → PASSES. Run the existing websocket test suite to confirm no behavioural regression.
 
 ## 3. Phase 3 — Backend: synthetic `connection_resynced` envelope (Bug 2a, server side)
 

@@ -67,8 +67,12 @@ def register_realtime(app: FastAPI) -> None:
     _event_queue = asyncio.Queue(maxsize=200)
     _event_publisher = InProcessEventPublisher(_event_queue)
 
-    # 2. Start the drain task
-    loop = asyncio.get_event_loop()
+    # 2. Start the drain task using get_running_loop() (Decision 3 — design.md).
+    # register_realtime() is called from the FastAPI lifespan async context,
+    # which guarantees a running event loop. get_running_loop() is the modern
+    # idiom (Python 3.10+) and raises RuntimeError if no loop is running,
+    # making misconfiguration explicit rather than silently pinning to a dead loop.
+    loop = asyncio.get_running_loop()
     _drain_task_handle = loop.create_task(run_drain_loop(_event_queue, connection_manager))
     logger.info("WebSocket realtime transport registered (drain task started)")
 
