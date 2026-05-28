@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
@@ -117,6 +118,9 @@ async def websocket_endpoint(
     if auto_topic:
         await connection_manager.connect(websocket, topic=auto_topic)
         logger.debug("WS accepted user_id=%d roles=%s auto_topic=%s", user_id, roles, auto_topic)
+        # Synthetic resync — Decision 2 (design.md): deliver to THIS socket only,
+        # AFTER the connection is registered in the manager.
+        await _send_connection_resynced(websocket, topic=auto_topic)
     else:
         logger.debug("WS accepted user_id=%d roles=%s (no auto-topic)", user_id, roles)
 
@@ -193,6 +197,8 @@ async def _handle_subscribe(
         await websocket.send_text(ack)
     except Exception:
         pass
+    # Synthetic resync after successful explicit subscribe — Decision 2 (design.md).
+    await _send_connection_resynced(websocket, topic=topic)
 
 
 def kitchen_ingredient_unavailable_stub(*, order_id: int, ingredient_id: int) -> None:
@@ -320,6 +326,36 @@ async def _handle_kitchen_ingredient_unavailable(
 
     # Task 6.17: replaced the Phase-5 stub with the real service call.
     _report_service_call(user_id=user_id, order_id=order_id, ingredient_id=ingredient_id)
+
+
+async def _send_connection_resynced(websocket: WebSocket, topic: str) -> None:
+    """
+    Send a synthetic connection_resynced frame to a single WebSocket.
+
+    Decision 2 (design.md): emitted after each successful subscribe (auto or explicit),
+    ONLY to the originating socket (never broadcast). The client uses this to trigger
+    a deterministic invalidateAndRefresh(), closing any reconnect-race gap.
+
+    Frame shape:
+      { "v": 1, "type": "connection_resynced", "topic": "<topic>",
+        "payload": { "topic": "<topic>", "server_ts": "<iso8601>" } }
+
+    Never raises — best-effort.
+    """
+    try:
+        server_ts = datetime.now(timezone.utc).isoformat()
+        frame = json.dumps({
+            "v": 1,
+            "type": "connection_resynced",
+            "topic": topic,
+            "payload": {
+                "topic": topic,
+                "server_ts": server_ts,
+            },
+        })
+        await websocket.send_text(frame)
+    except Exception:
+        logger.debug("_send_connection_resynced: failed to send (swallowed)", exc_info=True)
 
 
 async def _send_error(websocket: WebSocket, reason: str) -> None:

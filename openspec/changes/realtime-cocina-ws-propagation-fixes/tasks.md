@@ -14,12 +14,12 @@
 
 ## 3. Phase 3 — Backend: synthetic `connection_resynced` envelope (Bug 2a, server side)
 
-- [ ] 3.1 Write failing pytest in `backend/tests/features/websocket/test_resync_on_subscribe.py` that opens a WS connection as COCINA, waits for the first non-handshake frame, and asserts it is `{ "v": 1, "type": "connection_resynced", "topic": "kitchen:all", "payload": { "topic": "kitchen:all", "server_ts": <iso8601> } }`. Confirm it FAILS.
-- [ ] 3.2 Write a second failing test in the same module: open as ADMIN, send `{ "v": 1, "type": "subscribe", "topic": "orders:all" }`, assert the server returns `subscribe_ack` followed by `connection_resynced` for `orders:all`. Confirm FAIL.
-- [ ] 3.3 Write a third failing test: open as CLIENT not owning order 99, send `subscribe` for `order:99`, assert NO `connection_resynced` envelope is emitted (only the rejection). Confirm FAIL or PASS-by-accident — adjust test to be reliable.
-- [ ] 3.4 In `backend/features/websocket/router.py` (or wherever `websocket_endpoint` and `_handle_subscribe` live), after the connection is added to `ConnectionManager` for the auto-subscribed `default_topic`, send the `connection_resynced` envelope to that single websocket. After every successful `_handle_subscribe`, send the same envelope (immediately after the existing `subscribe_ack`).
-- [ ] 3.5 Re-run tests 3.1, 3.2, 3.3 → all PASS. Run the broader websocket test suite to confirm no regression in subscribe/unsubscribe/broadcast paths.
-- [ ] 3.6 Add a fourth test asserting the resync is delivered ONLY to the originating socket (two pre-existing connections C1 and C2 on the same topic do NOT receive the resync emitted for a third connection C3).
+- [x] 3.1 Write failing pytest in `backend/tests/features/websocket/test_resync_on_subscribe.py` that opens a WS connection as COCINA, waits for the first non-handshake frame, and asserts it is `{ "v": 1, "type": "connection_resynced", "topic": "kitchen:all", "payload": { "topic": "kitchen:all", "server_ts": <iso8601> } }`. Confirm it FAILS.
+- [x] 3.2 Write a second failing test in the same module: open as ADMIN, send `{ "v": 1, "type": "subscribe", "topic": "orders:all" }`, assert the server returns `subscribe_ack` followed by `connection_resynced` for `orders:all`. Confirm FAIL.
+- [x] 3.3 Write a third failing test: open as CLIENT not owning order 99, send `subscribe` for `order:99`, assert NO `connection_resynced` envelope is emitted (only the rejection). Confirm FAIL or PASS-by-accident — adjust test to be reliable.
+- [x] 3.4 In `backend/features/websocket/router.py` (or wherever `websocket_endpoint` and `_handle_subscribe` live), after the connection is added to `ConnectionManager` for the auto-subscribed `default_topic`, send the `connection_resynced` envelope to that single websocket. After every successful `_handle_subscribe`, send the same envelope (immediately after the existing `subscribe_ack`).
+- [x] 3.5 Re-run tests 3.1, 3.2, 3.3 → all PASS. Run the broader websocket test suite to confirm no regression in subscribe/unsubscribe/broadcast paths.
+- [x] 3.6 Add a fourth test asserting the resync is delivered ONLY to the originating socket (two pre-existing connections C1 and C2 on the same topic do NOT receive the resync emitted for a third connection C3).
 
 ## 4. Phase 4 — Frontend: handle `connection_resynced` in cocina and order hooks (Bug 2a, client side)
 
