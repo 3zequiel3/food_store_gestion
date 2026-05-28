@@ -1,5 +1,5 @@
-import { useCallback, useEffect } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, ShoppingBag } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFaltantes, useResolverFaltante, FALTANTES_QUERY_KEY } from '../../features/availability/hooks/useFaltantes';
 import { useFaltantesStore } from '../../features/availability/stores/faltantesStore';
@@ -10,8 +10,12 @@ import { useOrderWebSocket, type WsFrame } from '../../features/orders/hooks/use
  * Admin "Faltantes" view — lists open ingredient shortages and allows resolving them.
  *
  * P0.1 (admin): displays all rows where resuelto_en IS NULL.
- * Admin resolves with friendly labels: "ingrediente comprado" or "solucionado".
+ * Admin resolves with a single "Resolver" button + an adjacent audit label selector.
+ * The accion field is informational/audit-only (backend accepts both values unchanged).
  * On open: resets the navbar badge counter.
+ *
+ * Decision 4 (design.md): replaced the two separate CTAs with one button + <select>.
+ * Default selector value: "solucionado". Other option: "comprado".
  *
  * Route: /admin/faltantes (within the Comidas section of the sidebar).
  */
@@ -21,9 +25,18 @@ export function AdminFaltantesPage() {
   const { mutate: resolver, isPending: isResolving } = useResolverFaltante();
   const resetBadge = useFaltantesStore((s) => s.reset);
 
+  // Per-row selector state: maps ingrediente_id → selected accion label.
+  // Default: "solucionado" (Decision 4 — design.md).
+  const [accionMap, setAccionMap] = useState<Record<number, string>>({});
+
+  const getAccion = (ingredienteId: number): string =>
+    accionMap[ingredienteId] ?? 'solucionado';
+
+  const setAccion = (ingredienteId: number, value: string) => {
+    setAccionMap((prev) => ({ ...prev, [ingredienteId]: value }));
+  };
+
   // Solo staff operativo (ADMIN / PEDIDOS / STOCK) resuelve faltantes.
-  // COCINA accede a esta vista en modo read-only para conocer qué
-  // ingredientes están caídos antes de marcar nuevos.
   const canResolve = useAuthStore(
     (s) => s.hasRole('ADMIN') || s.hasRole('PEDIDOS') || s.hasRole('STOCK'),
   );
@@ -33,9 +46,7 @@ export function AdminFaltantesPage() {
     resetBadge();
   }, [resetBadge]);
 
-  // WS realtime: invalidate the faltantes list when a new report arrives
-  // (ingredient_unavailable_reported) or one gets resolved
-  // (ingredient_availability_restored — backend fans out to orders:all too).
+  // WS realtime: invalidate the faltantes list on relevant events
   const handleWsEvent = useCallback(
     (frame: WsFrame) => {
       if (
@@ -145,34 +156,36 @@ export function AdminFaltantesPage() {
                     </td>
                     {canResolve && (
                       <td className="px-4 py-3">
+                        {/*
+                          Decision 4 (design.md): ONE "Resolver" button + adjacent
+                          <select> for the audit label. Default: "solucionado".
+                          The accion field is informational only — the backend endpoint
+                          and schema are unchanged (AvailabilityResolveRequest.accion).
+                        */}
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
+                          <select
+                            value={getAccion(item.ingrediente_id)}
+                            onChange={(e) => setAccion(item.ingrediente_id, e.target.value)}
                             disabled={isResolving}
-                            onClick={() =>
-                              resolver({
-                                ingredienteId: item.ingrediente_id,
-                                accion: 'ingrediente comprado',
-                              })
-                            }
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-300 disabled:opacity-50"
+                            aria-label="Tipo de resolución"
                           >
-                            <ShoppingBag className="w-3 h-3" />
-                            Ingrediente comprado
-                          </button>
+                            <option value="solucionado">solucionado</option>
+                            <option value="comprado">comprado</option>
+                          </select>
                           <button
                             type="button"
                             disabled={isResolving}
                             onClick={() =>
                               resolver({
                                 ingredienteId: item.ingrediente_id,
-                                accion: 'solucionado',
+                                accion: getAccion(item.ingrediente_id),
                               })
                             }
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
                           >
                             <CheckCircle2 className="w-3 h-3" />
-                            Solucionado
+                            Resolver
                           </button>
                         </div>
                       </td>

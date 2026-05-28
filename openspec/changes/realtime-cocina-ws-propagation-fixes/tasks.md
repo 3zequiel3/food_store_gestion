@@ -30,10 +30,10 @@
 
 ## 5. Phase 5 — Frontend: single resolver button in Faltantes (Bug 3)
 
-- [ ] 5.1 Write failing vitest in `frontend/src/pages/admin/__tests__/AdminFaltantesPage.test.tsx` rendering the page with one open shortage and asserting: exactly one element with role/name "Resolver" AND exactly one `<select>` with options `solucionado` and `comprado` are present per row. No second primary CTA for the same endpoint. Confirm FAIL.
-- [ ] 5.2 Write a second failing vitest asserting that clicking "Resolver" with the selector set to `comprado` triggers the mutation with body `{ accion: "comprado" }`; and that the default click (selector untouched) sends `{ accion: "solucionado" }`. Confirm FAIL.
-- [ ] 5.3 Refactor `frontend/src/pages/admin/AdminFaltantesPage.tsx`: replace the two buttons with one primary "Resolver" button + adjacent native `<select>` with two options, default `solucionado`. Wire the selected value into the existing `useResolverFaltante` mutation as the `accion` payload field.
-- [ ] 5.4 Re-run vitests 5.1, 5.2 → PASS. Lint pass with `pnpm lint` to ensure no unused imports left from the removed second button.
+- [x] 5.1 Write failing vitest in `frontend/src/pages/admin/__tests__/AdminFaltantesPage.test.tsx` rendering the page with one open shortage and asserting: exactly one element with role/name "Resolver" AND exactly one `<select>` with options `solucionado` and `comprado` are present per row. No second primary CTA for the same endpoint. Confirm FAIL.
+- [x] 5.2 Write a second failing vitest asserting that clicking "Resolver" with the selector set to `comprado` triggers the mutation with body `{ accion: "comprado" }`; and that the default click (selector untouched) sends `{ accion: "solucionado" }`. Confirm FAIL.
+- [x] 5.3 Refactor `frontend/src/pages/admin/AdminFaltantesPage.tsx`: replace the two buttons with one primary "Resolver" button + adjacent native `<select>` with two options, default `solucionado`. Wire the selected value into the existing `useResolverFaltante` mutation as the `accion` payload field.
+- [x] 5.4 Re-run vitests 5.1, 5.2 → PASS. Lint pass with `pnpm lint` to ensure no unused imports left from the removed second button.
 
 ## 6. Phase 6 — Verification + smoke
 
