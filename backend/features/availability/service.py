@@ -3,27 +3,30 @@ Ingredient availability service — report, resolve, and query operations (D6, P
 
 All multi-table writes run inside the caller's session (injected at construction).
 The caller is responsible for committing the session (UoW pattern).
-Post-commit events are published best-effort via the injected publisher.
+Post-commit events are published best-effort by the ROUTER (caller), NOT here.
 
 Public API:
-  IngredientAvailabilityService(session, publisher=None)
+  IngredientAvailabilityService(session)
     .report_unavailable(ingrediente_id, reportado_por, pedido_id)
       → sets Ingrediente.activo=False + inserts HistorialDisponibilidadIngrediente row
-        → publishes ingredient_unavailable_reported to orders:all
+      → returns ReportResult DTO (used by router to publish post-commit)
     .resolve_availability(ingrediente_id, resuelto_por)
       → sets Ingrediente.activo=True + bulk-closes all open rows
-        → publishes ingredient_availability_restored to kitchen:all
-    .get_open_shortages()  → list[HistorialDisponibilidadIngrediente] (resuelto_en IS NULL)
-    .get_resolved_history() → list[HistorialDisponibilidadIngrediente] (resuelto_en IS NOT NULL)
+      → returns ResolveResult DTO (used by router to publish post-commit)
+    .get_open_shortages()  → list[HistorialDisponibilidadIngrediente]
+    .get_resolved_history() → list[HistorialDisponibilidadIngrediente]
 
-Placement rationale: this service belongs to the availability domain, not to websocket
-(which is transport only). The websocket router calls this service; the service does NOT
-import from features.websocket — direction is transport→service, not the reverse.
+Publish helpers (_publish_report_event, _publish_restore_event) are kept as
+module-level functions — the router imports and calls them AFTER the UoW exits.
+The topic/payload contract has a single home (this module).
+
+Design: Decision 1 — publish-after-commit (design.md).
 """
 
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -37,22 +40,59 @@ from features.websocket.contracts import DomainEvent
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Result DTOs — carry the data needed to publish events post-commit
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ReportResult:
+    """
+    DTO returned by report_unavailable().
+
+    Contains enough data for the router to call _publish_report_event()
+    after the UoW commits, without reopening the session.
+    """
+    ingrediente_id: int
+    ingrediente_nombre: str
+    pedido_id: int
+    reportado_por: int
+    history_id: Optional[int]
+
+
+@dataclass
+class ResolveResult:
+    """
+    DTO returned by resolve_availability().
+
+    Contains enough data for the router to call _publish_restore_event()
+    after the UoW commits, without reopening the session.
+    """
+    ingrediente_id: int
+    ingrediente_nombre: str
+    resolved_count: int
+    resuelto_por: int
+    resolved_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------------------
+
+
 class IngredientAvailabilityService:
     """
     Service layer for ingredient kitchen-availability operations.
 
     The session is injected — the caller owns the transaction boundary.
-    The publisher is optional; if None or if publish() raises, the error is
-    swallowed (best-effort D6).
+    This service does NOT publish events. The caller (router) publishes
+    using the DTO returned by each method, AFTER the UoW commits.
+
+    Design: Decision 1 (design.md) — publish-after-commit.
     """
 
-    def __init__(
-        self,
-        session: Session,
-        publisher=None,
-    ) -> None:
+    def __init__(self, session: Session) -> None:
         self._session = session
-        self._publisher = publisher
 
     # ── Report unavailable (cook action) ────────────────────────────────────
 
@@ -62,7 +102,7 @@ class IngredientAvailabilityService:
         ingrediente_id: int,
         reportado_por: int,
         pedido_id: int,
-    ) -> HistorialDisponibilidadIngrediente:
+    ) -> ReportResult:
         """
         Mark an ingredient as unavailable.
 
@@ -70,9 +110,8 @@ class IngredientAvailabilityService:
           1. Set Ingrediente.activo = False.
           2. Insert one HistorialDisponibilidadIngrediente row (resuelto_en=NULL).
 
-        Post-flush: publish ingredient_unavailable_reported to orders:all (best-effort).
-
-        Returns the newly-created history row (before final commit).
+        Returns ReportResult DTO. The router calls _publish_report_event()
+        with this DTO AFTER the UoW commits.
         """
         ing = self._session.get(Ingrediente, ingrediente_id)
         if ing is None:
@@ -92,16 +131,13 @@ class IngredientAvailabilityService:
         self._session.add(history_row)
         self._session.flush()
 
-        # Best-effort publish — after flush so the row has an id
-        self._publish_report_event(
+        return ReportResult(
             ingrediente_id=ingrediente_id,
             ingrediente_nombre=ing.nombre,
             pedido_id=pedido_id,
             reportado_por=reportado_por,
-            reporte_id=history_row.id,
+            history_id=history_row.id,
         )
-
-        return history_row
 
     # ── Resolve availability (admin action) ──────────────────────────────────
 
@@ -110,7 +146,7 @@ class IngredientAvailabilityService:
         *,
         ingrediente_id: int,
         resuelto_por: int,
-    ) -> int:
+    ) -> ResolveResult:
         """
         Resolve an ingredient shortage.
 
@@ -119,9 +155,8 @@ class IngredientAvailabilityService:
           2. Bulk-close ALL open rows (resuelto_en IS NULL) for this ingredient
              by setting resuelto_en = now() and resuelto_por = admin_id.
 
-        Post-update: publish ingredient_availability_restored to kitchen:all (best-effort).
-
-        Returns the number of rows closed.
+        Returns ResolveResult DTO. The router calls _publish_restore_event()
+        with this DTO AFTER the UoW commits.
         """
         ing = self._session.get(Ingrediente, ingrediente_id)
         if ing is None:
@@ -146,19 +181,19 @@ class IngredientAvailabilityService:
 
         self._session.flush()
 
-        # Best-effort publish
-        self._publish_restore_event(
-            ingrediente_id=ingrediente_id,
-            ingrediente_nombre=ing.nombre,
-            resuelto_por=resuelto_por,
-        )
-
         logger.debug(
             "resolve_availability: ingrediente_id=%d closed=%d rows",
             ingrediente_id,
             closed_count,
         )
-        return closed_count
+
+        return ResolveResult(
+            ingrediente_id=ingrediente_id,
+            ingrediente_nombre=ing.nombre,
+            resolved_count=closed_count,
+            resuelto_por=resuelto_por,
+            resolved_at=now,
+        )
 
     # ── Queries ──────────────────────────────────────────────────────────────
 
@@ -188,78 +223,85 @@ class IngredientAvailabilityService:
             .all()
         )
 
-    # ── Private publish helpers (best-effort) ────────────────────────────────
 
-    def _publish_report_event(
-        self,
-        *,
-        ingrediente_id: int,
-        ingrediente_nombre: str,
-        pedido_id: int,
-        reportado_por: int,
-        reporte_id: Optional[int],
-    ) -> None:
-        """Publish ingredient_unavailable_reported to orders:all. Never raises."""
-        if self._publisher is None:
-            return
+# ---------------------------------------------------------------------------
+# Module-level publish helpers — called by the router POST-COMMIT
+# Topic/payload contract lives here (single home).
+# ---------------------------------------------------------------------------
+
+
+def _publish_report_event(
+    publisher,
+    *,
+    dto: ReportResult,
+) -> None:
+    """
+    Publish ingredient_unavailable_reported to orders:all.
+
+    Called by the router AFTER `with UnitOfWork():` exits (post-commit).
+    Never raises — best-effort.
+    """
+    if publisher is None:
+        return
+    try:
+        event = DomainEvent(
+            v=1,
+            type="ingredient_unavailable_reported",
+            topic="orders:all",
+            payload={
+                "ingrediente_id": dto.ingrediente_id,
+                "ingrediente_nombre": dto.ingrediente_nombre,
+                "pedido_id": dto.pedido_id,
+                "reportado_por": dto.reportado_por,
+                "reporte_id": dto.history_id,
+            },
+        )
+        publisher.publish(event)
+    except Exception:
+        logger.debug(
+            "_publish_report_event: failed to publish ingredient_unavailable_reported "
+            "(best-effort, swallowed)",
+            exc_info=True,
+        )
+
+
+def _publish_restore_event(
+    publisher,
+    *,
+    dto: ResolveResult,
+) -> None:
+    """
+    Publish ingredient_availability_restored to kitchen:all AND orders:all.
+
+    Fan-out:
+      - kitchen:all  → cocina shows the toast and unblocks affected pedidos.
+      - orders:all   → admin's faltantes view refreshes its list without
+                       a manual reload.
+
+    Called by the router AFTER `with UnitOfWork():` exits (post-commit).
+    Never raises — best-effort.
+    """
+    if publisher is None:
+        return
+    payload = {
+        "ingrediente_id": dto.ingrediente_id,
+        "ingrediente_nombre": dto.ingrediente_nombre,
+        "resuelto_por": dto.resuelto_por,
+    }
+    for topic in ("kitchen:all", "orders:all"):
         try:
             event = DomainEvent(
                 v=1,
-                type="ingredient_unavailable_reported",
-                topic="orders:all",
-                payload={
-                    "ingrediente_id": ingrediente_id,
-                    "ingrediente_nombre": ingrediente_nombre,
-                    "pedido_id": pedido_id,
-                    "reportado_por": reportado_por,
-                    "reporte_id": reporte_id,
-                },
+                type="ingredient_availability_restored",
+                topic=topic,
+                payload=payload,
             )
-            self._publisher.publish(event)
+            publisher.publish(event)
         except Exception:
             logger.debug(
-                "IngredientAvailabilityService: failed to publish ingredient_unavailable_reported "
+                "_publish_restore_event: failed to publish "
+                "ingredient_availability_restored on topic=%s "
                 "(best-effort, swallowed)",
+                topic,
                 exc_info=True,
             )
-
-    def _publish_restore_event(
-        self,
-        *,
-        ingrediente_id: int,
-        ingrediente_nombre: str,
-        resuelto_por: int,
-    ) -> None:
-        """
-        Publish ingredient_availability_restored to kitchen:all AND orders:all.
-
-        Fan-out:
-          - kitchen:all  → cocina shows the toast and unblocks affected pedidos.
-          - orders:all   → admin's faltantes view refreshes its list without
-                           a manual reload.
-        Never raises.
-        """
-        if self._publisher is None:
-            return
-        payload = {
-            "ingrediente_id": ingrediente_id,
-            "ingrediente_nombre": ingrediente_nombre,
-            "resuelto_por": resuelto_por,
-        }
-        for topic in ("kitchen:all", "orders:all"):
-            try:
-                event = DomainEvent(
-                    v=1,
-                    type="ingredient_availability_restored",
-                    topic=topic,
-                    payload=payload,
-                )
-                self._publisher.publish(event)
-            except Exception:
-                logger.debug(
-                    "IngredientAvailabilityService: failed to publish "
-                    "ingredient_availability_restored on topic=%s "
-                    "(best-effort, swallowed)",
-                    topic,
-                    exc_info=True,
-                )

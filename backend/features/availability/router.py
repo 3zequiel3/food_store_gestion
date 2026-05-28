@@ -11,8 +11,10 @@ Routes:
 
   POST /faltantes/{ingrediente_id}/resolver
     → set Ingrediente.activo=True + bulk-close all open rows for that ingredient.
-    → publishes ingredient_availability_restored to kitchen:all (best-effort).
+    → publishes ingredient_availability_restored to kitchen:all (best-effort, post-commit).
     → RBAC: ADMIN only.
+
+Design: Decision 1 (design.md) — publish helpers called AFTER `with UnitOfWork():` exits.
 """
 
 from __future__ import annotations
@@ -29,7 +31,10 @@ from features.availability.schemas import (
     ResolveResponse,
     ShortageReportItem,
 )
-from features.availability.service import IngredientAvailabilityService
+from features.availability.service import (
+    IngredientAvailabilityService,
+    _publish_restore_event,
+)
 from features.users.models import Usuario
 from features.websocket.registration import get_event_publisher
 from shared.unit_of_work import UnitOfWork
@@ -105,7 +110,7 @@ def list_faltantes(
     description=(
         "Marca el ingrediente como disponible (activo=True) y cierra todos los "
         "reportes pendientes para ese ingrediente. Emite ingredient_availability_restored "
-        "al canal de cocina (best-effort). Requiere rol ADMIN."
+        "al canal de cocina (best-effort, post-commit). Requiere rol ADMIN."
     ),
 )
 def resolver_faltante(
@@ -120,27 +125,30 @@ def resolver_faltante(
       1. Set Ingrediente.activo = True.
       2. Bulk-close all open rows (resuelto_en IS NULL) for the ingredient.
 
-    Post-commit: publish ingredient_availability_restored to kitchen:all (best-effort).
+    AFTER the UoW exits (commits): publish ingredient_availability_restored
+    to kitchen:all and orders:all (best-effort, Decision 1 — design.md).
     """
     publisher = get_event_publisher()
 
     with UnitOfWork() as uow:
-        svc = IngredientAvailabilityService(session=uow.session, publisher=publisher)
-        rows_closed = svc.resolve_availability(
+        svc = IngredientAvailabilityService(session=uow.session)
+        result_dto = svc.resolve_availability(
             ingrediente_id=ingrediente_id,
             resuelto_por=current_user.id,
         )
+    # UoW exits here → commit happens → publish post-commit (Decision 1)
+    _publish_restore_event(publisher, dto=result_dto)
 
     logger.info(
         "resolver_faltante: admin_id=%d resolved ingrediente_id=%d (%d rows closed, accion=%r)",
         current_user.id,
         ingrediente_id,
-        rows_closed,
+        result_dto.resolved_count,
         (body.accion if body else "solucionado"),
     )
 
     return ResolveResponse(
         ok=True,
         ingrediente_id=ingrediente_id,
-        rows_closed=rows_closed,
+        rows_closed=result_dto.resolved_count,
     )

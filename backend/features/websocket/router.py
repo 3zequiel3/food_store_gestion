@@ -220,22 +220,28 @@ def _report_service_call(*, user_id: int, order_id: int, ingredient_id: int) -> 
     The WS handler awaits _handle_kitchen_ingredient_unavailable which calls this
     synchronously — consistent with the existing order-service pattern.
 
+    Post-commit: publishes ingredient_unavailable_reported via _publish_report_event
+    AFTER the UoW exits (Decision 1 — design.md: publish-after-commit).
+
     Best-effort: any exception is swallowed to avoid crashing the WebSocket connection.
     """
     try:
         from shared.unit_of_work import UnitOfWork
         from features.websocket.registration import get_event_publisher
+        from features.availability.service import _publish_report_event
 
         publisher = get_event_publisher()
 
         with UnitOfWork() as uow:
-            svc = _IngredientSvc(session=uow.session, publisher=publisher)
-            svc.report_unavailable(
+            svc = _IngredientSvc(session=uow.session)
+            report_dto = svc.report_unavailable(
                 ingrediente_id=ingredient_id,
                 reportado_por=user_id,
                 pedido_id=order_id,
             )
-        # UoW commits on clean exit — publish happens inside service (post-flush, pre-commit).
+        # UoW commits on clean exit — publish post-commit (Decision 1)
+        _publish_report_event(publisher, dto=report_dto)
+
         logger.debug(
             "_report_service_call: reported ingredient_id=%d unavailable "
             "(order_id=%d, user_id=%d)",
