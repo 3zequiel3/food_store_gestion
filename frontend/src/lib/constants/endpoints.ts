@@ -55,6 +55,7 @@ export const ENDPOINTS = {
   checkout: {
     online: '/checkout/online',
     pickupEfectivo: '/checkout/pickup-efectivo',
+    deliveryEfectivo: '/checkout/delivery-efectivo',
   },
 
   direcciones: {
