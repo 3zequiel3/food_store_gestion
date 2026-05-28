@@ -6,6 +6,9 @@ Provides dependency functions for authentication and authorization:
 - require_role: Factory for role-based access control
 """
 
+
+
+
 from typing import Optional
 
 from fastapi import Request
