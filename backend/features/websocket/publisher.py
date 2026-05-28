@@ -27,43 +27,21 @@ class InProcessEventPublisher:
     to all ConnectionManager subscribers on the matching topic.
 
     publish() is sync-safe and best-effort:
-    - Uses run_coroutine_threadsafe so it can be called from sync code.
+    - Uses call_soon_threadsafe on the captured main loop.
     - Never raises: all exceptions are caught and logged at DEBUG level.
     """
 
-    def __init__(self, queue: asyncio.Queue) -> None:
+    def __init__(self, queue: asyncio.Queue, main_loop: asyncio.AbstractEventLoop) -> None:
         self._queue = queue
+        self._main_loop = main_loop
 
     def publish(self, event: DomainEvent) -> None:
         """
-        Enqueue `event` for async broadcast. Best-effort, never raises.
+        Enqueue `event` for async broadcast on the captured main loop.
 
-        Safe to call from both sync and async code:
-        - When a running event loop exists (async context), uses
-          call_soon_threadsafe to schedule the put coroutine.
-        - When called from a sync worker thread (no running loop accessible),
-          attempts run_coroutine_threadsafe on the loop.
-        - On any failure, silently discards (best-effort).
+        Safe to call from both sync and async code on any thread:
+        call_soon_threadsafe is the canonical way to schedule work on an
+        event loop from any thread, including FastAPI threadpool workers.
+        Best-effort: never raises.
         """
-        try:
-            loop = asyncio.get_running_loop()
-            # We are inside an async context — schedule the put directly.
-            loop.call_soon_threadsafe(self._queue.put_nowait, event)
-        except RuntimeError:
-            # No running loop — try the legacy threadpool path.
-            try:
-                loop = asyncio.get_event_loop()
-                asyncio.run_coroutine_threadsafe(self._queue.put(event), loop)
-            except Exception:
-                logger.debug(
-                    "InProcessEventPublisher.publish: discarded (best-effort, no loop)",
-                )
-        except asyncio.QueueFull:
-            logger.debug(
-                "InProcessEventPublisher.publish: queue full, event discarded",
-            )
-        except Exception:
-            logger.debug(
-                "InProcessEventPublisher.publish: discarded (best-effort)",
-                exc_info=True,
-            )
+        self._main_loop.call_soon_threadsafe(self._queue.put_nowait, event)

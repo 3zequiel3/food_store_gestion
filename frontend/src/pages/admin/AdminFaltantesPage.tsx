@@ -21,9 +21,32 @@ import { useOrderWebSocket, type WsFrame } from '../../features/orders/hooks/use
  */
 export function AdminFaltantesPage() {
   const queryClient = useQueryClient();
-  const { data: faltantes = [], isLoading, isError, refetch } = useFaltantes();
   const { mutate: resolver, isPending: isResolving } = useResolverFaltante();
   const resetBadge = useFaltantesStore((s) => s.reset);
+
+  // WS event handler — must be declared before useOrderWebSocket below
+  const handleWsEvent = useCallback(
+    (frame: WsFrame) => {
+      if (
+        frame.type === 'ingredient_unavailable_reported' ||
+        frame.type === 'ingredient_availability_restored' ||
+        frame.type === 'connection_resynced'
+      ) {
+        void queryClient.invalidateQueries({ queryKey: FALTANTES_QUERY_KEY, refetchType: 'all' });
+      }
+    },
+    [queryClient],
+  );
+
+  const { isDegraded } = useOrderWebSocket({
+    topic: 'orders:all',
+    onEvent: handleWsEvent,
+  });
+
+  const { data: faltantes = [], isLoading, isError, refetch } = useFaltantes(
+    true,
+    isDegraded ? 30_000 : false,
+  );
 
   // Per-row selector state: maps ingrediente_id → selected accion label.
   // Default: "solucionado" (Decision 4 — design.md).
@@ -45,27 +68,6 @@ export function AdminFaltantesPage() {
   useEffect(() => {
     resetBadge();
   }, [resetBadge]);
-
-  // WS realtime: invalidate the faltantes list on relevant events
-  const handleWsEvent = useCallback(
-    (frame: WsFrame) => {
-      if (
-        frame.type === 'ingredient_unavailable_reported' ||
-        frame.type === 'ingredient_availability_restored' ||
-        // Decision 2 (design.md): server emits connection_resynced after every
-        // successful subscribe. Trigger a refetch to close reconnect-race gaps.
-        frame.type === 'connection_resynced'
-      ) {
-        void queryClient.invalidateQueries({ queryKey: FALTANTES_QUERY_KEY });
-      }
-    },
-    [queryClient],
-  );
-
-  useOrderWebSocket({
-    topic: 'orders:all',
-    onEvent: handleWsEvent,
-  });
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">

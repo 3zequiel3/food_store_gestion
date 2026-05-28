@@ -16,7 +16,9 @@ After this call:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 
@@ -27,10 +29,16 @@ import features.websocket.router as _ws_router_module
 
 logger = logging.getLogger(__name__)
 
+# How often to broadcast a heartbeat frame to all connections (seconds).
+# Keeps the TCP connection alive and lets the backend detect + clean up
+# dead connections by catching send errors.
+_HEARTBEAT_INTERVAL_S = 30
+
 # Module-level singletons — set by register_realtime, read by get_event_publisher.
 _event_queue: asyncio.Queue | None = None
 _event_publisher: InProcessEventPublisher | None = None
 _drain_task_handle: asyncio.Task | None = None
+_heartbeat_task_handle: asyncio.Task | None = None
 
 
 def get_event_publisher() -> InProcessEventPublisher | None:
@@ -41,6 +49,39 @@ def get_event_publisher() -> InProcessEventPublisher | None:
     override the lifespan). Callers MUST treat None as "no-op publish".
     """
     return _event_publisher
+
+
+async def run_heartbeat_loop() -> None:
+    """
+    Periodically ping all connected WebSocket clients with a heartbeat frame.
+
+    Every _HEARTBEAT_INTERVAL_S seconds, broadcast a lightweight frame to all
+    unique connections. This serves two purposes:
+
+      1. Keep the TCP connection alive through proxies / load balancers that
+         would otherwise kill idle connections.
+      2. Detect dead connections: if ws.send_text() raises, the ConnectionManager
+         removes the connection (see broadcast_all).
+
+    The heartbeat frame is a protocol-level signal — the client resets its
+    last-message timer on *any* frame (including heartbeat), so there is no
+    need for a separate pong/ack.
+    """
+    logger.info("WebSocket heartbeat task started (interval=%ds)", _HEARTBEAT_INTERVAL_S)
+    while True:
+        try:
+            await asyncio.sleep(_HEARTBEAT_INTERVAL_S)
+            frame = json.dumps({
+                "v": 1,
+                "type": "heartbeat",
+                "ts": datetime.now(timezone.utc).isoformat(),
+            })
+            await connection_manager.broadcast_all(frame)
+        except asyncio.CancelledError:
+            logger.info("WebSocket heartbeat task stopped (cancelled)")
+            break
+        except Exception:
+            logger.exception("WebSocket heartbeat: unexpected error — continuing")
 
 
 def register_realtime(app: FastAPI) -> None:
@@ -57,24 +98,27 @@ def register_realtime(app: FastAPI) -> None:
       2. Start the drain/broadcast task.
       3. Expose the drain task reference to the health endpoint.
     """
-    global _event_queue, _event_publisher, _drain_task_handle
+    global _event_queue, _event_publisher, _drain_task_handle, _heartbeat_task_handle
 
     if _event_publisher is not None:
         logger.debug("register_realtime: already registered, skipping")
         return
 
-    # 1. Create the event queue + publisher
+    # 1. Create the event queue + publisher.
+    # Capture the current event loop so InProcessEventPublisher can safely
+    # schedule work from any thread (including FastAPI sync endpoint workers).
+    _main_loop = asyncio.get_running_loop()
     _event_queue = asyncio.Queue(maxsize=200)
-    _event_publisher = InProcessEventPublisher(_event_queue)
+    _event_publisher = InProcessEventPublisher(_event_queue, _main_loop)
 
-    # 2. Start the drain task using get_running_loop() (Decision 3 — design.md).
-    # register_realtime() is called from the FastAPI lifespan async context,
-    # which guarantees a running event loop. get_running_loop() is the modern
-    # idiom (Python 3.10+) and raises RuntimeError if no loop is running,
-    # making misconfiguration explicit rather than silently pinning to a dead loop.
-    loop = asyncio.get_running_loop()
-    _drain_task_handle = loop.create_task(run_drain_loop(_event_queue, connection_manager))
+    # 2. Start the drain task (Decision 3 — design.md).
+    _drain_task_handle = _main_loop.create_task(run_drain_loop(_event_queue, connection_manager))
     logger.info("WebSocket realtime transport registered (drain task started)")
+
+    # 3. Start the heartbeat task — broadcasts a ping frame every 30s to
+    # keep connections alive through proxies and detect dead connections.
+    _heartbeat_task_handle = _main_loop.create_task(run_heartbeat_loop())
+    logger.info("WebSocket heartbeat task started")
 
     # Expose the drain task reference to the health endpoint
     _ws_router_module._drain_task = _drain_task_handle

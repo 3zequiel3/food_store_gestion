@@ -62,6 +62,8 @@ export interface UseOrderWebSocketReturn {
 }
 
 const RECONNECT_DELAY_MS = 5_000;
+const HEARTBEAT_TIMEOUT_MS = 45_000;
+const HEARTBEAT_CHECK_MS = 15_000;
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -84,6 +86,8 @@ export function useOrderWebSocket({
   const topicRef = useRef(topic);
   topicRef.current = topic;
 
+  const lastMessageAtRef = useRef<number>(Date.now());
+
   const connect = useCallback(async () => {
     if (!user || !enabled) return;
 
@@ -100,6 +104,7 @@ export function useOrderWebSocket({
       wsRef.current = ws;
 
       ws.onopen = () => {
+        lastMessageAtRef.current = Date.now();
         setIsConnected(true);
         // Subscribe to the requested topic.
         ws.send(
@@ -108,8 +113,11 @@ export function useOrderWebSocket({
       };
 
       ws.onmessage = (msg) => {
+        lastMessageAtRef.current = Date.now();
         try {
           const frame = JSON.parse(msg.data) as WsFrame;
+          // Heartbeat frames are protocol-level — no handler needed.
+          if (frame.type === 'heartbeat') return;
           // Only forward events that belong to our subscribed topic.
           if (frame.topic === topicRef.current) {
             onEventRef.current(frame);
@@ -146,7 +154,18 @@ export function useOrderWebSocket({
 
     void connect();
 
+    // Periodically check if the connection has gone silent.
+    const heartbeatCheck = setInterval(() => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== 1) return;
+      const elapsed = Date.now() - lastMessageAtRef.current;
+      if (elapsed > HEARTBEAT_TIMEOUT_MS) {
+        ws.close();
+      }
+    }, HEARTBEAT_CHECK_MS);
+
     return () => {
+      clearInterval(heartbeatCheck);
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;

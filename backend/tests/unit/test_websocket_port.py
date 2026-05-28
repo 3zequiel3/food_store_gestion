@@ -66,7 +66,8 @@ class TestEventPublisherContract:
         from features.websocket.contracts import DomainEvent
 
         queue: asyncio.Queue = asyncio.Queue()
-        publisher = InProcessEventPublisher(queue)
+        loop = asyncio.new_event_loop()
+        publisher = InProcessEventPublisher(queue, loop)
 
         event = DomainEvent(
             v=1,
@@ -81,6 +82,8 @@ class TestEventPublisherContract:
             publisher.publish(event)
         except Exception as exc:
             pytest.fail(f"publish() raised unexpectedly: {exc}")
+        finally:
+            loop.close()
 
     @pytest.mark.asyncio
     async def test_in_process_publisher_enqueues_event(self):
@@ -89,7 +92,7 @@ class TestEventPublisherContract:
         from features.websocket.contracts import DomainEvent
 
         queue: asyncio.Queue = asyncio.Queue(maxsize=10)
-        publisher = InProcessEventPublisher(queue)
+        publisher = InProcessEventPublisher(queue, asyncio.get_running_loop())
 
         event = DomainEvent(
             v=1,
@@ -115,5 +118,9 @@ class TestEventPublisherContract:
 
         # runtime_checkable Protocol check
         queue: asyncio.Queue = asyncio.Queue()
-        publisher = InProcessEventPublisher(queue)
-        assert isinstance(publisher, EventPublisher)
+        loop = asyncio.new_event_loop()
+        publisher = InProcessEventPublisher(queue, loop)
+        try:
+            assert isinstance(publisher, EventPublisher)
+        finally:
+            loop.close()

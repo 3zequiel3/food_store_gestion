@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ShoppingBag } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useOrders } from '../../features/orders/hooks/useOrders';
+import { useOrderWebSocket, type WsFrame } from '../../features/orders/hooks/useOrderWebSocket';
 import { OrderCard } from '../../features/orders/components/OrderCard';
 import { OrderCardSkeleton } from '../../features/orders/components/OrderCardSkeleton';
 import { OrderDetailModal } from '../../features/orders/components/OrderDetailModal';
@@ -18,10 +20,25 @@ function parseFilters(params: URLSearchParams): OrderFilters {
 }
 
 export function MisPedidosPage() {
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const filters = parseFilters(searchParams);
 
-  const { data, isLoading, isError, refetch } = useOrders(filters);
+  const handleWsEvent = useCallback(
+    (frame: WsFrame) => {
+      if (frame.type === 'order_state_changed' || frame.type === 'connection_resynced') {
+        void queryClient.invalidateQueries({ queryKey: ['orders'], refetchType: 'all' });
+      }
+    },
+    [queryClient],
+  );
+
+  const { isDegraded } = useOrderWebSocket({
+    topic: 'orders:all',
+    onEvent: handleWsEvent,
+  });
+
+  const { data, isLoading, isError, refetch } = useOrders(filters, isDegraded ? 30_000 : false);
 
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 

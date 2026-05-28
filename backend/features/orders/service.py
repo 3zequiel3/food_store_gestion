@@ -312,8 +312,14 @@ class OrderService:
             # ── Step 9: Refresh creado_en before UoW closes session ──────
             uow.session.refresh(pedido, attribute_names=["creado_en"])
 
-            # UoW __exit__ commits on clean exit, rolls back on exception.
-            return pedido
+            # Capture pedido_id for post-commit event publishing (D2)
+            _new_pedido_id = pedido.id
+
+        # UoW __exit__ commits on clean exit, rolls back on exception.
+        # Post-commit: publish domain event so cocina sees the new PENDIENTE order.
+        _publish_order_state_event(_new_pedido_id, "PENDIENTE")
+
+        return pedido
 
     def transicionar_estado(
         self,

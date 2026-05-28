@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { listOrders } from '../services/orders.service';
 import type { OrderFilters } from '../types/orders.types';
 
-export function useOrders(filters: OrderFilters = {}) {
+export function useOrders(filters: OrderFilters = {}, refetchInterval: number | false = false) {
   return useQuery({
     queryKey: ['orders', filters],
     queryFn: () => listOrders(filters),
@@ -12,5 +12,6 @@ export function useOrders(filters: OrderFilters = {}) {
     staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+    refetchInterval,
   });
 }
