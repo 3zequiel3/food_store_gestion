@@ -9,11 +9,12 @@ import type { ResolveRequest } from '../types/availability.types';
 export const FALTANTES_QUERY_KEY = ['availability', 'faltantes'] as const;
 
 /** Query hook: returns open shortage list. */
-export function useFaltantes(enabled = true) {
+export function useFaltantes(enabled = true, refetchInterval: number | false = false) {
   return useQuery({
     queryKey: FALTANTES_QUERY_KEY,
     queryFn: getFaltantes,
     enabled,
+    refetchInterval,
     // Always refetch on mount and on window focus so navigating back or
     // reloading the tab brings fresh data. The WS subscription pushes
     // updates while the page is open; this covers cold opens + tab focus.

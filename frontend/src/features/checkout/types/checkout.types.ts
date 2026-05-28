@@ -62,6 +62,24 @@ export interface CheckoutPickupEfectivoRequest {
 }
 
 /**
+ * Request payload for delivery+efectivo/transferencia checkout (no online payment).
+ * Mirrors backend's CheckoutDeliveryEfectivoRequest.
+ */
+export interface CheckoutDeliveryEfectivoRequest {
+  items: CheckoutItem[];
+  direccion_id: number;
+  notas: string | null;
+}
+
+/**
+ * Response for successful delivery+efectivo checkout.
+ * Mirrors backend's CheckoutDeliveryEfectivoResponse.
+ */
+export interface CheckoutDeliveryEfectivoResponse {
+  pedido_id: number;
+}
+
+/**
  * Response for successful online checkout.
  * Mirrors backend's CheckoutOnlineResponse.
  */

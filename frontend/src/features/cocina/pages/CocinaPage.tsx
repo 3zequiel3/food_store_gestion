@@ -60,7 +60,7 @@ export function CocinaPage() {
         });
         // Refresh the board so the now-unavailable ingredient reflects state
         // when the backend's FSM guard kicks in on the next transition attempt.
-        queryClient.invalidateQueries({ queryKey: ['cocina', 'pedidos'] });
+        queryClient.invalidateQueries({ queryKey: ['cocina', 'pedidos'], refetchType: 'all' });
       } else {
         toast.error('No se pudo reportar', {
           description: 'La conexión al servidor está caída. Reintentá en unos segundos.',
@@ -76,7 +76,7 @@ export function CocinaPage() {
     try {
       await transitionKitchenOrder(orderId, targetState);
       // Invalidar para refrescar desde el backend
-      queryClient.invalidateQueries({ queryKey: ['cocina', 'pedidos'] });
+      queryClient.invalidateQueries({ queryKey: ['cocina', 'pedidos'], refetchType: 'all' });
     } catch {
       // El error ya fue manejado por el interceptor (toast)
     } finally {

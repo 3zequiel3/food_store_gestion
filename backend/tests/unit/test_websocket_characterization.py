@@ -105,13 +105,14 @@ class TestPublishViaPort:
     """EventPublisher port: publish is best-effort, never raises."""
 
     def test_publish_does_not_raise_without_loop(self):
-        """InProcessEventPublisher.publish is best-effort: if no loop, silently discard."""
+        """InProcessEventPublisher.publish is best-effort: never raises."""
         import asyncio
         from features.websocket.publisher import InProcessEventPublisher
         from features.websocket.contracts import DomainEvent
 
         queue = asyncio.Queue()
-        publisher = InProcessEventPublisher(queue)
+        loop = asyncio.new_event_loop()
+        publisher = InProcessEventPublisher(queue, loop)
 
         try:
             publisher.publish(DomainEvent(
@@ -122,6 +123,8 @@ class TestPublishViaPort:
             ))
         except Exception as exc:
             pytest.fail(f"publish raised unexpectedly: {exc}")
+        finally:
+            loop.close()
 
 
 # ---------------------------------------------------------------------------

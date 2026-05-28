@@ -2,6 +2,8 @@ import { apiClient } from '../../../api/client';
 import { ENDPOINTS } from '../../../lib/constants/endpoints';
 import type {
   CheckoutItem,
+  CheckoutDeliveryEfectivoRequest,
+  CheckoutDeliveryEfectivoResponse,
   CheckoutOnlineRequest,
   CheckoutOnlineResponse,
   CheckoutPickupEfectivoRequest,
@@ -50,6 +52,25 @@ export async function createCheckoutPickupEfectivo(
 ): Promise<CheckoutPickupEfectivoResponse> {
   const response = await apiClient.post<CheckoutPickupEfectivoResponse>(
     ENDPOINTS.checkout.pickupEfectivo,
+    payload,
+  );
+  return response.data;
+}
+
+/**
+ * Create a delivery order with cash/transfer payment (no online payment).
+ * POST /api/v1/checkout/delivery-efectivo
+ *
+ * The order is created directly in PENDIENTE state with shipping cost included.
+ *
+ * @param payload - CheckoutDeliveryEfectivoRequest with delivery address
+ * @returns CheckoutDeliveryEfectivoResponse with order ID
+ */
+export async function createCheckoutDeliveryEfectivo(
+  payload: CheckoutDeliveryEfectivoRequest,
+): Promise<CheckoutDeliveryEfectivoResponse> {
+  const response = await apiClient.post<CheckoutDeliveryEfectivoResponse>(
+    ENDPOINTS.checkout.deliveryEfectivo,
     payload,
   );
   return response.data;

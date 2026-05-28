@@ -38,7 +38,7 @@ class TestInProcessPublisherEnqueue:
         from features.websocket.publisher import InProcessEventPublisher
 
         queue: asyncio.Queue = asyncio.Queue(maxsize=10)
-        publisher = InProcessEventPublisher(queue)
+        publisher = InProcessEventPublisher(queue, asyncio.get_running_loop())
         event = _make_event()
 
         publisher.publish(event)
@@ -57,7 +57,7 @@ class TestInProcessPublisherEnqueue:
         queue: asyncio.Queue = asyncio.Queue(maxsize=1)
         await queue.put(_make_event())  # fill it
 
-        publisher = InProcessEventPublisher(queue)
+        publisher = InProcessEventPublisher(queue, asyncio.get_running_loop())
         try:
             publisher.publish(_make_event())
         except Exception as exc:

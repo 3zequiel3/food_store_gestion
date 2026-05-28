@@ -5,6 +5,8 @@ import { getToken } from "../../auth/services/auth.service";
 import { buildWebSocketUrl } from "../../../lib/ws";
 
 const RECONNECT_DELAY_MS = 5_000; // 5s between reconnect attempts
+const HEARTBEAT_TIMEOUT_MS = 45_000; // force reconnect if no message for 45s
+const HEARTBEAT_CHECK_MS = 15_000; // check every 15s
 
 /** Payload for the ingredient_availability_restored outbound event. */
 export interface AvailabilityRestoredPayload {
@@ -47,8 +49,12 @@ export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
     onAvailabilityRestoredRef.current = onAvailabilityRestored;
   }, [onAvailabilityRestored]);
 
+  // Tracks the timestamp of the last received message (any frame).
+  // Used by the heartbeat check interval to detect stale connections.
+  const lastMessageAtRef = useRef<number>(Date.now());
+
   const invalidateAndRefresh = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["cocina", "pedidos"] });
+    queryClient.invalidateQueries({ queryKey: ["cocina", "pedidos"], refetchType: "all" });
   }, [queryClient]);
 
   const handleEvent = useCallback(
@@ -91,16 +97,20 @@ export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
       wsRef.current = ws;
 
       ws.onopen = () => {
+        lastMessageAtRef.current = Date.now();
         setIsConnected(true);
         invalidateAndRefresh();
       };
 
       ws.onmessage = (msg) => {
+        lastMessageAtRef.current = Date.now();
         try {
           const data = JSON.parse(msg.data) as {
             type: string;
             payload: unknown;
           };
+          // Heartbeat frames are protocol-level — no handler needed.
+          if (data.type === "heartbeat") return;
           handleEvent(data);
         } catch {
           // Ignore malformed messages
@@ -134,7 +144,20 @@ export function useCocinaWebSocket(options: UseCocinaWebSocketOptions = {}) {
 
     void connect();
 
+    // Periodically check if the connection has gone silent.
+    // If no message was received within HEARTBEAT_TIMEOUT_MS, force close
+    // so the onclose handler triggers a fresh reconnect.
+    const heartbeatCheck = setInterval(() => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== 1) return;
+      const elapsed = Date.now() - lastMessageAtRef.current;
+      if (elapsed > HEARTBEAT_TIMEOUT_MS) {
+        ws.close();
+      }
+    }, HEARTBEAT_CHECK_MS);
+
     return () => {
+      clearInterval(heartbeatCheck);
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;

@@ -9,10 +9,12 @@ import { RemovableIngredientsStep } from './RemovableIngredientsStep';
 import { SecureCardForm } from '../../payments/components/SecureCardForm';
 import { useCheckoutOnline } from '../hooks/useCheckoutOnline';
 import { useCheckoutPickupEfectivo } from '../hooks/useCheckoutPickupEfectivo';
+import { useCheckoutDeliveryEfectivo } from '../hooks/useCheckoutDeliveryEfectivo';
 import { useCartStore } from '../../cart/stores/cartStore';
 import { useAuthStore } from '../../auth/stores/authStore';
 import type {
   CheckoutItem,
+  CheckoutDeliveryEfectivoRequest,
   CheckoutOnlineRequest,
   CheckoutPickupEfectivoRequest,
 } from '../types/checkout.types';
@@ -38,6 +40,7 @@ export function CheckoutPage() {
 
   const checkoutOnlineMutation = useCheckoutOnline();
   const checkoutPickupMutation = useCheckoutPickupEfectivo();
+  const checkoutDeliveryMutation = useCheckoutDeliveryEfectivo();
 
   const isDelivery = selectedAddressId !== null;
 
@@ -114,6 +117,19 @@ export function CheckoutPage() {
     checkoutPickupMutation.mutate(payload);
   }
 
+  function handleCheckoutDeliveryTransferencia() {
+    if (!selectedAddressId) {
+      toast.error('Seleccioná una dirección de entrega');
+      return;
+    }
+    const payload: CheckoutDeliveryEfectivoRequest = {
+      items: buildCheckoutItems(),
+      direccion_id: selectedAddressId,
+      notas: notas.trim() || null,
+    };
+    checkoutDeliveryMutation.mutate(payload);
+  }
+
   function handleSubmit() {
     if (!selectedPaymentMethod) {
       toast.error('Seleccioná una forma de pago');
@@ -123,10 +139,16 @@ export function CheckoutPage() {
       cardFormRef.current?.requestSubmit();
     } else if (selectedPaymentMethod === 'EFECTIVO') {
       handleCheckoutPickupEfectivo();
+    } else if (selectedPaymentMethod === 'TRANSFERENCIA') {
+      if (isDelivery) {
+        handleCheckoutDeliveryTransferencia();
+      } else {
+        handleCheckoutPickupEfectivo();
+      }
     }
   }
 
-  const isProcessing = checkoutOnlineMutation.isPending || checkoutPickupMutation.isPending;
+  const isProcessing = checkoutOnlineMutation.isPending || checkoutPickupMutation.isPending || checkoutDeliveryMutation.isPending;
   const isSubmitDisabled = !selectedPaymentMethod || isProcessing;
   const showCardForm = selectedPaymentMethod === 'TARJETA';
 

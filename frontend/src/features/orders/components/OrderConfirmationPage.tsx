@@ -41,8 +41,10 @@ export function OrderConfirmationPage() {
   const { data: orderDetail } = useOrderDetail(pedidoId);
 
   // Determine payment type
+  // Determine payment type
   const isOnlinePayment = 'mp_status' in (pedido || {});
   const isPickupEfectivo = paymentMethod === 'efectivo';
+  const isTransferencia = paymentMethod === 'transferencia';
 
   // Fallback si no hay location state (ej: refresh) pero orderDetail cargó
   if (!pedido) {
@@ -152,6 +154,16 @@ export function OrderConfirmationPage() {
         iconColor: 'text-primary',
       };
     }
+    if (isTransferencia) {
+      return {
+        title: '¡Pedido confirmado!',
+        subtitle: 'Transferencia bancaria',
+        description:
+          'PENDIENTE — Esperando que el local acepte tu pedido',
+        icon: Package,
+        iconColor: 'text-primary',
+      };
+    }
     // Fallback
     return {
       title: '¡Pedido confirmado!',
@@ -195,6 +207,12 @@ export function OrderConfirmationPage() {
               <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                 <Truck className="h-3 w-3" />
                 Retirás en el local
+              </p>
+            )}
+            {isTransferencia && (
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                <CreditCard className="h-3 w-3" />
+                Transferencia bancaria pendiente
               </p>
             )}
           </div>
@@ -264,7 +282,9 @@ export function OrderConfirmationPage() {
         <p className="text-xs text-muted-foreground text-center">
           {isPickupEfectivo
             ? 'Te avisaremos cuando tu pedido esté listo para retirar'
-            : 'Te avisaremos cuando el local confirme tu pedido'}
+            : isTransferencia
+              ? 'Te enviaremos los datos bancarios para realizar la transferencia'
+              : 'Te avisaremos cuando el local confirme tu pedido'}
         </p>
       </div>
     </div>

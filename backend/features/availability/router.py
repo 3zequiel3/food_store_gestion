@@ -2,7 +2,8 @@
 Admin ingredient availability REST endpoints — D6, Phase 6.
 
 Prefix (registered in main.py): /api/v1/availability
-All endpoints require ADMIN role.
+GET /faltantes requires ADMIN or COCINA role.
+POST resolver endpoints require ADMIN role.
 
 Routes:
   GET  /faltantes
@@ -55,11 +56,11 @@ router = APIRouter()
     summary="Listar faltantes de ingredientes (Admin)",
     description=(
         "Retorna todos los reportes de ingredientes no disponibles cuyo "
-        "resuelto_en IS NULL (pendientes). Requiere rol ADMIN."
+        "resuelto_en IS NULL (pendientes). Requiere rol ADMIN o COCINA."
     ),
 )
 def list_faltantes(
-    current_user: Usuario = Depends(require_role("ADMIN")),
+    current_user: Usuario = Depends(require_role("ADMIN", "COCINA")),
 ) -> list[ShortageReportItem]:
     """
     Return all open ingredient-shortage reports.

@@ -187,7 +187,7 @@ async def _handle_subscribe(
         return
     
     if topic.startswith("order:") and not scope.get("orders_all"):
-        if not _client_owns_order(topic, user_id):
+        if topic != "orders:all" and not _client_owns_order(topic, user_id):
             await _send_error(websocket, f"subscribe_denied:{topic}")
             return
 

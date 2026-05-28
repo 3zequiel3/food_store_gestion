@@ -110,8 +110,8 @@ class TestTransitionPublishBestEffort:
         queue = asyncio.Queue(maxsize=1)
         # Fill queue so put_nowait raises QueueFull
         queue.put_nowait(DomainEvent(v=1, type="x", topic="y", payload={}))
-
-        publisher = InProcessEventPublisher(queue)
+        loop = asyncio.new_event_loop()
+        publisher = InProcessEventPublisher(queue, loop)
 
         # publish() on a full queue must still not raise
         try:
@@ -120,6 +120,8 @@ class TestTransitionPublishBestEffort:
             )
         except Exception as exc:
             pytest.fail(f"publish raised when it must not: {exc}")
+        finally:
+            loop.close()
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +145,7 @@ class TestPublishedEventShape:
         from features.websocket.publisher import InProcessEventPublisher
 
         queue: asyncio.Queue = asyncio.Queue(maxsize=10)
-        publisher = InProcessEventPublisher(queue)
+        publisher = InProcessEventPublisher(queue, asyncio.get_running_loop())
 
         # Manually enqueue what the service SHOULD produce so we can assert shape
         event = DomainEvent(

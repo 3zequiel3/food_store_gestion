@@ -82,6 +82,37 @@ class ConnectionManager:
                     for topic_set in self._topics.values():
                         topic_set.discard(ws)
 
+    async def broadcast_all(self, text: str) -> None:
+        """
+        Fan out `text` to EVERY unique connection, regardless of topic.
+
+        Used by the heartbeat loop to send ping frames and detect dead
+        connections across all subscribers. Failed sends are removed
+        (same best-effort pattern as broadcast_to_topic).
+        """
+        async with self._lock:
+            all_ws: set[WebSocket] = set()
+            for topic_set in self._topics.values():
+                all_ws.update(topic_set)
+            targets = list(all_ws)
+
+        if not targets:
+            return
+
+        failed: list[WebSocket] = []
+        for ws in targets:
+            try:
+                await ws.send_text(text)
+            except Exception:
+                logger.warning("WS broadcast_all send failed, removing connection")
+                failed.append(ws)
+
+        if failed:
+            async with self._lock:
+                for ws in failed:
+                    for topic_set in self._topics.values():
+                        topic_set.discard(ws)
+
     def connection_count(self) -> int:
         """Return the total number of unique connections across all topics."""
         # A ws may appear in multiple topics — count distinct objects.

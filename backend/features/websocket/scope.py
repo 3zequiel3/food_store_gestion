@@ -96,7 +96,7 @@ def is_topic_allowed(
         return bool(scope.get("kitchen"))
 
     if topic == "orders:all":
-        return bool(scope.get("orders_all"))
+        return bool(scope.get("orders_all")) or bool(scope.get("kitchen")) or bool(scope.get("client_own"))
 
     if topic.startswith("order:"):
         # CLIENT can subscribe to order:N topics; ownership check is deferred

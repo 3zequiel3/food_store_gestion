@@ -201,6 +201,7 @@ describe('useCocinaWebSocket — cook trigger (Task 6.20)', () => {
 
     expect(mockInvalidateQueries).toHaveBeenCalledWith({
       queryKey: ['cocina', 'pedidos'],
+      refetchType: 'all',
     });
   });
 
@@ -244,6 +245,7 @@ describe('useCocinaWebSocket — connection_resynced (Task 4.1)', () => {
 
     expect(mockInvalidateQueries).toHaveBeenCalledWith({
       queryKey: ['cocina', 'pedidos'],
+      refetchType: 'all',
     });
   });
 });
