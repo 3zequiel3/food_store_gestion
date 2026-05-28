@@ -179,24 +179,38 @@ class TestReportUnavailable:
 
     def test_report_publishes_event_post_commit(self):
         """
-        report_unavailable must call publish() on the event publisher with
-        ingredient_unavailable_reported event targeting 'orders:all'.
-        The publish is best-effort and must not raise even if no admin is connected.
+        report_unavailable must return a ReportResult DTO with enough data for
+        the router to publish ingredient_unavailable_reported to orders:all.
+
+        Decision 1 (design.md): publish moved from service to router (post-commit).
+        The service returns a DTO; the router calls _publish_report_event(publisher, dto=dto).
         """
-        from features.availability.service import IngredientAvailabilityService
+        from features.availability.service import (
+            IngredientAvailabilityService,
+            _publish_report_event,
+            ReportResult,
+        )
 
         session = MagicMock()
-        # Simulate the Ingrediente ORM row
         fake_ing = MagicMock()
         fake_ing.id = 7
         fake_ing.activo = True
         fake_ing.nombre = "cebolla"
         session.get.return_value = fake_ing
 
-        mock_publisher = MagicMock()
+        svc = IngredientAvailabilityService(session=session)
+        dto = svc.report_unavailable(ingrediente_id=7, reportado_por=10, pedido_id=100)
 
-        svc = IngredientAvailabilityService(session=session, publisher=mock_publisher)
-        svc.report_unavailable(ingrediente_id=7, reportado_por=10, pedido_id=100)
+        # Service returns a DTO (no publish happens here)
+        assert isinstance(dto, ReportResult)
+        assert dto.ingrediente_id == 7
+        assert dto.ingrediente_nombre == "cebolla"
+        assert dto.pedido_id == 100
+        assert dto.reportado_por == 10
+
+        # Router then calls _publish_report_event post-commit
+        mock_publisher = MagicMock()
+        _publish_report_event(mock_publisher, dto=dto)
 
         mock_publisher.publish.assert_called_once()
         event = mock_publisher.publish.call_args.args[0]
@@ -206,23 +220,28 @@ class TestReportUnavailable:
 
     def test_report_survives_with_no_publisher(self, db_session):
         """
-        Reporting must succeed even if no publisher is wired (no admin connected).
-        The service must not raise when publisher is None or publish() fails.
+        Reporting must succeed even when the router passes publisher=None to the
+        publish helper. The publish helper must not raise.
         """
-        from features.availability.service import IngredientAvailabilityService
+        from features.availability.service import (
+            IngredientAvailabilityService,
+            _publish_report_event,
+        )
 
         ing = _make_ingrediente(db_session, nombre="zanahoria", activo=True)
 
-        # publisher=None → best-effort, must not raise
-        svc = IngredientAvailabilityService(session=db_session, publisher=None)
+        # Service does not take publisher — just returns DTO
+        svc = IngredientAvailabilityService(session=db_session)
         try:
-            svc.report_unavailable(
+            dto = svc.report_unavailable(
                 ingrediente_id=ing.id,
                 reportado_por=10,
                 pedido_id=100,
             )
+            # Router calls helper with publisher=None → must not raise
+            _publish_report_event(None, dto=dto)
         except Exception as exc:
-            pytest.fail(f"report_unavailable raised with no publisher: {exc}")
+            pytest.fail(f"report_unavailable / _publish_report_event raised with no publisher: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -336,10 +355,17 @@ class TestResolveAvailability:
 
     def test_resolve_publishes_event_post_commit(self):
         """
-        resolve_availability must publish ingredient_availability_restored
-        to kitchen:all (best-effort) so the cook is notified.
+        resolve_availability must return a ResolveResult DTO with enough data for
+        the router to publish ingredient_availability_restored to kitchen:all.
+
+        Decision 1 (design.md): publish moved from service to router (post-commit).
+        The router calls _publish_restore_event(publisher, dto=dto) AFTER the UoW exits.
         """
-        from features.availability.service import IngredientAvailabilityService
+        from features.availability.service import (
+            IngredientAvailabilityService,
+            _publish_restore_event,
+            ResolveResult,
+        )
 
         session = MagicMock()
         fake_ing = MagicMock()
@@ -347,36 +373,51 @@ class TestResolveAvailability:
         fake_ing.activo = False
         fake_ing.nombre = "cebolla"
         session.get.return_value = fake_ing
-        # bulk-close query returns 0 rows affected
         session.execute.return_value.rowcount = 0
 
+        svc = IngredientAvailabilityService(session=session)
+        dto = svc.resolve_availability(ingrediente_id=7, resuelto_por=2)
+
+        # Service returns a DTO (no publish happens here)
+        assert isinstance(dto, ResolveResult)
+        assert dto.ingrediente_id == 7
+        assert dto.ingrediente_nombre == "cebolla"
+        assert dto.resuelto_por == 2
+
+        # Router then calls _publish_restore_event post-commit
+        # Fan-out: kitchen:all AND orders:all → expect 2 calls
         mock_publisher = MagicMock()
+        _publish_restore_event(mock_publisher, dto=dto)
 
-        svc = IngredientAvailabilityService(session=session, publisher=mock_publisher)
-        svc.resolve_availability(ingrediente_id=7, resuelto_por=2)
-
-        mock_publisher.publish.assert_called_once()
-        event = mock_publisher.publish.call_args.args[0]
-        assert event.type == "ingredient_availability_restored"
-        assert event.topic == "kitchen:all"
-        assert event.payload["ingrediente_id"] == 7
+        assert mock_publisher.publish.call_count == 2
+        topics = [c.args[0].topic for c in mock_publisher.publish.call_args_list]
+        assert "kitchen:all" in topics
+        assert "orders:all" in topics
+        # First call must be kitchen:all
+        first_event = mock_publisher.publish.call_args_list[0].args[0]
+        assert first_event.type == "ingredient_availability_restored"
+        assert first_event.payload["ingrediente_id"] == 7
 
     def test_resolve_survives_publisher_failure(self, db_session):
-        """Resolve must not raise if the publisher raises."""
-        from features.availability.service import IngredientAvailabilityService
+        """Resolve must not raise if the publisher raises when called from the router."""
+        from features.availability.service import (
+            IngredientAvailabilityService,
+            _publish_restore_event,
+        )
 
         ing = _make_ingrediente(db_session, nombre="chile", activo=False)
         _make_history_row(db_session, ingrediente_id=ing.id)
 
-        # Publisher that raises
-        bad_publisher = MagicMock()
-        bad_publisher.publish.side_effect = RuntimeError("network down")
-
-        svc = IngredientAvailabilityService(session=db_session, publisher=bad_publisher)
+        # Service itself does not publish; router calls helper with failing publisher
+        svc = IngredientAvailabilityService(session=db_session)
         try:
-            svc.resolve_availability(ingrediente_id=ing.id, resuelto_por=2)
+            dto = svc.resolve_availability(ingrediente_id=ing.id, resuelto_por=2)
+            # Publisher that raises — helper must swallow it
+            bad_publisher = MagicMock()
+            bad_publisher.publish.side_effect = RuntimeError("network down")
+            _publish_restore_event(bad_publisher, dto=dto)
         except Exception as exc:
-            pytest.fail(f"resolve_availability raised when publisher failed: {exc}")
+            pytest.fail(f"resolve / _publish_restore_event raised when publisher failed: {exc}")
 
 
 # ---------------------------------------------------------------------------

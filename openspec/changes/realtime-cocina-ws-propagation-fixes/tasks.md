@@ -37,10 +37,10 @@
 
 ## 6. Phase 6 — Verification + smoke
 
-- [ ] 6.1 Run `pytest backend/tests/features/availability backend/tests/features/websocket` and assert all green.
-- [ ] 6.2 Run `pnpm test --filter @app/frontend` (or the project's vitest command) for cocina hooks, order hooks, and admin pages — all green.
+- [x] 6.1 Run `pytest backend/tests/features/availability backend/tests/features/websocket` and assert all green.
+- [x] 6.2 Run `pnpm test --filter @app/frontend` (or the project's vitest command) for cocina hooks, order hooks, and admin pages — all green.
 - [ ] 6.3 Manual smoke 1 (faltantes): with backend + frontend running, log in as admin, open Faltantes, open a second tab as cocina. Admin clicks Resolver (label `comprado`) on an open shortage. Cocina view unblocks the ingredient within 1 s with no manual reload. Confirm the order's blocked badge clears.
 - [ ] 6.4 Manual smoke 2 (pedidos entrantes / reconnect): log in as cocina. Force a backend restart (or simulate by closing the WS via devtools). On reconnect, place a new order via the client checkout (EFECTIVO path). Confirm the new order appears in the KDS with no manual reload, even with the reconnect happening concurrently with the order publish.
 - [ ] 6.5 Smoke 3 (UX): on the Faltantes page, confirm exactly ONE "Resolver" button + one `<select>` per row. Confirm default selector value is `solucionado`. Confirm switching to `comprado` and clicking sends the correct `accion`.
 - [ ] 6.6 Confirm no `asyncio.get_event_loop` warning in backend logs during boot under uvicorn with `--reload`.
-- [ ] 6.7 Update `openspec/changes/realtime-cocina-ws-propagation-fixes/tasks.md` checkboxes as work progresses (automatic during `/opsx:apply`). Do NOT archive until the user reviews.
+- [x] 6.7 Update `openspec/changes/realtime-cocina-ws-propagation-fixes/tasks.md` checkboxes as work progresses (automatic during `/opsx:apply`). Do NOT archive until the user reviews.
